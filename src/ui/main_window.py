@@ -1,0 +1,53 @@
+import sys
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from . import widgets
+from . import components
+from src.controllers import TopWidgetController
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("SSB Tool")
+        self.desktop = QApplication.primaryScreen().availableGeometry()
+
+        # 設定視窗大小
+        self.resize(1000,520)
+
+        # 初始化 UI
+        self.init_ui()
+
+    def init_ui(self):
+        # 創建中央部件
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+
+        # 創建網格布局
+        grid = QGridLayout(central_widget)
+        grid.setContentsMargins(0, 0, 0, 0)  # 移除邊距
+        grid.setSpacing(0)  # 移除間距
+
+        # 創建四個主要部件
+        top_widget = widgets.TopWidget(self)
+        test_case_widget = widgets.TestCaseWidget(self)
+        select_case_widget = widgets.SelectCaseWidget(self)
+        run_widget = widgets.RunWidget(self)
+
+        # 添加到網格布局中
+        # addWidget(widget, row, column, rowSpan, columnSpan)
+        # Grid : 3 row * 2 column
+        grid.addWidget(top_widget, 0, 0, 1, 2)  # 頂部跨兩列
+        grid.addWidget(test_case_widget, 1, 0, 2, 1)  # 左側
+        grid.addWidget(select_case_widget, 1, 1, 1, 1)  # 右側
+        grid.addWidget(run_widget, 2, 1, 1, 1)  # 右下
+
+        # 設置列（column）的比例
+        grid.setColumnStretch(0, 3)  # 左側占 3
+        grid.setColumnStretch(1, 7)  # 右側占 7
+
+        grid.setRowStretch(0,0)
+        grid.setRowMinimumHeight(0,40)
+        grid.setRowStretch(1, 1)
+        grid.setRowStretch(2, 0)
