@@ -2,6 +2,9 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 from src.utils import *
+from src.models import *
+from src.ui.components import *
+
 from src.controllers import TopWidgetController, WindowBehaviorController
 
 
@@ -11,228 +14,143 @@ class TopWidget(QWidget):
         super().__init__(parent)
 
         # 基本設置
-        self.dragPos = None
         self.main_window = parent
-        self.window_controller = TopWidgetController( self.main_window )
-        self.window_behavior = WindowBehaviorController(self.main_window)
-        self.setFixedHeight(40)
-        self.setStyleSheet("background-color: #006C4D;")
-        # 創建並設置陰影效果
-        self.shadow = QGraphicsDropShadowEffect(self)
-        # 設置陰影的顏色（這裡使用半透明的黑色）
-        self.shadow.setColor(QColor(0, 0, 0, 60))
-        # 設置陰影的模糊半徑（數值越大陰影越模糊）
-        self.shadow.setBlurRadius(15)
-        # 設置陰影的偏移（x和y方向）
-        self.shadow.setOffset(0, 2)
-        # 將陰影效果應用到組件上
-        self.setGraphicsEffect(self.shadow)
-        # 確保組件可以顯示陰影
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.model = TopWidget_Model()
+        self.controller = TopWidgetController(self.model, self)
 
+        self.status_buttons = {}
 
-        # 創建主網格布局
-        topGrid = QGridLayout(self)
-        topGrid.setContentsMargins(0, 0, 0, 0)  # 移除邊距
-        topGrid.setSpacing(0)  # 移除間距
-
-        # 第一欄：圖標欄，固定 30px
-        topGrid.setColumnMinimumWidth(0, 30)
-        # 第二欄：標題欄，固定 80px
-        topGrid.setColumnMinimumWidth(1, 80)
-        # 第三欄：連接狀態欄，自動擴展（不需要設置）
-        # 第四欄：視窗控制按鈕欄，固定 120px
-        topGrid.setColumnMinimumWidth(3, 120)
-
-        topGrid.setColumnStretch(0, 0)  # 不伸展
-        topGrid.setColumnStretch(1, 0)  # 不伸展
-        topGrid.setColumnStretch(2, 1)  # 伸展係數為1
-        topGrid.setColumnStretch(3, 0)  # 不伸展
-
-        # 1. 創建左側標題
-        toolIcon = QIcon( get_icon_path("gps_fixed.svg"))
-        pixmap = toolIcon.pixmap(QSize(24, 24))  # 設定想要的大小
-        # 將 pixmap 設置到標籤中
-        icon_label = QLabel()
-        icon_label.setPixmap(pixmap)
-        icon_label.setContentsMargins(8, 0, 0, 0)
-
-        title = QLabel("SSB Tool")
-        title.setStyleSheet("""
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-            padding-right: 16px;
-        """)
-
-        # 2. 創建中間的連線狀態
-        connection_status = self._create_connection_status()
-
-        # 3. 創建右側的視窗控制按鈕
-        window_controls = self._create_window_controls()
-
-        # 將所有元件添加到布局中
-        # addWidget(widget, row, column, rowSpan, columnSpan)
-        topGrid.addWidget( icon_label, 0, 0)
-        topGrid.addWidget( title, 0, 1 )
-        topGrid.addWidget(connection_status, 0, 2)
-        topGrid.addWidget(window_controls, 0, 3)
-
-    def _create_window_controls(self):
-        """創建視窗控制按鈕"""
-        container = QWidget()
-        layout = QHBoxLayout(container)
-        layout.setContentsMargins(8, 0, 8, 0)
-        layout.setSpacing(10)
-
-        # 定義按鈕和對應的圖標路徑
-        buttons_config = {
-            "minimize": {
-                "icon": get_icon_path("remove"),
-                "slot": self.window_controller.minimize_window,  # 最小化視窗
-                "tooltip": "Minimize"
-            },
-            "maximize": {
-                "icon": get_icon_path("crop_landscape"),
-                "slot": self.window_controller.toggle_maximize,  # 最大化/還原視窗
-                "tooltip": "Maximize"
-            },
-            "close": {
-                "icon": get_icon_path("close"),
-                "slot": self.window_controller.close_window,  # 關閉視窗
-                "tooltip": "Close"
-            }
+        self.devices = {
+            'USB': {'icon': 'parts_cable'},
+            'Power': {'icon': 'show_chart'},
+            'Loader': {'icon': 'parts_charger'}
         }
 
-        for button_type, icon_path in buttons_config.items():
-            btn = QPushButton()
-            btn.setFixedSize(30, 30)
-
-            # 創建並設置圖標
-            icon = QIcon(icon_path["icon"])
-            btn.setIcon(icon)
-            btn.setIconSize(QSize(16, 16))  # 設置圖標大小
-
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: rgba(255, 255, 255, 0.1);
-                    border: none;
-                    border-radius: 4px;
-                }
-                QPushButton:hover {
-                    background-color: rgba(255, 255, 255, 0.2);
-                }
-            """)
-
-            btn.clicked.connect(icon_path["slot"])
-
-            layout.addWidget(btn)
-
-        return container
-
-    def _create_connection_status(self):
-        """
-        創建連接狀態組件。這個組件包含：
-        - 一個綠色的狀態指示燈
-        - "Connected" 文字
-        - 懸停時的提示信息
-        """
-        # 創建容器組件
-        container = QWidget()
-
-        # 這個布局將用來放置我們的 frame
-        main_layout = QHBoxLayout()
-        main_layout.setContentsMargins(0, 0, 0, 0)  # 移除容器邊距
-        main_layout.setSpacing(0)  # 移除間距
-
-        # 創建自定義懸停效果
-        container_frame = QFrame()
-        container_frame.setFixedSize(130,24)
-        container_frame.setStyleSheet("""
-                    QFrame {
-                        background-color: rgba(255, 255, 255, 0.1);
-                        border: 1px solid white;
-                        border-radius: 12px;
-                        
-                    }
-                    QFrame:hover {
-                        background-color: rgba(255, 255, 255, 0.2);
-                    }
-                """)
-
-        # 創建水平布局
-        statuslayout = QHBoxLayout(container_frame)
-        statuslayout.setContentsMargins(5, 0, 0, 0)
-        statuslayout.setSpacing(8)
-
-        # 創建狀態指示燈
-        status_indicator = QLabel()
-        status_indicator.setFixedSize(12, 12)
-        status_indicator.setStyleSheet("""
-            QLabel {
-                background-color: #4CAF50;  /* 綠色指示燈 */
-                border-radius: 6px;         /* 圓形效果 */
-                border: 0px solid white;
-            }
-        """)
-
-        # 創建狀態文字
-        status_text = QLabel("Connected")
-        status_text.setStyleSheet("""
-            QLabel {
-                color: white;
-                font-size: 14px;
-                background: transparent;
-                border: 0px solid white;
-            }
-        """)
+        self.setup_ui() # Widget 樣式設定
+        self.init_ui()  # Widget main_layout init
 
 
-        statuslayout.addWidget(status_indicator)
-        statuslayout.addWidget(status_text)
+    def setup_ui(self):
+        self.setFixedHeight(40)
+        self.setContentsMargins(8, 8, 8, 0)
+        self._setup_shadow()
 
-        main_layout.addWidget(container_frame, alignment=Qt.AlignmentFlag.AlignLeft)
-        container.setLayout(main_layout)
-        return container
+    def _setup_shadow(self):
+        self.shadow = QGraphicsDropShadowEffect(self)
+        self.shadow.setColor(QColor(0, 0, 0, 60))
+        self.shadow.setBlurRadius(15)
+        self.shadow.setOffset(0, 2)
+        self.setGraphicsEffect(self.shadow)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-    def mousePressEvent(self, event):
-        """處理滑鼠按下事件"""
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.dragPos = event.globalPos()
-        super().mousePressEvent(event)
+    def init_ui(self):
+        # 創建主布局
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # 將容器添加到主布局
+        container = QFrame()
+        container.setObjectName("TagContainer")
+
+        # 只設定容器的樣式，使用 QFrame 的特性來處理背景和邊框
+        container.setStyleSheet("""
+                            #TagContainer {
+                                background-color: #006C4D;
+                                border-radius: 8px;
+                            }
+                        """)
+
+        # 容器的布局
+        container_layout = QHBoxLayout(container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(0)
+        container_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        for device_type, config in self.devices.items():
+
+            device_container = self._create_device_container(device_type, config)
+            container_layout.addWidget(device_container)
+
+            separator = QFrame()
+            separator.setFrameShape(QFrame.Shape.VLine)
+            separator.setStyleSheet("""
+                            QFrame {
+                                background: none;
+                                border: none;
+                                border-left: 2px solid rgba(255, 255, 255, 0.2);
+                            }
+                        """)
+            separator.setFixedHeight(24)  # 設置分隔線高度
+            container_layout.addWidget(separator)
+
+        main_layout.addWidget(container)
 
 
-    def mouseMoveEvent(self, event):
-        """
-        當滑鼠移動時被調用。
-        如果滑鼠左鍵被按下（正在拖曳），我們計算位置差異並移動視窗。
-        """
-        # 確保是在拖曳狀態（滑鼠左鍵按下）
-        if self.dragPos is not None:
-            # 計算滑鼠移動的距離
-            delta = event.globalPos() - self.dragPos
-            # 移動整個視窗
-            self.window().move(self.window().pos() + delta)
-            # 更新拖曳位置
-            self.dragPos = event.globalPos()
+    def _create_device_container(self, device_type, config):
+        device_container = QWidget()
+        device_layout = QHBoxLayout(device_container)
+        device_layout.setContentsMargins(16, 0, 8, 0)
+        device_layout.setSpacing(0)
+        device_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
 
-        # 確保事件繼續傳播
-        super().mouseMoveEvent(event)
+        icon_label = QLabel()
+        icon_path = get_icon_path(config['icon'])  # 取得 icon 的檔案路徑
+        icon_obj = QIcon(icon_path)
+        # 選擇想要的圖示大小，比如 32x32
+        pixmap = icon_obj.pixmap(16, 16)
+        # 將 QPixmap 指定給 QLabel
+        icon_label.setPixmap(pixmap)
+        icon_label.setFixedSize(16, 16)
+        device_layout.addWidget(icon_label,0)
 
-    def mouseReleaseEvent(self, event):
-        """
-        當滑鼠釋放時被調用。
-        我們需要清除拖曳狀態。
-        """
-        # 如果是左鍵釋放，結束拖曳狀態
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.dragPos = None
+        text_Label = QLabel(device_type)
+        text_Label.setStyleSheet("""
+                                color: white;
+                                font-size: 14px;
+                                font-weight: bold;
+                                padding: 0px;
+                            """)
+        text_Label.setContentsMargins(4, 0, 8, 0)
+        # 設置 text_label 的大小策略
+        text_Label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        # 設置文字自適應寬度
+        text_Label.adjustSize()
+        device_layout.addWidget(text_Label,0)
 
-        # 確保事件繼續傳播
-        super().mouseReleaseEvent(event)
+        button = self._create_device_button(device_type, config)
+        button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.status_buttons[device_type] = button
 
-    def mouseDoubleClickEvent(self, event):
-        """處理滑鼠雙擊事件"""
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.window_controller.toggle_maximize()
+        device_layout.addWidget(button,0)
+
+
+
+
+
+
+
+        return device_container
+
+    def _create_device_button(self, device_type, config):
+        """創建設備按鈕"""
+        button = ComponentStatusButton(device_type)
+        button.clicked.connect(
+            lambda: self._handle_button_click(device_type)
+        )
+        return button
+
+    def _handle_button_click(self, device_type):
+        """處理按鈕點擊"""
+        if device_type == 'USB':
+            self.controller.connect_usb()
+        elif device_type == 'Power':
+            self.controller.connect_power()
+        elif device_type == 'Loader':
+            self.controller.connect_loader()
+
+    def update_device_status(self, device_type, status):
+        """更新設備狀態顯示"""
+        if device_type in self.status_buttons:
+            self.status_buttons[device_type].update_status(status)

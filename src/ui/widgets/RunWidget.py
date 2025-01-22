@@ -8,21 +8,12 @@ from src.controllers import RunWidgetController
 class RunWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("background-color: white;")  # 改為白色背景更符合設計
+        self.setStyleSheet("background-color: white;"
+                           "border-radius: 4px")  # 改為白色背景更符合設計
         self.setFixedHeight(60)
         self.controller = RunWidgetController(self)
-        # 創建並設置陰影效果
-        self.shadow = QGraphicsDropShadowEffect(self)
-        # 設置陰影的顏色（這裡使用半透明的黑色）
-        self.shadow.setColor(QColor(0, 0, 0,40))
-        # 設置陰影的模糊半徑（數值越大陰影越模糊）
-        self.shadow.setBlurRadius(10)
-        # 設置陰影的偏移（x和y方向）
-        self.shadow.setOffset(0, 2)
-        # 將陰影效果應用到組件上
-        self.setGraphicsEffect(self.shadow)
-        # 確保組件可以顯示陰影
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+        self._setup_shadow()
 
 
         # 創建主佈局
@@ -106,3 +97,12 @@ class RunWidget(QWidget):
             button_layout.addWidget(btn)
 
         self.main_layout.addWidget(button_container)
+
+
+    def _setup_shadow(self):
+        self.shadow = QGraphicsDropShadowEffect(self)
+        self.shadow.setColor(QColor(0, 0, 0, 60))
+        self.shadow.setBlurRadius(15)
+        self.shadow.setOffset(0, 2)
+        self.setGraphicsEffect(self.shadow)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
