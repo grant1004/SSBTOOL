@@ -2,16 +2,19 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 from src.utils import get_icon_path
+from src.utils import Utils
 from src.controllers import RunWidgetController
+from src.models import RunWidget_Model
 
 
 class RunWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("background-color: white;"
+        self.setStyleSheet("background-color: #2D2D2D;"
                            "border-radius: 4px")  # 改為白色背景更符合設計
         self.setFixedHeight(60)
-        self.controller = RunWidgetController(self)
+        self.model = RunWidget_Model()
+        self.controller = RunWidgetController( self.model, self)
 
         self._setup_shadow()
 
@@ -63,7 +66,8 @@ class RunWidget(QWidget):
 
             # 設置圖標
             icon = QIcon(config["icon"])
-            btn.setIcon(icon)
+            colored_icon = Utils.change_icon_color(icon, "#1A1A1A")
+            btn.setIcon(colored_icon)
             btn.setIconSize(QSize(16, 16))
             btn.setToolTip(config["tooltip"])
 
@@ -71,7 +75,7 @@ class RunWidget(QWidget):
             # 根據按鈕類型設置不同的樣式
             style = """
                 QPushButton {
-                    color: white;
+                    color: black;
                     border: none;
                     font-weight: bold;
                     border-radius: 8px;
@@ -84,8 +88,8 @@ class RunWidget(QWidget):
             """
 
             if button_type == "generate":
-                btn.setStyleSheet(style % ("background-color: #006C4D;",
-                                           "background-color: #005C3D;"))
+                btn.setStyleSheet(style % ("background-color: #FDB813;",
+                                           "background-color: #936B09;"))
             elif button_type == "run":
                 btn.setStyleSheet(style % ("background-color: #4CAF50;",
                                            "background-color: #3C9F40;"))
@@ -94,6 +98,7 @@ class RunWidget(QWidget):
                                            "background-color: #555555;"))
 
             btn.clicked.connect(config["slot"])
+            btn = Utils.setup_click_animation(btn)
             button_layout.addWidget(btn)
 
         self.main_layout.addWidget(button_container)

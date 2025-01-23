@@ -1,13 +1,14 @@
 # controllers/window_controller.py
 class RunWidgetController:
-    def __init__(self, main_window):
-        self.main_window = main_window
+    def __init__(self, model, view):
+        self.model = model
+        self.view = view
 
     def RunCommand(self):
-        print( "Click Run Command")
+        return self.model.run_command()
 
     def GenerateCommand(self):
-        print( "Click Generate Command")
+        return self.model.generate_command()
 
     def ReportCommand(self):
-        print( "Click Report Command")
+        return self.model.report_command()

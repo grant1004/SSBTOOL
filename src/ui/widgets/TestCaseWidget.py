@@ -5,13 +5,13 @@ from PySide6.QtGui import *
 class TestCaseWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("background-color: red;"
+        self.setStyleSheet("background-color: #2D2D2D;"
                            "border-radius: 4px")
         self._setup_shadow()
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8,8,4,8)
         label = QLabel("Test Case Widget")
-        label.setStyleSheet("color: black; font-size: 20px; font-weight: semibold;")
+        label.setStyleSheet("color: #CCCCCC; font-size: 20px; font-weight: semibold;")
         label.setContentsMargins(16, 0, 0, 0)
         layout.addWidget(label)
 

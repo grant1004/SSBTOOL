@@ -5,6 +5,10 @@ from PySide6.QtGui import *
 from . import widgets
 from . import components
 from src.controllers import TopWidgetController
+from src.utils import get_icon_path
+import sys
+import ctypes
+from ctypes.wintypes import DWORD, BOOL, HRGN
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -12,6 +16,23 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("SSB Tool")
         self.desktop = QApplication.primaryScreen().availableGeometry()
+
+        self.setObjectName("main-window")
+        self.setWindowIcon(
+            QIcon( get_icon_path("parts_default.svg") )
+        )
+
+        # Windows 深色標題列設定
+        if sys.platform == "win32":
+            # 啟用自訂標題列顏色
+            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+            set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
+            get_parent = ctypes.windll.user32.GetParent
+            hwnd = self.winId().__int__()
+            rendering_policy = DWORD(2)
+            set_window_attribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
+                                 ctypes.byref(rendering_policy),
+                                 ctypes.sizeof(rendering_policy))
 
         # 設定視窗大小
         self.resize(1000,520)

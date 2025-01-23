@@ -6,6 +6,7 @@ import ui
 
 def main():
     app = QApplication(sys.argv)
+    app.setStyleSheet( ui.Theme.get_style_sheet() )
     window = ui.MainWindow()
     window.show()
     sys.exit(app.exec())
