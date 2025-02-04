@@ -15,9 +15,21 @@ class ComponentStatusButton(QPushButton):
     def __init__(self, component_name, icon_path, parent=None):
         super().__init__(parent)
         self.component_name = component_name
+        self.theme_manager = parent.theme_manager
         self.icon_path = icon_path
         self.setFixedSize(200, 30)
         self._setup_ui()
+        self.theme_manager.theme_changed.connect(self._update_icon_color)
+        Utils.setup_click_animation(self)
+
+    def _update_icon_color(self):
+        # 更新圖標顏色
+        self.icon_obj = QIcon(get_icon_path(self.icon_path))
+        self.icon_obj = Utils.change_icon_color(self.icon_obj,
+                self.theme_manager._themes[self.theme_manager._current_theme].PRIMARY)
+        self.pixmap = self.icon_obj.pixmap(16, 16)
+        self.component_icon.setPixmap(self.pixmap)
+
 
     def _setup_ui(self):
         self.inner_layout = QHBoxLayout(self)
@@ -27,7 +39,8 @@ class ComponentStatusButton(QPushButton):
         # 創建 SVG 圖標
         self.component_icon = QLabel()
         self.icon_obj = QIcon( get_icon_path(self.icon_path) )
-        self.icon_obj = Utils.change_icon_color(self.icon_obj, Theme.PRIMARY_COLOR )
+        self.icon_obj = Utils.change_icon_color(self.icon_obj,
+                self.theme_manager._themes[self.theme_manager._current_theme].PRIMARY )
         # 選擇想要的圖示大小，比如 32x32
         self.pixmap = self.icon_obj.pixmap(16, 16)
         # 將 QPixmap 指定給 QLabel
@@ -39,10 +52,8 @@ class ComponentStatusButton(QPushButton):
         self.name_label = QLabel(self.component_name)
         self.name_label.setStyleSheet("""
             QLabel {
-                color: white;
                 font-size: 14px;
                 font-weight: bold;
-                background: transparent;
             }
         """)
 
@@ -54,10 +65,8 @@ class ComponentStatusButton(QPushButton):
         self.status_text = QLabel("Offline")
         self.status_text.setStyleSheet("""
             QLabel {
-                color: white;
                 font-size: 12px;
                 font-weight: bold;
-                background: transparent;
             }
         """)
 
@@ -70,14 +79,10 @@ class ComponentStatusButton(QPushButton):
         # 設置按鈕樣式
         self.setStyleSheet("""
             QPushButton {
-                background-color: #2D2D2D60;
                 border: none;
                 border-radius: 15px;
                 text-align: left;
                 padding: 0px;
-            }
-            QPushButton:hover {
-                background-color: #333333FA;
             }
         """)
 

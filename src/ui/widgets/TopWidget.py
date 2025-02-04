@@ -17,6 +17,7 @@ class TopWidget(QWidget):
         self.model = TopWidget_Model()
         self.controller = TopWidgetController(self.model, self)
 
+
         self.status_buttons = {}
 
         self.devices = {
@@ -30,7 +31,7 @@ class TopWidget(QWidget):
 
 
     def setup_ui(self):
-        self.setFixedHeight(40)
+        self.setFixedHeight(44)
         self.setContentsMargins(0,0,0,0)
         self._setup_shadow()
 
@@ -52,13 +53,6 @@ class TopWidget(QWidget):
         container = QFrame()
         container.setObjectName("TagContainer")
 
-        # 只設定容器的樣式，使用 QFrame 的特性來處理背景和邊框
-        # container.setStyleSheet("""
-        #                     #TagContainer {
-        #                         background-color: #FDB813;
-        #                     }
-        #                 """)
-
         # 容器的布局
         container_layout = QHBoxLayout(container)
         container_layout.setContentsMargins(0, 0, 0, 0)
@@ -66,22 +60,11 @@ class TopWidget(QWidget):
         container_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         for device_type, config in self.devices.items():
-
             device_container = self._create_device_container(device_type, config)
             container_layout.addWidget(device_container)
 
-            separator = QFrame()
-            separator.setFrameShape(QFrame.Shape.VLine)
-            separator.setStyleSheet("""
-                            QFrame {
-                                background: none;
-                                border: none;
-                                border-left: 2px solid rgba(255, 255, 255, 0.2);
-                            }
-                        """)
-            separator.setFixedHeight(24)  # 設置分隔線高度
-            container_layout.addWidget(separator)
-
+        switch_color_btn = SwitchThemeButton(self.main_window.theme_manager)
+        container_layout.addWidget(switch_color_btn, alignment=Qt.AlignmentFlag.AlignRight)
         main_layout.addWidget(container)
 
 
@@ -92,22 +75,16 @@ class TopWidget(QWidget):
         device_layout.setSpacing(0)
         device_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         button = self._create_device_button(device_type, config)
-        button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        button.setFixedSize(200, 30)
         self.status_buttons[device_type] = button
 
         device_layout.addWidget(button,0)
-
-
-
-
-
-
 
         return device_container
 
     def _create_device_button(self, device_type, config):
         """創建設備按鈕"""
-        button = ComponentStatusButton(device_type, config['icon'])
+        button = ComponentStatusButton(device_type, config['icon'], self.main_window)
         button.clicked.connect(
             lambda: self._handle_button_click(device_type)
         )

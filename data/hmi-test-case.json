@@ -1,0 +1,42 @@
+[
+    {
+        "id": "hmi_001",
+        "name": "Display Response Test",
+        "description": "Verify display response time and refresh rate",
+        "estimated_time": 300,
+        "keywords": ["display", "response", "refresh"],
+        "priority": "required"
+    },
+    {
+        "id": "hmi_002",
+        "name": "Touch Accuracy Test",
+        "description": "Test touch screen accuracy and calibration",
+        "estimated_time": 450,
+        "keywords": ["touch", "accuracy", "calibration"],
+        "priority": "required"
+    },
+    {
+        "id": "hmi_003",
+        "name": "Interface Navigation Test",
+        "description": "Verify menu navigation and user interface flow",
+        "estimated_time": 600,
+        "keywords": ["navigation", "interface", "menu"],
+        "priority": "standard"
+    },
+    {
+        "id": "hmi_004",
+        "name": "Button Function Test",
+        "description": "Test functionality of all physical and virtual buttons",
+        "estimated_time": 450,
+        "keywords": ["buttons", "input", "function"],
+        "priority": "standard"
+    },
+    {
+        "id": "hmi_005",
+        "name": "Display Quality Test",
+        "description": "Check display brightness, contrast, and color accuracy",
+        "estimated_time": 300,
+        "keywords": ["quality", "brightness", "contrast"],
+        "priority": "optional"
+    }
+]

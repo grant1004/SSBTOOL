@@ -1,0 +1,42 @@
+[
+    {
+        "id": "ctrl_001",
+        "name": "Communication Protocol Test",
+        "description": "Verify all communication protocols and interfaces",
+        "estimated_time": 600,
+        "keywords": ["communication", "protocol", "interface"],
+        "priority": "required"
+    },
+    {
+        "id": "ctrl_002",
+        "name": "Error Handling Test",
+        "description": "Test controller response to various error conditions",
+        "estimated_time": 900,
+        "keywords": ["error", "handling", "response"],
+        "priority": "required"
+    },
+    {
+        "id": "ctrl_003",
+        "name": "Signal Processing Test",
+        "description": "Verify signal processing and sensor data handling",
+        "estimated_time": 750,
+        "keywords": ["signal", "processing", "sensors"],
+        "priority": "standard"
+    },
+    {
+        "id": "ctrl_004",
+        "name": "Power Management Test",
+        "description": "Test power management and energy efficiency features",
+        "estimated_time": 1200,
+        "keywords": ["power", "management", "efficiency"],
+        "priority": "standard"
+    },
+    {
+        "id": "ctrl_005",
+        "name": "System Integration Test",
+        "description": "Verify controller integration with all subsystems",
+        "estimated_time": 1500,
+        "keywords": ["integration", "system", "subsystems"],
+        "priority": "optional"
+    }
+]

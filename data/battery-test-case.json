@@ -1,0 +1,42 @@
+[
+    {
+        "id": "bat_001",
+        "name": "Standard Voltage Test",
+        "description": "Verify battery voltage under normal operating conditions",
+        "estimated_time": 300,
+        "keywords": ["voltage", "standard", "normal operation"],
+        "priority": "required"
+    },
+    {
+        "id": "bat_002",
+        "name": "High Load Test",
+        "description": "Test battery performance under high load conditions",
+        "estimated_time": 600,
+        "keywords": ["high load", "performance", "stress test"],
+        "priority": "standard"
+    },
+    {
+        "id": "bat_003",
+        "name": "Charging Cycle Test",
+        "description": "Verify full charging and discharging cycles",
+        "estimated_time": 1800,
+        "keywords": ["charging", "cycle", "discharge"],
+        "priority": "required"
+    },
+    {
+        "id": "bat_004",
+        "name": "Temperature Response Test",
+        "description": "Monitor battery behavior at different temperatures",
+        "estimated_time": 900,
+        "keywords": ["temperature", "thermal", "response"],
+        "priority": "standard"
+    },
+    {
+        "id": "bat_005",
+        "name": "Low Voltage Protection Test",
+        "description": "Verify low voltage protection mechanisms",
+        "estimated_time": 450,
+        "keywords": ["protection", "low voltage", "safety"],
+        "priority": "optional"
+    }
+]

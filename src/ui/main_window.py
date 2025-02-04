@@ -4,6 +4,8 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from . import widgets
 from . import components
+from .Theme import Theme, ThemeManager, ThemeType
+from src.ui.components import SwitchThemeButton
 from src.controllers import TopWidgetController
 from src.utils import get_icon_path
 import sys
@@ -21,6 +23,10 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(
             QIcon( get_icon_path("parts_default.svg") )
         )
+
+        self.theme_manager = ThemeManager()
+        # 設定初始主題
+
 
         # Windows 深色標題列設定
         if sys.platform == "win32":
@@ -40,20 +46,27 @@ class MainWindow(QMainWindow):
         # 初始化 UI
         self.init_ui()
 
+        self.theme_manager._update_app_style()
+
     def init_ui(self):
         # 創建中央部件
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
+        self.setContentsMargins(0,0,0,0)
+        self.centralWidget().setObjectName("central-widget")
 
         # 創建網格布局
         grid = QGridLayout(central_widget)
-        grid.setContentsMargins(0, 0, 0, 0)  # 移除邊距
+        grid.setContentsMargins(0,0,0,0)  # 移除邊距
         grid.setSpacing(0)  # 移除間距
 
         # 創建四個主要部件
         top_widget = widgets.TopWidget(self)
+
         test_case_widget = widgets.TestCaseWidget(self)
-        select_case_widget = widgets.SelectCaseWidget(self)
+
+        select_case_widget = widgets.RunCaseWidget(self)
+
         run_widget = widgets.RunWidget(self)
 
         # 添加到網格布局中
@@ -69,6 +82,8 @@ class MainWindow(QMainWindow):
         grid.setColumnStretch(1, 7)  # 右側占 7
 
         grid.setRowStretch(0,0)
-        grid.setRowMinimumHeight(0,40)
+        grid.setRowMinimumHeight(0,44)
         grid.setRowStretch(1, 1)
         grid.setRowStretch(2, 0)
+
+

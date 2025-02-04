@@ -12,3 +12,6 @@ class RunWidgetController:
 
     def ReportCommand(self):
         return self.model.report_command()
+
+    def ImportCommand(self):
+        return self.model.import_command()

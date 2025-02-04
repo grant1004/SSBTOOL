@@ -1,0 +1,42 @@
+[
+    {
+        "id": "mot_001",
+        "name": "Speed Control Test",
+        "description": "Verify motor speed control accuracy and stability",
+        "estimated_time": 600,
+        "keywords": ["speed", "control", "stability"],
+        "priority": "required"
+    },
+    {
+        "id": "mot_002",
+        "name": "Torque Output Test",
+        "description": "Measure motor torque output at different speeds",
+        "estimated_time": 900,
+        "keywords": ["torque", "output", "measurement"],
+        "priority": "required"
+    },
+    {
+        "id": "mot_003",
+        "name": "Current Draw Test",
+        "description": "Monitor motor current consumption under various loads",
+        "estimated_time": 450,
+        "keywords": ["current", "consumption", "load"],
+        "priority": "standard"
+    },
+    {
+        "id": "mot_004",
+        "name": "Acceleration Profile Test",
+        "description": "Test motor acceleration and deceleration profiles",
+        "estimated_time": 750,
+        "keywords": ["acceleration", "deceleration", "profile"],
+        "priority": "standard"
+    },
+    {
+        "id": "mot_005",
+        "name": "Thermal Performance Test",
+        "description": "Monitor motor temperature during extended operation",
+        "estimated_time": 1200,
+        "keywords": ["temperature", "thermal", "continuous operation"],
+        "priority": "optional"
+    }
+]

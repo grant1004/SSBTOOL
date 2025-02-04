@@ -12,3 +12,6 @@ class RunWidget_Model:
 
     def report_command(self) -> str:
         print( "Click Report Command")
+
+    def import_command(self) -> str:
+        print( "Click Import Command")

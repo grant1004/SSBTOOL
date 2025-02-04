@@ -1,6 +1,8 @@
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
+
+from src.ui.Theme import ThemeManager
 from src.utils import get_icon_path
 from src.utils import Utils
 from src.controllers import RunWidgetController
@@ -10,26 +12,30 @@ from src.models import RunWidget_Model
 class RunWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("background-color: #2D2D2D;"
-                           "border-radius: 4px")  # 改為白色背景更符合設計
-        self.setFixedHeight(60)
+        self.mainWindow = parent
+        self.setFixedHeight(80)
         self.model = RunWidget_Model()
         self.controller = RunWidgetController( self.model, self)
 
         self._setup_shadow()
-
-
         # 創建主佈局
         self.main_layout = QHBoxLayout(self)
         self.main_layout.setContentsMargins(4, 4, 8, 8)
+        self.main_layout.setSpacing(0)
 
         # 按鈕配置
         buttons_config = {
-            "generate": {  # 調整按鈕順序以符合設計
-                "icon": get_icon_path("doc"),
+            "export": {  # 調整按鈕順序以符合設計
+                "icon": get_icon_path("file_download"),
                 "slot": self.controller.GenerateCommand,
                 "tooltip": "Generate Robot file",
-                "text": "Generate Robot"  # 添加按鈕文字
+                "text": "Export"  # 添加按鈕文字
+            },
+            "import": {
+                "icon": get_icon_path("file import template"),
+                "slot": self.controller.ImportCommand,
+                "tooltip": "Load existing Robot file",
+                "text": "Import"
             },
             "run": {
                 "icon": get_icon_path("play_circle"),
@@ -49,7 +55,7 @@ class RunWidget(QWidget):
         button_container = QWidget()
         button_layout = QHBoxLayout(button_container)
         button_layout.setContentsMargins(8, 0, 8, 0)
-        button_layout.setSpacing(10)
+        button_layout.setSpacing(16)
         button_layout.addStretch()  # 添加彈性空間將按鈕推到右側
 
         # 創建按鈕
@@ -57,8 +63,8 @@ class RunWidget(QWidget):
             btn = QPushButton(config["text"])  # 設置按鈕文字
 
             # 設置按鈕大小（根據設計調整）
-            if button_type == "generate":
-                btn.setFixedSize(140, 40)
+            if button_type == "export" or button_type == "import":
+                btn.setFixedSize(90, 40)
             elif button_type == "run":
                 btn.setFixedSize(70, 40)
             else:
@@ -66,7 +72,7 @@ class RunWidget(QWidget):
 
             # 設置圖標
             icon = QIcon(config["icon"])
-            colored_icon = Utils.change_icon_color(icon, "#1A1A1A")
+            colored_icon = Utils.change_icon_color(icon, "#000000")
             btn.setIcon(colored_icon)
             btn.setIconSize(QSize(16, 16))
             btn.setToolTip(config["tooltip"])
@@ -75,9 +81,10 @@ class RunWidget(QWidget):
             # 根據按鈕類型設置不同的樣式
             style = """
                 QPushButton {
-                    color: black;
+                    color: #000000;
                     border: none;
                     font-weight: bold;
+                    font-size: 14px;
                     border-radius: 8px;
                     padding: 5px 10px;
                     %s
@@ -87,15 +94,15 @@ class RunWidget(QWidget):
                 }
             """
 
-            if button_type == "generate":
-                btn.setStyleSheet(style % ("background-color: #FDB813;",
-                                           "background-color: #936B09;"))
+            if button_type == "export" or button_type == "import": #
+                btn.setStyleSheet(style % (f"background-color: #FDB813;",
+                                           "background-color: #F2AA02;"))
             elif button_type == "run":
                 btn.setStyleSheet(style % ("background-color: #4CAF50;",
                                            "background-color: #3C9F40;"))
             else:
-                btn.setStyleSheet(style % ("background-color: #666666;",
-                                           "background-color: #555555;"))
+                btn.setStyleSheet(style % ("background-color: #0099ff;",
+                                           "background-color: #0077ff;"))
 
             btn.clicked.connect(config["slot"])
             btn = Utils.setup_click_animation(btn)
