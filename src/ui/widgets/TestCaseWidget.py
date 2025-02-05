@@ -12,7 +12,7 @@ class TestCaseWidget(QWidget):
         super().__init__(parent)
         self._setup_shadow()
         self.setContentsMargins(0, 0, 0, 0)
-        self.setFixedWidth(500)
+        self.setFixedWidth(600)
 
         # 初始化 MVC
         self.model = TestCaseWidget_Model()
@@ -21,6 +21,8 @@ class TestCaseWidget(QWidget):
         # 初始化 UI
         self._setup_config()
         self.init_ui()
+
+        self.theme_manager = self.parent().theme_manager
 
 
 
@@ -38,13 +40,11 @@ class TestCaseWidget(QWidget):
         # 可以從配置文件或其他來源加載
         self.config = {
             'tabs': {
+                'common': {'text': 'Common'},
                 'battery': {'text': 'Battery'},
                 'hmi': {'text': 'HMI'},
                 'motor': {'text': 'Motor'},
-                'controller': {'text': 'Controller'},
-                'torque': {'text': 'Torque'},
-                'torque1': {'text': 'Torque1'},
-                'torque2': {'text': 'Torque2'}
+                'controller': {'text': 'Controller'}
 
             },
             'default_tab': 'battery',
@@ -81,18 +81,27 @@ class TestCaseWidget(QWidget):
         self.switch_button = BaseSwitchButton({
             'modes': self.config['switch_modes'],
             'default_mode': self.config['default_mode']
-        })
+        }, parent=self)
         self.switch_button.switched.connect(self.controller.handle_mode_switch)
         self.content_layout.addWidget(self.switch_button)
 
         # 創建搜索欄
-        self.search_bar = SearchBar()
+        self.search_bar = SearchBar(parent=self)
         self.search_bar.search_changed.connect(self.controller.handle_search)
         self.content_layout.addWidget(self.search_bar)
 
+        # 創建堆疊部件來管理不同模式的內容
+        self.stacked_widget = QStackedWidget()
+
         # 創建測試案例組
         self.test_case_group = TestCaseGroup(self)
-        self.content_layout.addWidget(self.test_case_group)
+        self.stacked_widget.addWidget(self.test_case_group)
+
+        # 創建關鍵字組
+        self.keyword_group = KeywordGroup(self)  # 需要創建新的 KeywordGroup 組件
+        self.stacked_widget.addWidget(self.keyword_group)
+
+        self.content_layout.addWidget(self.stacked_widget)
 
         # 添加到主布局
         self.main_layout.addWidget(self.tabs_group)
@@ -100,5 +109,12 @@ class TestCaseWidget(QWidget):
 
         # 載入初始數據
         self.controller.initialize()
+
+    def switch_mode(self, mode: str):
+        """切換顯示模式"""
+        if mode == 'test_cases':
+            self.stacked_widget.setCurrentWidget(self.test_case_group)
+        elif mode == 'keywords':
+            self.stacked_widget.setCurrentWidget(self.keyword_group)
 
 

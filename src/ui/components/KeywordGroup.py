@@ -1,18 +1,18 @@
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
-import json
 from src.ui.components.base import BaseCard
 
 
-class TestCaseGroup(QScrollArea):
-    """測試案例組，用於顯示一組測試案例卡片"""
+class KeywordGroup(QScrollArea):
+    """關鍵字組件，用於顯示和管理關鍵字"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.test_cases = []
+        self.keywords = []
         self.cards = []
         self._setup_ui()
+
         # 獲取 theme manager
         self.theme_manager = self.get_theme_manager()
         # 連接主題變更信號
@@ -32,7 +32,7 @@ class TestCaseGroup(QScrollArea):
         self.layout.setSpacing(8)
         self.layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # 設置樣式
+        # 設置滾動區域樣式
         self.setStyleSheet("""
             QScrollArea {
                 border: none;
@@ -64,49 +64,60 @@ class TestCaseGroup(QScrollArea):
 
         self.setWidget(self.container)
 
-    def load_from_json(self, json_path):
-        """從JSON文件加載測試案例數據"""
-        try:
-            with open(json_path, 'r', encoding='utf-8') as file:
-                self.test_cases = json.load(file)
-                self._create_cards()
-        except Exception as e:
-            print(f"Error loading JSON file: {e}")
+    def load_from_data(self, card_configs):
+        """
+        從卡片配置載入關鍵字
 
-    def load_from_data(self, data):
-        """直接從數據加載測試案例"""
-        self.test_cases = data
-        self._create_cards()
-
-    def _create_cards(self):
-        """根據測試案例數據創建卡片"""
+        Args:
+            card_configs: List[dict] 卡片配置列表
+            每個配置字典應包含:
+            {
+                'id': str,              # 關鍵字唯一標識
+                'title': str,           # 關鍵字名稱
+                'info': str,            # 關鍵字描述
+                'keywords': List[str],  # 參數列表
+                'priority': str         # 優先級 (required/standard/optional)
+            }
+        """
         # 清除現有卡片
         self.clear_cards()
 
-        # 為每個測試案例創建新卡片
-        for test_case in self.test_cases:
-            card_config = {
-                'title': test_case.get('name', 'Unnamed Test'),
-                'info': test_case.get('description', ''),
-                'estimated_time': test_case.get('estimated_time', 0),
-                'keywords': test_case.get('keywords', []),
-                'priority': test_case.get('priority', 'medium')
-            }
+        # 為每個配置創建新卡片
+        for config in card_configs:
+            if not isinstance(config, dict):
+                print(f"Invalid card config format: {config}")
+                continue
 
-            card = BaseCard(
-                test_case.get('id', f"test_{len(self.cards)}"),
-                card_config,
-                parent=self
-            )
+            try:
+                # 創建卡片
+                card = BaseCard(
+                    card_id=config.get('id', f"kw_{len(self.cards)}"),
+                    config={
+                        'title': config.get('title', 'Unnamed Keyword'),
+                        'info': config.get('info', ''),
+                        'keywords': config.get('keywords', []),
+                        'priority': config.get('priority', 'standard')
+                    },
+                    parent=self
+                )
 
-            # 確保卡片有 theme manager 引用並立即更新主題
-            if hasattr(self, 'theme_manager'):
-                card.theme_manager = self.theme_manager
-                card._update_theme()  # 立即套用當前主題
+                # 設置主題
+                if hasattr(self, 'theme_manager'):
+                    card.theme_manager = self.theme_manager
+                    card._update_theme()
 
-            card.clicked.connect(self._click_card)
-            self.cards.append(card)
-            self.layout.addWidget(card)
+                # 連接點擊事件
+                card.clicked.connect(self._click_card)
+
+                # 添加到卡片列表和布局
+                self.cards.append(card)
+                self.layout.addWidget(card)
+
+            except Exception as e:
+                print(f"Error creating card for config {config}: {e}")
+
+        # 更新關鍵字列表（用於搜索功能）
+        self.keywords = card_configs
 
     def clear_cards(self):
         """清除所有卡片"""
@@ -126,23 +137,9 @@ class TestCaseGroup(QScrollArea):
             )
             card.setVisible(should_show)
 
-    def update_card(self, card_id: str, new_data: dict):
-        """更新特定卡片的數據"""
-        for card in self.cards:
-            if card.id == card_id:
-                card.update_config(new_data)
-                break
-
-    def get_visible_cards(self):
-        """獲取當前可見的卡片列表"""
-        return [card for card in self.cards if card.isVisible()]
-
-    def get_all_cards(self):
-        """獲取所有卡片"""
-        return self.cards.copy()
-
     def _click_card(self, card_id: str):
-        print( f"Clicked {card_id}" )
+        """處理卡片點擊事件"""
+        print(f"Clicked keyword {card_id}")
 
     def get_theme_manager(self):
         """遞迴向上查找 theme_manager"""
@@ -155,10 +152,9 @@ class TestCaseGroup(QScrollArea):
 
     def _update_theme(self):
         """更新主題相關的樣式"""
-        # print( "Update Theme" )
         current_theme = self.theme_manager._themes[self.theme_manager._current_theme]
 
-        # 更新 ScrollArea 樣式
+        # 更新滾動區域樣式
         self.setStyleSheet(f"""
             QScrollArea {{
                 border: none;
@@ -197,15 +193,3 @@ class TestCaseGroup(QScrollArea):
                 background: transparent;
             }}
         """)
-
-        # 更新容器樣式
-        self.container.setStyleSheet(f"""
-            QWidget#tabs-container {{
-                background-color: transparent;
-            }}
-        """)
-
-        # 確保 viewport 保持透明
-        self.viewport().setStyleSheet(
-            "background-color: transparent;"
-        )

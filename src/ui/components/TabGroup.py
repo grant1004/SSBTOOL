@@ -13,6 +13,13 @@ class TabsGroup(QWidget):
         self.config = config
         self.tabs: Dict[str, BaseTab] = {}
         self.current_tab_id = None
+
+        # 獲取 theme manager
+        self.theme_manager = self.get_theme_manager()
+        # 連接主題變更信號
+        if self.theme_manager:
+            self.theme_manager.theme_changed.connect(self._update_theme)
+
         self._setup_ui()
 
     def _setup_ui(self):
@@ -79,7 +86,7 @@ class TabsGroup(QWidget):
 
         # 創建標籤按鈕
         for tab_id, tab_config in self.config.get('tabs', {}).items():
-            tab = BaseTab(tab_id, tab_config, self.container)
+            tab = BaseTab(tab_id, tab_config, self)
             self.tabs[tab_id] = tab
             self.button_group.addButton(tab)
             container_layout.addWidget(tab, alignment=Qt.AlignmentFlag.AlignRight)
@@ -141,3 +148,77 @@ class TabsGroup(QWidget):
         """處理滾輪事件"""
         # 將滾輪事件傳遞給滾動區域
         self.scroll_area.wheelEvent(event)
+
+
+    def get_theme_manager(self):
+        """遞迴向上查找 theme_manager"""
+        parent = self.parent()
+        while parent:
+            if hasattr(parent, 'theme_manager'):
+                return parent.theme_manager
+            parent = parent.parent()
+        return None
+
+    def _update_theme(self):
+        """更新主題相關的樣式"""
+        # print( "Update Theme" )
+        current_theme = self.theme_manager._themes[self.theme_manager._current_theme]
+
+        # 更新 ScrollArea 樣式
+        self.scroll_area.setStyleSheet(f"""
+            QScrollArea {{
+                border: none;
+                background-color: transparent;
+            }}
+
+            QScrollArea > QWidget > QWidget {{
+                background-color: transparent;
+            }}
+
+            QScrollBar:vertical {{
+                border: none;
+                background: {current_theme.SURFACE};
+                width: 8px;
+                margin: 0;
+            }}
+
+            QScrollBar::handle:vertical {{
+                background: {current_theme.BORDER};
+                border-radius: 4px;
+                min-height: 20px;
+            }}
+
+            QScrollBar::handle:vertical:hover {{
+                background: {current_theme.PRIMARY};
+            }}
+
+            QScrollBar::add-line:vertical, 
+            QScrollBar::sub-line:vertical {{
+                background: transparent;
+                height: 0px;
+            }}
+
+            QScrollBar::add-page:vertical, 
+            QScrollBar::sub-page:vertical {{
+                background: transparent;
+            }}
+        """)
+
+        # 更新容器樣式
+        self.container.setStyleSheet(f"""
+            QWidget#tabs-container {{
+                background-color: transparent;
+            }}
+        """)
+
+        # 更新容器的背景色
+        self.setStyleSheet(f"""
+            QWidget {{
+                background-color: {current_theme.SURFACE};
+            }}
+        """)
+
+        # 確保 viewport 保持透明
+        self.scroll_area.viewport().setStyleSheet(
+            "background-color: transparent;"
+        )

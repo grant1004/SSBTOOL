@@ -1,7 +1,7 @@
 [
     {
         "id": "bat_001",
-        "name": "Standard Voltage Test",
+        "name": "Standard Voltage Test Standard Voltage Test",
         "description": "Verify battery voltage under normal operating conditions",
         "estimated_time": 300,
         "keywords": ["voltage", "standard", "normal operation"],

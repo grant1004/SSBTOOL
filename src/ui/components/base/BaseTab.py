@@ -16,6 +16,12 @@ class BaseTab(QPushButton):
         # 連接原生的 clicked 信號到我們的處理函數
         super().clicked.connect(self._handle_click)
 
+        # 獲取 theme manager
+        self.theme_manager = self.get_theme_manager()
+        # 連接主題變更信號
+        if self.theme_manager:
+            self.theme_manager.theme_changed.connect(self._update_theme)
+
     def _handle_click(self):
         """處理點擊事件"""
         self.tab_clicked.emit(self.tab_id)
@@ -57,24 +63,31 @@ class BaseTab(QPushButton):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
+        # 獲取當前主題顏色
+        current_theme = self.theme_manager._themes[self.theme_manager._current_theme]
+
         # 繪製背景
         if self.isChecked():
-            painter.fillRect(self.rect(), QColor(self.config.get('active_bg', '#F5F5F5')))
+            # 使用主題的主色作為選中背景
+            painter.fillRect(self.rect(), QColor(current_theme.PRIMARY))
         else:
-            painter.fillRect(self.rect(), QColor(self.config.get('inactive_bg', '#EEEEEE')))
+            # 使用主題的表面色作為未選中背景
+            painter.fillRect(self.rect(), QColor(current_theme.SURFACE))
 
         # 設置字體
         font = self.font()
-        font.setPointSize(10)
+        font.setPointSize(12)
         if self.isChecked():
             font.setBold(True)
         painter.setFont(font)
 
         # 設置文字顏色
         if self.isChecked():
-            painter.setPen(QColor(self.config.get('active_color', '#006C4D')))
+            # 使用主題的文字反色（在主色上的文字）
+            painter.setPen(QColor(current_theme.TEXT_ON_PRIMARY))
         else:
-            painter.setPen(QColor(self.config.get('inactive_color', '#666666')))
+            # 使用主題的次要文字顏色
+            painter.setPen(QColor(current_theme.TEXT_SECONDARY))
 
         # 保存當前狀態
         painter.save()
@@ -117,3 +130,48 @@ class BaseTab(QPushButton):
         """提供建議的大小"""
         return QSize(40 if self.isChecked() else 32, 60)
 
+    def get_theme_manager(self):
+        """遞迴向上查找 theme_manager"""
+        parent = self.parent()
+        while parent:
+            if hasattr(parent, 'theme_manager'):
+                return parent.theme_manager
+            parent = parent.parent()
+        return None
+
+    def _update_theme(self):
+        """更新主題相關的樣式"""
+        # print( "Base Tab Theme Change " )
+        current_theme = self.theme_manager._themes[self.theme_manager._current_theme]
+
+        self.setStyleSheet(f"""
+            QPushButton {{
+                background-color: black;
+                border: none;
+                border-radius: 8px;
+                padding: 8px 16px;
+                text-align: left;
+                font-size: 14px;
+                color: {current_theme.TEXT_SECONDARY};
+            }}
+
+            QPushButton:hover {{
+                background-color: {current_theme.HOVER};
+                color: {current_theme.TEXT_PRIMARY};
+            }}
+
+            QPushButton:checked {{
+                background-color: {current_theme.PRIMARY};
+                color: {current_theme.TEXT_ON_PRIMARY};
+                font-weight: bold;
+            }}
+
+            QPushButton:checked:hover {{
+                background-color: {current_theme.PRIMARY_DARK};
+            }}
+
+            QPushButton:focus {{
+                outline: none;
+                border: 2px solid {current_theme.PRIMARY_LIGHT};
+            }}
+        """)

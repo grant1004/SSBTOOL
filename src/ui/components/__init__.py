@@ -3,7 +3,8 @@ from .SwitchThemeButton import SwitchThemeButton
 from .TabGroup import TabsGroup
 from .SearchBar import TestCaseFilter, SearchBar
 from .TestCaseGroup import TestCaseGroup
+from .KeywordGroup import KeywordGroup
 
 __all__ = ['ComponentStatusButton', 'SwitchThemeButton',
            'TabsGroup', 'TestCaseFilter', 'SearchBar',
-           'TestCaseGroup']
+           'TestCaseGroup', 'KeywordGroup']

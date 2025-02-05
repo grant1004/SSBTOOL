@@ -11,6 +11,14 @@ class BaseSwitchButton(QWidget):
         super().__init__(parent)
         self.config = config
         self.current_mode = self.config.get('default_mode', '')
+
+
+        # 獲取 theme manager
+        self.theme_manager = self.get_theme_manager()
+        # 連接主題變更信號
+        if self.theme_manager:
+            self.theme_manager.theme_changed.connect(self._update_theme)
+
         self._setup_ui()
 
     def _setup_ui(self):
@@ -41,17 +49,24 @@ class BaseSwitchButton(QWidget):
             self.switched.emit(mode_id)
 
     def _update_styles(self):
-        self.container.setStyleSheet("""
-            QFrame {
-                background-color: #EEEEEE;
-                border-radius: 20px;
-            }
-        """)
+        """更新按鈕樣式"""
+        if self.theme_manager:
+            self._update_theme()  # 使用主題系統的樣式
+        else:
+            # fallback 到原始樣式（當沒有 theme manager 時）
+            self.container.setStyleSheet("""
+                QFrame {
+                    background-color: #EEEEEE;
+                    border-radius: 20px;
+                }
+            """)
 
-        for mode_id, btn in self.buttons.items():
-            btn.setStyleSheet(self._get_button_style(mode_id == self.current_mode))
+            for mode_id, btn in self.buttons.items():
+                is_active = mode_id == self.current_mode
+                btn.setStyleSheet(self._get_button_style_fallback(is_active))
 
-    def _get_button_style(self, is_active):
+    def _get_button_style_fallback(self, is_active):
+        """獲取按鈕預設樣式"""
         return """
             QPushButton {
                 border: none;
@@ -67,3 +82,64 @@ class BaseSwitchButton(QWidget):
             'white' if is_active else '#666666',
             'bold' if is_active else 'normal'
         )
+
+
+    def get_theme_manager(self):
+        """遞迴向上查找 theme_manager"""
+        parent = self.parent()
+        while parent:
+            if hasattr(parent, 'theme_manager'):
+                return parent.theme_manager
+            parent = parent.parent()
+        return None
+
+    def _update_theme(self):
+        """更新主題相關的樣式"""
+        current_theme = self.theme_manager._themes[self.theme_manager._current_theme]
+
+        # 更新容器樣式
+        self.container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {current_theme.SURFACE};
+                border-radius: 20px;
+            }}
+        """)
+
+        # 更新每個按鈕的樣式
+        for mode_id, btn in self.buttons.items():
+            is_active = mode_id == self.current_mode
+            btn.setStyleSheet(self._get_button_style(is_active, current_theme))
+
+    def _get_button_style(self, is_active, theme):
+        """獲取按鈕樣式"""
+        if is_active:
+            return f"""
+                QPushButton {{
+                    border: none;
+                    border-radius: 16px;
+                    padding: 8px 16px;
+                    font-size: 14px;
+                    background-color: {theme.PRIMARY};
+                    color: {theme.TEXT_ON_PRIMARY};
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: {theme.PRIMARY_DARK};
+                }}
+            """
+        else:
+            return f"""
+                QPushButton {{
+                    border: none;
+                    border-radius: 16px;
+                    padding: 8px 16px;
+                    font-size: 14px;
+                    background-color: transparent;
+                    color: {theme.TEXT_SECONDARY};
+                    font-weight: normal;
+                }}
+                QPushButton:hover {{
+                    background-color: {theme.OVERLAY};
+                    color: {theme.TEXT_PRIMARY};
+                }}
+            """

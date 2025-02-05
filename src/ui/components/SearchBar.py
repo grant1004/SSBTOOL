@@ -12,6 +12,14 @@ class SearchBar(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        # 獲取 theme manager
+        self.theme_manager = self.get_theme_manager()
+        # 連接主題變更信號
+        if self.theme_manager:
+            self.theme_manager.theme_changed.connect(self._update_theme)
+
+
         self._setup_ui()
 
     def _setup_ui(self):
@@ -119,6 +127,59 @@ class SearchBar(QWidget):
         """設置搜索文本"""
         self.search_input.setText(text)
 
+    def get_theme_manager(self):
+        """遞迴向上查找 theme_manager"""
+        parent = self.parent()
+        while parent:
+            if hasattr(parent, 'theme_manager'):
+                return parent.theme_manager
+            parent = parent.parent()
+        return None
+
+    def _update_theme(self):
+        """更新主題相關的樣式"""
+        current_theme = self.theme_manager._themes[self.theme_manager._current_theme]
+
+        # 更新整體樣式
+        self.setStyleSheet(f"""
+            #search-container {{
+                background-color: {current_theme.SURFACE};
+                border: 1px solid {current_theme.BORDER};
+                border-radius: 8px;
+            }}
+
+            QLineEdit {{
+                border: none;
+                background: transparent;
+                font-size: 14px;
+                color: {current_theme.TEXT_PRIMARY};
+            }}
+
+            QLineEdit::placeholder {{
+                color: {current_theme.TEXT_SECONDARY};
+            }}
+
+            QPushButton {{
+                border: none;
+                background: transparent;
+            }}
+
+            QPushButton:hover {{
+                background-color: {current_theme.HOVER};
+                border-radius: 4px;
+            }}
+        """)
+
+        # 更新圖標顏色
+        # 搜索圖標
+        search_icon = QIcon(get_icon_path("search.svg"))
+        colored_search = Utils.change_icon_color(search_icon, current_theme.TEXT_PRIMARY)
+        self.search_icon.setPixmap(colored_search.pixmap(16, 16))
+
+        # 清除按鈕圖標
+        close_icon = QIcon(get_icon_path("close.svg"))
+        colored_close = Utils.change_icon_color(close_icon, current_theme.TEXT_PRIMARY)
+        self.clear_button.setIcon(colored_close)
 
 class TestCaseFilter:
     """測試案例過濾器"""

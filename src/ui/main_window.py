@@ -5,8 +5,6 @@ from PySide6.QtGui import *
 from . import widgets
 from . import components
 from .Theme import Theme, ThemeManager, ThemeType
-from src.ui.components import SwitchThemeButton
-from src.controllers import TopWidgetController
 from src.utils import get_icon_path
 import sys
 import ctypes
