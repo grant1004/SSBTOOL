@@ -18,9 +18,8 @@ class RunWidget(QWidget):
         self.controller = RunWidgetController( self.model, self)
 
         self._setup_shadow()
-        # 創建主佈局
         self.main_layout = QHBoxLayout(self)
-        self.main_layout.setContentsMargins(4, 4, 8, 8)
+        self.main_layout.setContentsMargins(4,4,8,8)
         self.main_layout.setSpacing(0)
 
         # 按鈕配置

@@ -3,6 +3,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 import random
+import json
 
 
 class BaseCard(QFrame):
@@ -54,6 +55,8 @@ class BaseCard(QFrame):
 
     def __init__(self, card_id: str, config: dict, parent=None):
         super().__init__(parent)
+        self.setAcceptDrops(True)
+        self.drag_start_position = None
         self.card_id = card_id
         self.config = config
         self.is_hovered = False
@@ -125,9 +128,6 @@ class BaseCard(QFrame):
         self.title_label = self._create_title_label()
         self.time_label = self._create_time_label()
 
-        # 設置固定寬度
-        self.priority_label.setFixedWidth(70)
-        self.time_label.setFixedWidth(60)
 
         # 使用 Grid 布局設置固定位置
         # addWidget(widget, row, column, rowSpan, columnSpan)
@@ -151,7 +151,7 @@ class BaseCard(QFrame):
         label = QLabel()
 
         # 設置初始文字（帶省略號）
-        label.setText(self._get_elided_text(title_text, max_width=220))
+        label.setText(self._get_elided_text(title_text, max_width=180))
 
         # 設置對齊和樣式
         label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
@@ -181,7 +181,7 @@ class BaseCard(QFrame):
     def _create_info_label(self):
         """創建描述信息區域"""
         info_text = self.config.get('info', '')
-        label = QLabel(self._get_elided_text(info_text, max_width=320))
+        label = QLabel(self._get_elided_text(info_text, max_width=300))
         label.setToolTip(info_text if len(info_text) > 0 else '')
         label.setWordWrap(True)
         label.setStyleSheet(self.INFO_STYLESHEET)
@@ -207,14 +207,15 @@ class BaseCard(QFrame):
     def _setup_layout(self):
         """設置卡片主要布局"""
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 12, 16, 12)
         layout.setSpacing(8)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
         content_layout = QVBoxLayout()
         content_layout.setSpacing(8)
 
         # 標題區域：最小高度36px，但可以根據內容增長
         self.header_widget = self._create_header()
+        self.header_widget.setFixedWidth(350)
         self.header_widget.layout().setContentsMargins(0, 0, 0, 8)
         content_layout.addWidget(self.header_widget)
 
@@ -226,6 +227,8 @@ class BaseCard(QFrame):
         self.keywords_widget = self._create_keywords_widget()
         self.keywords_widget.setFixedHeight(32)
         content_layout.addWidget(self.keywords_widget, 0)
+
+
 
         layout.addLayout(content_layout)
 
@@ -472,11 +475,11 @@ class BaseCard(QFrame):
             # 更新文字內容 - 省略模式
             self.title_label.setText(self._get_elided_text(
                 self.config.get('title', ''),
-                max_width=200
+                max_width=100
             ))
             self.info_label.setText(self._get_elided_text(
                 self.config.get('info', ''),
-                max_width=320
+                max_width=200
             ))
 
             # 恢復原本間距
@@ -530,3 +533,44 @@ class BaseCard(QFrame):
         # 同時開始兩個動畫
         self.height_animation.start()
         self.min_height_animation.start()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.drag_start_position = event.pos()
+
+    def mouseMoveEvent(self, event):
+        if not (event.buttons() & Qt.MouseButton.LeftButton):
+            return
+
+        if not self.drag_start_position:
+            return
+
+        # 計算移動距離
+        distance = (event.pos() - self.drag_start_position).manhattanLength()
+        if distance < QApplication.startDragDistance():
+            return
+
+        # 創建拖放對象
+        drag = QDrag(self)
+        mime_data = QMimeData()
+
+        # 序列化卡片數據
+        card_data = {
+            'id': self.card_id,
+            'config': self.config
+        }
+        mime_data.setData('application/x-testcase', QByteArray(json.dumps(card_data).encode()))
+
+        # 設置拖動時的視覺效果
+        pixmap = self.grab()
+        painter = QPainter(pixmap)
+        painter.setCompositionMode(QPainter.CompositionMode_DestinationIn)
+        painter.fillRect(pixmap.rect(), QColor(0, 0, 0, 127))
+        painter.end()
+
+        drag.setMimeData(mime_data)
+        drag.setPixmap(pixmap)
+        drag.setHotSpot(event.pos())
+
+        # 執行拖放操作
+        drag.exec_(Qt.DropAction.CopyAction)

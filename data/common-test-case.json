@@ -1,0 +1,47 @@
+{
+  "suite_info": {
+    "name": "功能測試",
+    "description": "測試系統功能",
+    "version": "1.0",
+    "author": "QA Team",
+    "estimated_time": "300min",
+    "priority" : "required"
+  },
+  "test_cases": [
+    {
+      "id": "TEST_001",
+      "name": "測試案例1",
+      "description": "測試功能A的運作情況",
+      "setup": {
+        "preconditions": [
+          "預先條件1",
+          "預先條件2"
+        ]
+      },
+      "steps": [
+        {
+          "step_id": 1,
+          "name": "步驟1",
+          "action": "執行動作1",
+          "params": {
+            "param1": "值1",
+            "param2": "值2"
+          },
+          "expected": "預期結果1"
+        },
+        {
+          "step_id": 2,
+          "name": "步驟2",
+          "action": "執行動作2",
+          "params": {
+            "param1": "值3"
+          },
+          "expected": "預期結果2"
+        }
+      ]
+    }
+  ],
+  "libraries": [
+    "MyCustomLibrary"
+  ]
+}

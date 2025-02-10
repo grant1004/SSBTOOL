@@ -63,8 +63,8 @@ class TopWidget(QWidget):
             device_container = self._create_device_container(device_type, config)
             container_layout.addWidget(device_container)
 
-        switch_color_btn = SwitchThemeButton(self.main_window.theme_manager)
-        container_layout.addWidget(switch_color_btn, alignment=Qt.AlignmentFlag.AlignRight)
+        # switch_color_btn = SwitchThemeButton(self.main_window.theme_manager)
+        # container_layout.addWidget(switch_color_btn, alignment=Qt.AlignmentFlag.AlignRight)
         main_layout.addWidget(container)
 
 

@@ -26,6 +26,7 @@ class Theme:
         BORDER_LIGHT = "#EEEEEE"
 
         # Text Colors
+        LINEEDIT_BACKGROUND = "#FFFFFF"
         TEXT_PRIMARY = "#333333"
         TEXT_SECONDARY = "#666666"
         TEXT_DISABLED = "#999999"
@@ -57,6 +58,7 @@ class Theme:
         BORDER_LIGHT = "#505050"
 
         # Text Colors
+        LINEEDIT_BACKGROUND = "#2D2D2D"
         TEXT_PRIMARY = "#E0E0E0"
         TEXT_SECONDARY = "#808080"
         TEXT_DISABLED = "#666666"
@@ -106,6 +108,9 @@ class ThemeManager(QObject):
             margin: 0;
             padding: 0;
         }}
+        
+        QlineEdit {{
+            background-color: {theme.LINEEDIT_BACKGROUND};}}
 
         QLabel {{
             background-color: Transparent;

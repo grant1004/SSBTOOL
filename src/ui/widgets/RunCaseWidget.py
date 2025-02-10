@@ -1,3 +1,5 @@
+from PySide6.QtQuick import QQuickView
+from PySide6.QtQuickWidgets import QQuickWidget
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -5,22 +7,73 @@ from src.utils import get_icon_path
 from src.utils import Utils
 from src.controllers import RunWidgetController
 from src.models import RunWidget_Model
+from src.ui.components.base import BaseCard, CollapsibleProgressPanel
+import json
 
 
 class RunCaseWidget(QWidget):
+
+    update_ui = Signal()
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setAcceptDrops(True)
+        self.test_cases = []
         self.model = RunWidget_Model()
-        self.controller = RunWidgetController( self.model, self)
+        self.controller = RunWidgetController(self.model, self)
+        self.theme_manager = self.parent().theme_manager
         self._setup_shadow()
-        self.main_layout = QHBoxLayout(self)
-        self.init_ui()
+        self.setContentsMargins(4, 8, 8, 4)
+        self._setup_ui()
+        self.update_ui.connect( self._update_ui )
 
-    def init_ui(self):
-        self.main_container = QWidget()
-        self.main_layout.addWidget(self.main_container)
-        self.main_layout.setContentsMargins(4, 8, 8, 4)
+
+    def _setup_ui(self):
+        self.main_layout = QGridLayout(self)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
+
+        # 創建頂部輸入框
+        self.Name_LineEdit = QLineEdit()
+        self.Name_LineEdit.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        self.Name_LineEdit.setPlaceholderText("Enter Test Case Name")
+        self.Name_LineEdit.setFixedHeight(40)
+
+        # 創建容器widget來包含scroll area並設置padding
+        # self.scroll_container = QWidget()
+        # scroll_container_layout = QVBoxLayout(self.scroll_container)
+        # scroll_container_layout.setContentsMargins(0, 28, 0, 0)  # 頂部25的padding
+        # scroll_container_layout.setSpacing(0)
+
+        # 創建滾動區域
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+        # 創建內容容器
+        self.content_widget = QWidget()
+        self.content_layout = QVBoxLayout(self.content_widget)
+        self.content_layout.setContentsMargins(0, 0, 0, 0)  # 移除內容容器的邊距
+        self.content_layout.setSpacing(0)
+        self.content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        # 設置滾動區域的內容
+        self.scroll_area.setWidget(self.content_widget)
+
+        # 將scroll area添加到容器中
+        # scroll_container_layout.addWidget(self.scroll_area)
+
+        # 設置列（column）的比例
+        self.main_layout.setColumnStretch(0, 15)
+        self.main_layout.setColumnStretch(1, 2)
+
+        # 設置列（row）的比例
+        self.main_layout.setRowStretch(0, 1)
+        self.main_layout.setRowStretch(1, 15)
+
+        # 添加到主布局  row column rowspan columnspan
+        self.main_layout.addWidget(self.scroll_area, 1, 0, -1, 2)  # 使用-1讓容器填充所有剩餘行
+        self.main_layout.addWidget(self.Name_LineEdit, 0, 0, 1, 1, Qt.AlignmentFlag.AlignTop)
 
     def _setup_shadow(self):
         self.shadow = QGraphicsDropShadowEffect(self)
@@ -29,3 +82,37 @@ class RunCaseWidget(QWidget):
         self.shadow.setOffset(0, 2)
         self.setGraphicsEffect(self.shadow)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat('application/x-testcase'):
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        data = event.mimeData().data('application/x-testcase')
+        case_data = json.loads(str(data, encoding='utf-8'))
+        self.add_test_case(case_data)
+        event.acceptProposedAction()
+
+
+    def add_test_case(self, case_data):
+        # 創建可展開進度面板
+        progress_panel = CollapsibleProgressPanel(case_data['config'], parent=self)
+
+        # 添加到內容布局
+        self.content_layout.addWidget(progress_panel)
+
+        # 保存引用
+        self.test_cases.append({
+            'panel': progress_panel,
+            'data': case_data
+        })
+
+        # 確保新添加的面板可見
+        self.scroll_area.ensureWidgetVisible(progress_panel)
+
+    def _update_ui(self):
+        self.update()
+        self.repaint()

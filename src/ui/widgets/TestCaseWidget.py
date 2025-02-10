@@ -12,7 +12,7 @@ class TestCaseWidget(QWidget):
         super().__init__(parent)
         self._setup_shadow()
         self.setContentsMargins(0, 0, 0, 0)
-        self.setFixedWidth(600)
+        self.setFixedWidth(500)
 
         # 初始化 MVC
         self.model = TestCaseWidget_Model()
@@ -47,7 +47,7 @@ class TestCaseWidget(QWidget):
                 'controller': {'text': 'Controller'}
 
             },
-            'default_tab': 'battery',
+            'default_tab': 'common',
             'switch_modes': {
                 'test_cases': {
                     'text': 'Test Cases'
