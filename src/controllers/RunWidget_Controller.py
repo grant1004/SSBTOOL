@@ -1,14 +1,25 @@
 # controllers/window_controller.py
 from PySide6.QtCore import QObject, Slot, Signal, Property
+from src.utils import singleton, Container
 
+@singleton
 class RunWidgetController(QObject):
-    def __init__(self, model, view):
+    def __init__(self):
         super().__init__()
-        self.model = model
+        self.model = Container.get_run_widget_model()
+        self.view = None
+        # 連接 model 信號到 view 的更新方法
+
+    def set_view(self, view):
+        # 提供方法來設置 view
         self.view = view
+        self.model.test_progress.connect(self.view.update_progress)
+        self.model.test_finished.connect(self.view.update_test_status)
 
     def RunCommand(self):
-        return self.model.run_command()
+        testcase = self.view.test_cases
+        Name_text = self.view.get_name_text()
+        return self.model.run_command( testcase, Name_text )
 
     def GenerateCommand(self):
         return self.model.generate_command()
@@ -19,14 +30,3 @@ class RunWidgetController(QObject):
     def ImportCommand(self):
         return self.model.import_command()
 
-    @Slot()  # 對於無參數的函數使用 @Slot()
-    def addTestSuite(self):
-        print("Add Test Suite clicked")
-
-    @Slot()  # 對於有參數的函數指定參數類型
-    def addTest(self):
-        print(f"Add Test to suite")
-
-    @Slot(str)
-    def deleteTestSuite(self, suite_name):
-        print(f"Delete suite: {suite_name}")

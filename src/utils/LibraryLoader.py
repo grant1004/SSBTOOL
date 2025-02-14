@@ -7,11 +7,11 @@ class LibraryLoader:
 
     # Library 映射配置
     LIBRARY_MAPPING = {
-        'common': ('Lib.CANMonitorLibrary', 'CommonLibrary'),
-        'battery': ('Lib.CANMonitorLibrary', 'BatteryLibrary'),
-        'hmi': ('Lib.CANMonitorLibrary', 'HMILibrary'),
-        'motor': ('Lib.CANMonitorLibrary', 'MotorLibrary'),
-        'controller': ('Lib.CANMonitorLibrary', 'ControllerLibrary')
+        'common': ( 'Lib.CommonLibrary', 'CommonLibrary'),
+        'battery': ('Lib.BatteryLibrary','BatteryLibrary'),
+        'hmi': ('Lib.HMILibrary','HMILibrary'),
+        'motor':('Lib.MotorLibrary','MotorLibrary'),
+        'controller': ('Lib.ControllerLibrary','ControllerLibrary')
     }
 
     def __init__(self):

@@ -6,13 +6,23 @@ from dataclasses import dataclass
 
 
 @dataclass
+class TestStep:
+    step_id: int
+    name: str
+    action: str
+    params: dict
+    expected: str
+
+
+@dataclass
 class TestCase:
     id: str
     name: str
     description: str
-    estimated_time: int
-    keywords: List[str]
     priority: str
+    estimated_time: int
+    setup: dict
+    steps: List[TestStep]
 
 
 class TestCaseWidget_Model:
@@ -27,18 +37,34 @@ class TestCaseWidget_Model:
 
             with open(json_path, 'r', encoding='utf-8') as file:
                 data = json.load(file)
-                self.test_cases[category] = [
-                    TestCase(
+
+                # 載入測試案例
+                test_cases = []
+                for case in data.get('test_cases', []):
+                    steps = [
+                        TestStep(
+                            step_id=step.get('step_id'),
+                            name=step.get('name', ''),
+                            action=step.get('action', ''),
+                            params=step.get('params', {}),
+                            expected=step.get('expected', '')
+                        ) for step in case.get('steps', [])
+                    ]
+
+                    test_case = TestCase(
                         id=case.get('id', ''),
                         name=case.get('name', ''),
                         description=case.get('description', ''),
-                        estimated_time=case.get('estimated_time', 0),
-                        keywords=case.get('keywords', []),
-                        priority=case.get('priority', 'medium')
-                    ) for case in data
-                ]
+                        setup=case.get('setup', {}),
+                        priority=case.get('priority', 'normal'),
+                        estimated_time=case.get('estimated_time', 1),
+                        steps=steps,
+                    )
+                    test_cases.append(test_case)
 
-                return self._convert_to_dict(self.test_cases[category])
+                self.test_cases[category] = test_cases
+                return [self._convert_to_dict(case) for case in test_cases]
+
         except Exception as e:
             print(f"Error loading test cases for {category}: {e}")
             return []
@@ -53,19 +79,27 @@ class TestCaseWidget_Model:
             case for case in self.test_cases[category]
             if search_text in case.name.lower() or
                search_text in case.description.lower() or
-               any(search_text in keyword.lower() for keyword in case.keywords)
+               any(search_text in step.action.lower() for step in case.steps)
         ]
 
-        return self._convert_to_dict(filtered_cases)
+        return [self._convert_to_dict(case) for case in filtered_cases]
 
-    def _convert_to_dict(self, test_cases: List[TestCase]) -> List[dict]:
+    def _convert_to_dict(self, test_case: TestCase) -> dict:
         """將 TestCase 對象轉換為字典"""
-        return [{
-            'id': case.id,
-            'name': case.name,
-            'description': case.description,
-            'estimated_time': case.estimated_time,
-            'keywords': case.keywords,
-            'priority': case.priority
-        } for case in test_cases]
-
+        return {
+            'id': test_case.id,
+            'name': test_case.name,
+            'description': test_case.description,
+            'setup': test_case.setup,
+            'estimated_time': test_case.estimated_time,
+            'steps': [
+                {
+                    'step_id': step.step_id,
+                    'name': step.name,
+                    'action': step.action,
+                    'params': step.params,
+                    'expected': step.expected
+                } for step in test_case.steps
+            ],
+            'priority': test_case.priority
+        }

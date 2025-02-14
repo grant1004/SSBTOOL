@@ -1,13 +1,8 @@
-from PySide6.QtQuick import QQuickView
-from PySide6.QtQuickWidgets import QQuickWidget
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
-from src.utils import get_icon_path
-from src.utils import Utils
-from src.controllers import RunWidgetController
-from src.models import RunWidget_Model
-from src.ui.components.base import BaseCard, CollapsibleProgressPanel
+from src.utils import Container
+from src.ui.components.base import CollapsibleProgressPanel, BaseKeywordProgressCard
 import json
 
 
@@ -17,13 +12,14 @@ class RunCaseWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
-        self.test_cases = []
-        self.model = RunWidget_Model()
-        self.controller = RunWidgetController(self.model, self)
+        self.controller = Container.get_run_widget_controller()
+        self.controller.set_view(self)
         self.theme_manager = self.parent().theme_manager
         self._setup_shadow()
         self.setContentsMargins(4, 8, 8, 4)
         self._setup_ui()
+
+        self.test_cases = {}
         self.update_ui.connect( self._update_ui )
 
 
@@ -53,7 +49,7 @@ class RunCaseWidget(QWidget):
         # 創建內容容器
         self.content_widget = QWidget()
         self.content_layout = QVBoxLayout(self.content_widget)
-        self.content_layout.setContentsMargins(0, 0, 0, 0)  # 移除內容容器的邊距
+        self.content_layout.setContentsMargins(0,0,0,0)  # 移除內容容器的邊距
         self.content_layout.setSpacing(0)
         self.content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
@@ -84,35 +80,110 @@ class RunCaseWidget(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
     def dragEnterEvent(self, event):
-        if event.mimeData().hasFormat('application/x-testcase'):
+        if event.mimeData().hasFormat('application/x-testcase') or event.mimeData().hasFormat('application/x-keyword'):
             event.acceptProposedAction()
 
     def dragMoveEvent(self, event):
         event.acceptProposedAction()
 
     def dropEvent(self, event):
-        data = event.mimeData().data('application/x-testcase')
+        mime_data = event.mimeData()
+        """
+                x-testcase : 
+                    {'id': 'TEST_001', 
+                     'name': 'Test Case 001, Test Case 001', 
+                     'description': '測試功能A的運作情況', 
+                     'setup': {
+                        'preconditions': ['預先條件1', '預先條件2']}, 
+                        'estimated_time': 300, 
+                        'steps': [{'step_id': 1, 'name': '步驟1', 'action': '執行動作1', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果1'}, {'step_id': 2, 'name': '步驟2', 'action': '執行動作2', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果2'}, {'step_id': 3, 'name': '步驟3', 'action': '執行動作3', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果3'}, {'step_id': 4, 'name': '步驟4', 'action': '執行動作4', 'params': {'param1': '值3'}, 'expected': '預期結果4'}], 
+                        'priority': 'required'
+                        }
+                x-keyword : 
+                    {'id': 'BMS_MCU_Reset', 
+                     'name': 'BMS_MCU_Reset', 
+                     'category': 'common', 
+                     'description': '', 
+                     'arguments': [], 
+                     'returns': '', 
+                     'priority': 'required'
+                    }
+
+                """
+        if mime_data.hasFormat('application/x-testcase'):
+            data = mime_data.data('application/x-testcase')
+            data_type = 'testcase'
+        elif mime_data.hasFormat('application/x-keyword'):
+            data = mime_data.data('application/x-keyword')
+            data_type = 'keyword'
+            # print( data )
+        else:
+            return
+
         case_data = json.loads(str(data, encoding='utf-8'))
-        self.add_test_case(case_data)
+        self.add_item(case_data, data_type)
         event.acceptProposedAction()
 
+    def add_item(self, case_data, data_type):
+        """
+        根據不同類型創建不同的面板
 
-    def add_test_case(self, case_data):
-        # 創建可展開進度面板
-        progress_panel = CollapsibleProgressPanel(case_data['config'], parent=self)
+        Args:
+            case_data: 拖放的數據
+            data_type: 'testcase' 或 'keyword'
+        """
+        if data_type == 'testcase':
+            # 創建測試案例面板
+            panel = CollapsibleProgressPanel(case_data['config'], parent=self)
+        else:
+            # 創建關鍵字面板
+            panel = BaseKeywordProgressCard(case_data['config'], parent=self)
 
         # 添加到內容布局
-        self.content_layout.addWidget(progress_panel)
-
+        self.content_layout.addWidget(panel)
+        panel_id = id(panel)
+        # print( panel_id )
         # 保存引用
-        self.test_cases.append({
-            'panel': progress_panel,
-            'data': case_data
-        })
+        self.test_cases[panel_id]= {
+            'panel': panel,
+            'data': case_data, # json
+            'type': data_type  # testcase keyword
+        }
 
         # 確保新添加的面板可見
-        self.scroll_area.ensureWidgetVisible(progress_panel)
+        self.scroll_area.ensureWidgetVisible(panel)
 
     def _update_ui(self):
         self.update()
         self.repaint()
+
+    def get_name_text(self):
+        if ( self.Name_LineEdit.text() == "" ):
+            return "Untitled"
+        else:
+            return self.Name_LineEdit.text()
+
+    def update_progress(self, message_str):
+        """更新進度顯示"""
+        try:
+            import ast
+
+            message = ast.literal_eval(message_str)
+
+            test_name = message['data']['test_name']
+            msg_type = message['type']
+            if msg_type == 'testcase':
+                panel_id = message['panel_id']
+                panel = self.test_cases[panel_id]['panel']
+                panel.update_progress(message)
+            elif msg_type == 'keyword':
+                panel_id = message['panel_id']
+                panel = self.test_cases[panel_id]['panel']
+                panel.update_progress(message)
+
+        except Exception as e:
+            print(f"Error parsing message: {e}")
+
+
+    def update_test_status(self, success):
+        """更新測試狀態"""

@@ -1,14 +1,14 @@
-# components/base/BaseCard.py
+# components/base/BaseKeyWordCard.py
+from typing import Any
+
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 import json
 
-
-class BaseCard(QFrame):
-    """基礎卡片元件"""
+class BaseKeywordCard(QFrame):
+    """關鍵字卡片元件"""
     clicked = Signal(str)
-    PRIORITIES = ['required', 'normal', 'optional']
     PRIORITY_COLORS = {
         'required': '#FF3D00',
         'normal': '#0099FF',
@@ -23,24 +23,26 @@ class BaseCard(QFrame):
         font-size: 12px;
         color: #666666;
     """
-    PRIORITY_STYLESHEET = """
+    CATEGORY_STYLESHEET = """
         color: white;
         border-radius: 4px;
         padding: 2px 8px;
-        font-size: 11px;
+        font-size: 14px;
         font-weight: bold;
     """
-    TIME_STYLESHEET = """
+    PARAM_STYLESHEET = """
         font-size: 12px;
-        color: #757575;
-        padding: 0 4px;
+        color: #666666;
+        padding: 4px 8px;
+        background: #F5F5F5;
+        border-radius: 4px;
     """
     CARD_STYLESHEET = """
-        BaseCard {
+        KeywordCard {
             background-color: white;
             border-radius: 8px;
         }
-        BaseCard:hover {
+        KeywordCard:hover {
             background-color: #F8F9FA;
         }
     """
@@ -52,17 +54,19 @@ class BaseCard(QFrame):
         self.card_id = card_id
         self.config = config
         self.is_expanded = False
-        self.priority = self.config.get('priority', 'normal').lower()
+
+        # Initialize argument values with defaults
+        self.argument_values = {}
+        self._init_argument_values()
 
         # UI 初始化
         self._setup_ui()
-        self.setObjectName("base-card")
+        self.setObjectName("keyword-card")
         self.setStyleSheet(self.CARD_STYLESHEET)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
 
         # 高度設置
         self.collapsed_height = 100
-        self.expanded_height = 800
         self.setFixedHeight(self.collapsed_height)
         self.setMinimumHeight(self.collapsed_height)
         self.setMaximumHeight(self.collapsed_height)
@@ -78,9 +82,15 @@ class BaseCard(QFrame):
         if self.theme_manager:
             self.theme_manager.theme_changed.connect(self._update_theme)
 
+    def _init_argument_values(self):
+        """Initialize argument values with their defaults"""
+        for arg in self.config.get('arguments', []):
+            self.argument_values[arg['name']] = arg.get('default')
+
     def _setup_ui(self):
         """初始化 UI"""
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self.setContentsMargins(8,8,8,8)
         self._setup_shadow()
         self._setup_layout()
 
@@ -99,170 +109,116 @@ class BaseCard(QFrame):
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(8)
 
-        # 標題
+        # Keyword 名稱
         self.title_label = QLabel(self.config.get('name', ''))
         self.title_label.setStyleSheet(self.TITLE_STYLESHEET)
-        self.title_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.title_label.setFixedWidth(230)  # 設置固定寬度
-        self.title_label.setWordWrap(True)  # 啟用自動換行
+        self.title_label.setFixedWidth(300)
+        self.title_label.setWordWrap(True)
 
-        # 右側資訊容器
-        info_widget = QWidget()
-        info_layout = QHBoxLayout(info_widget)
-        info_layout.setContentsMargins(0, 0, 0, 0)
-        info_layout.setSpacing(8)
+        # 分類標籤
+        self.category_label = QLabel(self.config.get('category', ''))
+        self.category_label.setStyleSheet(f"""
+            background-color: #0077EE;
+            {self.CATEGORY_STYLESHEET}
+        """)
 
-        # 預估時間
-        self.time_label = self._create_time_label()
-        info_layout.addWidget(self.time_label)
-
-        # 優先級
-        self.priority_label = self._create_priority_label()
-        info_layout.addWidget(self.priority_label)
-
-        header_layout.addWidget(self.title_label, 1)  # 1表示可伸縮
-        header_layout.addWidget(info_widget, 0)  # 0表示固定大小
+        header_layout.addWidget(self.title_label, 1)
+        header_layout.addWidget(self.category_label, 0)
 
         return header_widget
-
-    def _create_time_label(self):
-        """創建時間標籤"""
-        time_value = self.config.get('estimated_time', '0min')
-        # 移除 'min' 後綴並轉換為整數
-        if isinstance(time_value, str):
-            time_value = time_value.replace('min', '')
-        try:
-            minutes = int(time_value)
-            # 如果超過60分鐘，轉換為小時表示
-            if minutes >= 60:
-                hours = minutes / 60
-                time_text = f"{hours:.1f}h"
-            else:
-                time_text = f"{minutes}min"
-        except (ValueError, TypeError):
-            time_text = "0min"
-
-        label = QLabel(time_text)
-        label.setStyleSheet(f"""
-            background-color: #E0E0E0;
-            color: #333333;
-            border-radius: 4px;
-            padding: 2px 8px;
-            font-size: 11px;
-            font-weight: bold;
-        """)
-        return label
 
     def _setup_layout(self):
         """設置主布局"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0,0,0,0)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
         # 標題區域
         self.header_widget = self._create_header()
         layout.addWidget(self.header_widget)
 
-        # 描述文字
+        # 簡短描述
         self.description_label = QLabel()
         self.description_label.setStyleSheet(self.INFO_STYLESHEET)
         self.description_label.setWordWrap(True)
+        self.description_label.setFixedWidth(300)
+        self.description_label.setContentsMargins(16, 0, 0, 0)
+        self.description_label.font().setPixelSize(14)
         self._update_description_text()
+
         layout.addWidget(self.description_label)
 
-        # 步驟信息
-        self.steps_info = self._create_steps_info()
-        layout.addWidget(self.steps_info)
+        # 參數預覽
+        self.params_preview = self._create_params_preview()
+        layout.addWidget(self.params_preview)
 
-        # 展開時顯示的詳細信息容器
+        # 展開時顯示的詳細信息
         self.details_widget = self._create_details_widget()
         self.details_widget.hide()
         layout.addWidget(self.details_widget)
 
         layout.addStretch()
 
-    def _create_priority_label(self):
-        """創建優先級標籤"""
-        priority_text = self.priority.capitalize()
-        priority_color = self.PRIORITY_COLORS.get(self.priority, self.PRIORITY_COLORS['normal'])
-
-        label = QLabel(priority_text)
+    def _create_params_preview(self):
+        """創建參數預覽"""
+        params = self.config.get('arguments', [])
+        label = QLabel(f"{len(params)} Arguments")
         label.setStyleSheet(f"""
-            background-color: {priority_color};
-            {self.PRIORITY_STYLESHEET}
+            background-color: #E0E0E0;
+            color: #333333;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-left: 16px;
         """)
-        return label
-
-    def _create_steps_info(self):
-        """創建步驟信息標籤"""
-        steps_count = len(self.config.get('steps', []))
-        label = QLabel(f"{steps_count} Steps")
-        label.setStyleSheet(f"""
-                    background-color: #E0E0E0;
-                    color: #333333;
-                    border-radius: 4px;
-                    padding: 2px 8px;
-                    font-size: 11px;
-                    font-weight: bold;
-                """)
         return label
 
     def _create_details_widget(self):
         """創建詳細信息區域"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setContentsMargins(16, 8, 16, 8)
+        layout.setSpacing(12)
 
-        # 前置條件
-        if preconditions := self.config.get('setup', {}).get('preconditions', []):
-            precond_label = QLabel("Preconditions:")
-            precond_label.setStyleSheet("font-weight: bold;")
-            layout.addWidget(precond_label)
+        # 完整描述
+        if description := self.config.get('description', ''):
+            desc_label = QLabel("Description")
+            desc_label.setStyleSheet("font-weight: bold;")
+            layout.addWidget(desc_label)
 
-            for precond in preconditions:
-                item_label = QLabel(f"    • {precond}")
-                item_label.setStyleSheet(self.INFO_STYLESHEET)
-                layout.addWidget(item_label)
+            desc_content = QLabel(description)
+            desc_content.setStyleSheet(self.INFO_STYLESHEET)
+            desc_content.setWordWrap(True)
+            layout.addWidget(desc_content)
 
-        if libraries := self.config.get('setup', {}).get('library', []):
-            library_label = QLabel("Library:")
-            library_label.setStyleSheet("font-weight: bold;")
-            layout.addWidget(library_label)
+        # 參數列表
+        if arguments := self.config.get('arguments', []):
+            args_label = QLabel("Arguments")
+            args_label.setStyleSheet("font-weight: bold;")
+            layout.addWidget(args_label)
 
-            for lib in libraries:
-                item_label = QLabel(f"    • {lib}")
-                item_label.setStyleSheet(self.INFO_STYLESHEET)
-                layout.addWidget(item_label)
+            args_widget = QWidget()
+            args_layout = QVBoxLayout(args_widget)
+            args_layout.setContentsMargins(0, 0, 0, 0)
+            args_layout.setSpacing(4)
 
-        # 步驟詳情
-        # if steps := self.config.get('steps', []):
-        #     steps_label = QLabel("Steps:")
-        #     steps_label.setStyleSheet("font-weight: bold;")
-        #     layout.addWidget(steps_label)
-        #
-        #     for step in steps:
-        #         step_widget = self._create_step_widget(step)
-        #         layout.addWidget(step_widget)
+            for arg in arguments:
+                arg_widget = self._create_argument_widget(arg)
+                args_layout.addWidget(arg_widget)
 
-        return widget
+            layout.addWidget(args_widget)
 
-    def _create_step_widget(self, step: dict):
-        """創建單個步驟的顯示組件"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(8, 0, 8, 0)
+        # 返回值
+        if returns := self.config.get('returns', ''):
+            returns_label = QLabel("Returns")
+            returns_label.setStyleSheet("font-weight: bold;")
+            layout.addWidget(returns_label)
 
-        # 步驟標題
-        title = QLabel(f"{step.get('step_id', '')}. {step.get('name', '')}")
-        title.setStyleSheet("font-weight: bold;")
-        layout.addWidget(title)
-
-        # 動作
-        if action := step.get('action'):
-            action_label = QLabel(f"Action: {action}")
-            action_label.setStyleSheet(self.INFO_STYLESHEET)
-            layout.addWidget(action_label)
+            returns_content = QLabel(returns)
+            returns_content.setStyleSheet(self.INFO_STYLESHEET)
+            returns_content.setWordWrap(True)
+            layout.addWidget(returns_content)
 
         return widget
 
@@ -277,6 +233,16 @@ class BaseCard(QFrame):
         )
         self.description_label.setText(elided_text)
         self.description_label.setToolTip(description)
+
+    def _calculate_expanded_height(self):
+        """計算展開後需要的總高度"""
+        self.details_widget.show()
+        height = (self.header_widget.height() +
+                  self.description_label.height() +
+                  self.params_preview.height() +
+                  self.details_widget.sizeHint().height() +
+                  40)  # 額外空間
+        return height
 
     def get_theme_manager(self):
         """獲取主題管理器"""
@@ -294,18 +260,16 @@ class BaseCard(QFrame):
 
         current_theme = self.theme_manager._themes[self.theme_manager._current_theme]
 
-        # 更新卡片樣式
         self.setStyleSheet(f"""
-            BaseCard {{
+            KeywordCard {{
                 background-color: {current_theme.SURFACE};
                 border-radius: 8px;
             }}
-            BaseCard:hover {{
+            KeywordCard:hover {{
                 background-color: {current_theme.SURFACE_VARIANT};
             }}
         """)
 
-        # 更新文字顏色
         self.title_label.setStyleSheet(f"""
             font-size: 14px;
             font-weight: bold;
@@ -342,7 +306,7 @@ class BaseCard(QFrame):
             'id': self.card_id,
             'config': self.config
         }
-        mime_data.setData('application/x-testcase',
+        mime_data.setData('application/x-keyword',
                           QByteArray(json.dumps(card_data).encode()))
 
         pixmap = self.grab()
@@ -356,26 +320,11 @@ class BaseCard(QFrame):
         drag.setHotSpot(event.pos())
         drag.exec_(Qt.DropAction.CopyAction)
 
-    def _calculate_height(self):
-        # 基礎高度（標題+ 描述 + 步驟數量）
-        base_height = self.collapsed_height
-        # 獲取詳細信息區域實際需要的高度
-        self.details_widget.show()  # 暫時顯示以計算高度
-        details_height = self.details_widget.sizeHint().height()
-        # self.details_widget.hide()  # 恢復隱藏狀態
-
-        # 計算總高度（基礎高度 + 詳細信息高度 + 邊距）
-        total_height = base_height + details_height + 20  # 20是額外邊距
-
-        # print( total_height )
-
-        return total_height
-
     def focusInEvent(self, event):
         """獲得焦點時展開"""
         self.is_expanded = True
         self.details_widget.show()
-        target_height = self._calculate_height()
+        target_height = self._calculate_expanded_height()
 
         self.height_animation.setStartValue(self.height())
         self.height_animation.setEndValue(target_height)
@@ -400,3 +349,22 @@ class BaseCard(QFrame):
         self.height_animation.start()
         self.min_height_animation.start()
         super().focusOutEvent(event)
+
+    def _create_argument_widget(self, arg: dict):
+        """創建參數顯示組件，添加值編輯功能"""
+        # print( "_create_argument_widget")
+        widget = QWidget()
+        layout = QHBoxLayout(widget)
+        layout.setContentsMargins(8, 0, 8, 0)
+        layout.setSpacing(8)
+
+        # 參數名稱和類型標籤
+        name = arg.get('name', '')
+        arg_type = arg.get('type', 'any')
+        param_text = f"{name}: {arg_type}"
+        param_label = QLabel(param_text)
+        param_label.setStyleSheet(self.PARAM_STYLESHEET)
+        layout.addWidget(param_label)
+        layout.addStretch()
+
+        return widget

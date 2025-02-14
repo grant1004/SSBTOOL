@@ -1,17 +1,185 @@
 {
-  "suite_info": {
-    "name": "功能測試",
-    "description": "測試系統功能",
-    "version": "1.0",
-    "author": "QA Team",
-    "estimated_time": "300min",
-    "priority" : "required"
-  },
+
   "test_cases": [
     {
       "id": "TEST_001",
-      "name": "測試案例1",
+      "name": "HMI基本功能測試",
+      "description": "測試HMI的基本交互功能",
+      "estimated_time": 300,
+      "priority": "required",
+      "setup": {
+        "preconditions": [
+          "確保HMI系統已啟動",
+          "檢查所有顯示元件正常"
+        ],
+        "library": [
+          "HMI",
+          "Common"
+        ]
+      },
+      "steps": [
+        {
+          "step_id": 1,
+          "name": "驗證按鈕點擊功能",
+          "action": "click_button",
+          "params": {
+            "button_id": "home_button",
+            "delay": 0.5
+          },
+          "expected": "成功點擊按鈕且無異常"
+        },
+        {
+          "step_id": 2,
+          "name": "文本輸入測試",
+          "action": "input_text",
+          "params": {
+            "field_id": "search_input",
+            "text": "測試文字",
+            "clear_first": true
+          },
+          "expected": "成功輸入文字且欄位內容正確"
+        },
+        {
+          "step_id": 3,
+          "name": "驗證顯示值",
+          "action": "verify_display_value",
+          "params": {
+            "display_id": "status_display",
+            "expected_value": "就緒",
+            "timeout": 5
+          },
+          "expected": "顯示值與預期一致"
+        },
+        {
+          "step_id": 4,
+          "name": "下拉選單操作",
+          "action": "select_from_dropdown",
+          "params": {
+            "dropdown_id": "mode_selector",
+            "option": "高級模式"
+          },
+          "expected": "成功選擇指定選項"
+        },
+        {
+          "step_id": 5,
+          "name": "元件狀態檢查",
+          "action": "check_element_state",
+          "params": {
+            "element_id": "advanced_settings_button",
+            "state": "enabled"
+          },
+          "expected": "按鈕處於可用狀態"
+        }
+      ]
+    },
+	{
+      "id": "TEST_002",
+      "name": "Test Case 002",
+      "description": "測試功能B的運作情況",
+	  "estimated_time": 100,
+	  "priority" : "normal",
+      "setup": {
+        "preconditions": [
+          "預先條件1",
+          "預先條件2"
+        ]
+      },
+      "steps": [
+        {
+          "step_id": 1,
+          "name": "步驟1",
+          "action": "執行動作1",
+          "params": {
+            "param1": "值1",
+            "param2": "值2"
+          },
+          "expected": "預期結果1"
+        },
+        {
+          "step_id": 2,
+          "name": "步驟2",
+          "action": "執行動作2",
+          "params": {
+            "param1": "值3"
+          },
+          "expected": "預期結果2"
+        }
+      ]
+    },
+	{
+      "id": "TEST_003",
+      "name": "Test Case 003",
       "description": "測試功能A的運作情況",
+	  "estimated_time": 400,
+	  "priority" : "optional",
+      "setup": {
+        "preconditions": [
+          "預先條件1",
+          "預先條件2"
+        ]
+      },
+      "steps": [
+        {
+          "step_id": 1,
+          "name": "步驟1",
+          "action": "執行動作1",
+          "params": {
+            "param1": "值1",
+            "param2": "值2"
+          },
+          "expected": "預期結果1"
+        },
+        {
+          "step_id": 2,
+          "name": "步驟2",
+          "action": "執行動作2",
+          "params": {
+            "param1": "值3"
+          },
+          "expected": "預期結果2"
+        }
+      ]
+    },
+	{
+      "id": "TEST_004",
+      "name": "Test Case 004",
+      "description": "測試功能D的運作情況",
+	  "estimated_time": 300,
+	  "priority" : "normal",
+      "setup": {
+        "preconditions": [
+          "預先條件1",
+          "預先條件2"
+        ]
+      },
+      "steps": [
+        {
+          "step_id": 1,
+          "name": "步驟1",
+          "action": "執行動作1",
+          "params": {
+            "param1": "值1",
+            "param2": "值2"
+          },
+          "expected": "預期結果1"
+        },
+        {
+          "step_id": 2,
+          "name": "步驟2",
+          "action": "執行動作2",
+          "params": {
+            "param1": "值3"
+          },
+          "expected": "預期結果2"
+        }
+      ]
+    },
+	{
+      "id": "TEST_005",
+      "name": "Test Case 005",
+      "description": "測試功能E的運作情況",
+	  "estimated_time": 300,
+	  "priority" : "required",
       "setup": {
         "preconditions": [
           "預先條件1",
@@ -40,6 +208,7 @@
         }
       ]
     }
+
   ],
   "libraries": [
     "MyCustomLibrary"

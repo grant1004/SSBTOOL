@@ -2,8 +2,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 import json
-from src.ui.components.base import BaseCard
-
+from src.ui.components.base import BaseCard, BaseKeywordCard
 
 class TestCaseGroup(QScrollArea):
     """測試案例組，用於顯示一組測試案例卡片"""
@@ -13,9 +12,7 @@ class TestCaseGroup(QScrollArea):
         self.test_cases = []
         self.cards = []
         self._setup_ui()
-        # 獲取 theme manager
         self.theme_manager = self.get_theme_manager()
-        # 連接主題變更信號
         if self.theme_manager:
             self.theme_manager.theme_changed.connect(self._update_theme)
 
@@ -32,7 +29,39 @@ class TestCaseGroup(QScrollArea):
         self.layout.setSpacing(8)
         self.layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # 設置樣式
+        self.setWidget(self.container)
+        self._setup_style()
+
+    def load_from_data(self, data):
+        """直接從數據加載測試案例"""
+        if isinstance(data, dict) and 'test_cases' in data:
+            self.test_cases = data['test_cases']
+        else:
+            self.test_cases = data
+        self._create_cards()
+
+    def _create_cards(self):
+        """根據測試案例數據創建卡片"""
+        self.clear_cards()
+
+        for test_case in self.test_cases:
+            # 直接使用原始測試案例數據，不需要重新格式化
+            card = BaseCard(
+                card_id=test_case.get('id', f"test_{len(self.cards)}"),
+                config=test_case,
+                parent=self
+            )
+
+            if hasattr(self, 'theme_manager'):
+                card.theme_manager = self.theme_manager
+                card._update_theme()
+
+            card.clicked.connect(self._click_card)
+            self.cards.append(card)
+            self.layout.addWidget(card)
+
+    def _setup_style(self):
+        """設置基本樣式"""
         self.setStyleSheet("""
             QScrollArea {
                 border: none;
@@ -62,52 +91,6 @@ class TestCaseGroup(QScrollArea):
             }
         """)
 
-        self.setWidget(self.container)
-
-    def load_from_json(self, json_path):
-        """從JSON文件加載測試案例數據"""
-        try:
-            with open(json_path, 'r', encoding='utf-8') as file:
-                self.test_cases = json.load(file)
-                self._create_cards()
-        except Exception as e:
-            print(f"Error loading JSON file: {e}")
-
-    def load_from_data(self, data):
-        """直接從數據加載測試案例"""
-        self.test_cases = data
-        self._create_cards()
-
-    def _create_cards(self):
-        """根據測試案例數據創建卡片"""
-        # 清除現有卡片
-        self.clear_cards()
-
-        # 為每個測試案例創建新卡片
-        for test_case in self.test_cases:
-            card_config = {
-                'title': test_case.get('name', 'Unnamed Test'),
-                'info': test_case.get('description', ''),
-                'estimated_time': test_case.get('estimated_time', 0),
-                'keywords': test_case.get('keywords', []),
-                'priority': test_case.get('priority', 'medium')
-            }
-
-            card = BaseCard(
-                test_case.get('id', f"test_{len(self.cards)}"),
-                card_config,
-                parent=self
-            )
-
-            # 確保卡片有 theme manager 引用並立即更新主題
-            if hasattr(self, 'theme_manager'):
-                card.theme_manager = self.theme_manager
-                card._update_theme()  # 立即套用當前主題
-
-            card.clicked.connect(self._click_card)
-            self.cards.append(card)
-            self.layout.addWidget(card)
-
     def clear_cards(self):
         """清除所有卡片"""
         for card in self.cards:
@@ -120,17 +103,20 @@ class TestCaseGroup(QScrollArea):
         filter_text = filter_text.lower()
         for card in self.cards:
             should_show = (
-                    filter_text in card.title.lower() or
-                    filter_text in card.info.lower() or
-                    any(filter_text in keyword.lower() for keyword in card.keywords)
+                    filter_text in card.config.get('name', '').lower() or
+                    filter_text in card.config.get('description', '').lower() or
+                    any(
+                        filter_text in str(step).lower()
+                        for step in card.config.get('steps', [])
+                    )
             )
             card.setVisible(should_show)
 
     def update_card(self, card_id: str, new_data: dict):
         """更新特定卡片的數據"""
         for card in self.cards:
-            if card.id == card_id:
-                card.update_config(new_data)
+            if card.card_id == card_id:
+                card.config.update(new_data)
                 break
 
     def get_visible_cards(self):
@@ -142,7 +128,8 @@ class TestCaseGroup(QScrollArea):
         return self.cards.copy()
 
     def _click_card(self, card_id: str):
-        print( f"Clicked {card_id}" )
+        """卡片點擊處理"""
+        print(f"Clicked {card_id}")
 
     def get_theme_manager(self):
         """遞迴向上查找 theme_manager"""
@@ -155,10 +142,8 @@ class TestCaseGroup(QScrollArea):
 
     def _update_theme(self):
         """更新主題相關的樣式"""
-        # print( "Update Theme" )
         current_theme = self.theme_manager._themes[self.theme_manager._current_theme]
 
-        # 更新 ScrollArea 樣式
         self.setStyleSheet(f"""
             QScrollArea {{
                 border: none;
@@ -198,14 +183,9 @@ class TestCaseGroup(QScrollArea):
             }}
         """)
 
-        # 更新容器樣式
-        self.container.setStyleSheet(f"""
-            QWidget#tabs-container {{
-                background-color: transparent;
-            }}
-        """)
-
-        # 確保 viewport 保持透明
+        self.container.setStyleSheet(
+            "background-color: transparent;"
+        )
         self.viewport().setStyleSheet(
             "background-color: transparent;"
         )

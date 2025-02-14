@@ -14,9 +14,9 @@ class TestStatus(Enum):
 class KeywordProgressItem(QWidget):
     """關鍵字進度項組件"""
 
-    def __init__(self, keyword: str, parent=None):
+    def __init__(self, keyword, parent=None):
         super().__init__(parent)
-        self.keyword = keyword
+        self.keyword = keyword.get('name', '')
         self.status = TestStatus.WAITING
         self.progress = 0
         self._setup_ui()
@@ -135,16 +135,29 @@ class KeywordProgressItem(QWidget):
             font-weight: bold;
         """)
 
-
 class CollapsibleProgressPanel(QFrame):
     """可展開的進度面板"""
 
     def __init__(self, config: dict, parent=None):
         super().__init__(parent)
+        # print( config )
+        """ Config : 
+            {'id': 'TEST_001', 
+             'name': 'Test Case 001, Test Case 001', 
+             'description': '測試功能A的運作情況', 
+             'setup': {'preconditions': ['預先條件1', '預先條件2']}, 
+             'estimated_time': 300, 
+             'steps': [
+                {'step_id': 1, 'name': '步驟1', 'action': '執行動作1', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果1'}, 
+                {'step_id': 2, 'name': '步驟2', 'action': '執行動作2', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果2'}, 
+                {'step_id': 3, 'name': '步驟3', 'action': '執行動作3', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果3'}, 
+                {'step_id': 4, 'name': '步驟4', 'action': '執行動作4', 'params': {'param1': '值3'}, 'expected': '預期結果4'}], 
+             'priority': 'required'}
+        """
         self.setObjectName("CollapsibleProgressPanel")
         self.config = config
         self.is_expanded = False
-        self.keywords = config.get('keywords', [])
+        self.keywords = config.get('steps', [])
         self.keyword_items = []
         self.current_keyword_index = -1
         self._setup_ui()
@@ -167,9 +180,10 @@ class CollapsibleProgressPanel(QFrame):
 
         # 標題欄
         self.header = QWidget()
+        self.header.setStyleSheet("radius: 4px;")
         self.header.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         header_layout = QHBoxLayout(self.header)
-        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setContentsMargins(8, 0, 0, 0)
         header_layout.setSpacing(8)
 
         # 狀態指示燈
@@ -181,7 +195,7 @@ class CollapsibleProgressPanel(QFrame):
         """)
 
         # 標題
-        self.title_label = QLabel(self.config.get('title', ''))
+        self.title_label = QLabel(self.config.get('name', ''))
         self.title_label.setStyleSheet("""
             font-size: 14px;
             font-weight: bold;
@@ -189,11 +203,12 @@ class CollapsibleProgressPanel(QFrame):
 
         # 展開/收起按鈕
         self.expand_button = QPushButton()
-        self.expand_button.setFixedSize(24, 24)
+        self.expand_button.setFixedSize(16,16)
         self.expand_button.setStyleSheet("""
             QPushButton {
                 border: none;
-                background: transparent;
+                radius: 4px;
+                background: #000000;
             }
         """)
         self.expand_button.clicked.connect(self.toggle_expand)
@@ -225,7 +240,7 @@ class CollapsibleProgressPanel(QFrame):
         self.keywords_container.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.keywords_layout = QVBoxLayout(self.keywords_container)
         self.keywords_layout.setContentsMargins(0, 0, 0, 0)
-        self.keywords_layout.setSpacing(2)
+        self.keywords_layout.setSpacing(8)
 
         # 創建所有關鍵字項
         for keyword in self.keywords:
@@ -325,6 +340,7 @@ class CollapsibleProgressPanel(QFrame):
                     border-radius: 2px;
                 }
             """)
+
 
 
 

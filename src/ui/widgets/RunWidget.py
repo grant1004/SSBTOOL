@@ -1,12 +1,9 @@
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
-
-from src.ui.Theme import ThemeManager
 from src.utils import get_icon_path
-from src.utils import Utils
+from src.utils import Utils, Container
 from src.controllers import RunWidgetController
-from src.models import RunWidget_Model
 
 
 class RunWidget(QWidget):
@@ -14,9 +11,7 @@ class RunWidget(QWidget):
         super().__init__(parent)
         self.mainWindow = parent
         self.setFixedHeight(80)
-        self.model = RunWidget_Model()
-        self.controller = RunWidgetController( self.model, self)
-
+        self.controller = Container.get_run_widget_controller()
         self._setup_shadow()
         self.main_layout = QHBoxLayout(self)
         self.main_layout.setContentsMargins(4,4,8,8)

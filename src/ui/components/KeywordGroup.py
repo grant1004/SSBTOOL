@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
-from src.ui.components.base import BaseCard
+from src.ui.components.base import BaseCard, BaseKeywordCard
 
 
 class KeywordGroup(QScrollArea):
@@ -90,14 +90,9 @@ class KeywordGroup(QScrollArea):
 
             try:
                 # 創建卡片
-                card = BaseCard(
+                card = BaseKeywordCard(
                     card_id=config.get('id', f"kw_{len(self.cards)}"),
-                    config={
-                        'title': config.get('title', 'Unnamed Keyword'),
-                        'info': config.get('info', ''),
-                        'keywords': config.get('keywords', []),
-                        'priority': config.get('priority', 'standard')
-                    },
+                    config=config,
                     parent=self
                 )
 
@@ -129,12 +124,11 @@ class KeywordGroup(QScrollArea):
     def filter_cards(self, filter_text: str):
         """根據過濾文本顯示/隱藏卡片"""
         filter_text = filter_text.lower()
+        # print(">>> filter_text: ", filter_text)
+
         for card in self.cards:
-            should_show = (
-                    filter_text in card.title.lower() or
-                    filter_text in card.info.lower() or
-                    any(filter_text in keyword.lower() for keyword in card.keywords)
-            )
+            # print(">>> card.name: ", card.config.get('name', ''))
+            should_show = ( filter_text in card.config.get('name', '').lower() )
             card.setVisible(should_show)
 
     def _click_card(self, card_id: str):
