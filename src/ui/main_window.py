@@ -1,3 +1,4 @@
+import asyncio
 import sys
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
@@ -83,5 +84,24 @@ class MainWindow(QMainWindow):
         grid.setRowMinimumHeight(0,44)
         grid.setRowStretch(1, 1)
         grid.setRowStretch(2, 0)
+
+    def closeEvent(self, event):
+        try:
+            print("Closing window...")
+            loop = asyncio.get_event_loop()
+
+            # 如果事件迴圈正在運行，安全地停止
+            if loop.is_running():
+                loop.stop()
+
+            # 確保關閉所有非模態的視窗
+            for widget in QApplication.topLevelWidgets():
+                if widget.isVisible():
+                    widget.close()
+
+            event.accept()
+        except Exception as e:
+            print(f"Error during close: {e}")
+            event.accept()
 
 
