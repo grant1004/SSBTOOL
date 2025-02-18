@@ -63,7 +63,7 @@ class DeviceMonitorWorker(QObject):
         """
         try:
             current_status = self._device.is_connected
-            print(f"Monitor >>> Device {self._device_type.name} status: {current_status}")
+            # print(f"Monitor >>> Device {self._device_type.name} status: {current_status}")
 
             # Only emit if status changed
             if current_status != self._last_status:
@@ -118,7 +118,7 @@ class DeviceManagerWorker(QObject):
         self._monitor_threads: Dict[DeviceType, QThread] = {}
 
 
-    def _get_device(self, device_type: DeviceType) -> Union[USBDevice, LoaderDevice, PowerDevice]:
+    def get_device(self, device_type: DeviceType) -> Union[USBDevice, LoaderDevice, PowerDevice]:
         """
         根據設備類型獲取對應的設備實例
 
@@ -159,7 +159,7 @@ class DeviceManagerWorker(QObject):
             ConnectionError: 設備連接失敗時拋出
             ValueError: 傳入無效的設備類型
         """
-        device = self._get_device(device_type)
+        device = self.get_device(device_type)
         # print( f"Click {device} Connect button")
         try:
             # 嘗試連接設備
@@ -203,7 +203,7 @@ class DeviceManagerWorker(QObject):
         if not self._device_status.get(device_type, False):
             raise DeviceNotConnectedError(f"{device_type.name} device is not connected")
 
-        device = self._get_device(device_type)
+        device = self.get_device(device_type)
 
         try:
             # 停止監控線程
@@ -230,7 +230,7 @@ class DeviceManagerWorker(QObject):
     def _create_device_monitor_thread(self, device_type: DeviceType) -> QThread:
         # print(f"Creating monitor thread for {device_type.name}")
 
-        device = self._get_device(device_type)
+        device = self.get_device(device_type)
         monitor_worker = DeviceMonitorWorker(
             device=device,
             device_type=device_type

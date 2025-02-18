@@ -18,6 +18,7 @@ class USBDevice(DeviceBase):
         self._logger = logging.getLogger(__name__)
         self._connection_lost = False
         self._transport = None
+        self._protocol = None
 
     async def connect(self, port: str = "COM30") -> bool:
         try:
@@ -25,7 +26,7 @@ class USBDevice(DeviceBase):
                 return True
 
             self._port = port
-            self._transport, protocol = await serial_asyncio.create_serial_connection(
+            self._transport, self._protocol = await serial_asyncio.create_serial_connection(
                 asyncio.get_event_loop(),
                 lambda: SerialProtocol(self._handle_connection_lost),
                 port,
@@ -36,7 +37,9 @@ class USBDevice(DeviceBase):
                 timeout=1
             )
 
-            self._reader, self._writer = protocol, self._transport
+            # 直接使用 transport 進行寫入操作
+            self._writer = self._transport
+            self._reader = self._protocol
             self._connected = True
             self._connection_lost = False
             self._logger.info(f"Successfully connected to device on port {port}")
@@ -44,7 +47,7 @@ class USBDevice(DeviceBase):
 
         except Exception as e:
             self._logger.error(f"Failed to connect to device: {str(e)}")
-            await self.disconnect()
+            self.disconnect()
             return False
 
     def _handle_connection_lost(self, exc=None):
@@ -114,31 +117,40 @@ class USBDevice(DeviceBase):
             self._logger.error(f"Error during disconnect: {str(e)}")
             return False
 
-    async def send_command(self, cmd: str, data: Optional[bytes] = None) -> bool:
+    def send_command(self, command: bytes) -> bool:
+        """發送命令
+
+        Args:
+            command: 要發送的完整命令（bytes格式）
+
+        Returns:
+            bool: 是否發送成功
+        """
         if not self._connected or self._connection_lost:
             raise ConnectionError("Device not connected")
 
         try:
-            command = cmd.encode('utf-8')
-            if data:
-                command += data
+            # transport.write 不返回字節數，而是直接寫入
+            # 檢查事件循環狀態
 
-            self._writer.write(command)
-            await self._writer.drain()
-
-            self._logger.debug(f"Command sent: {cmd}")
+            self._transport.write(command)
+            print(f"Command sent: {command.hex(' ').upper()}")
+            self._logger.debug(f"Command sent: {command.hex(' ').upper()}")
             return True
 
         except SerialException as e:
             if "ClearCommError failed" in str(e):
+                print("USB device disconnected during command send")
                 self._logger.warning("USB device disconnected during command send")
                 self._handle_connection_lost(e)
             else:
+                print(f"Serial error during command send: {str(e)}")
                 self._logger.error(f"Serial error during command send: {str(e)}")
                 self._handle_connection_lost(e)
             return False
 
         except Exception as e:
+            print(f"Error sending command: {str(e)}")
             self._logger.error(f"Error sending command: {str(e)}")
             self._handle_connection_lost(e)
             return False

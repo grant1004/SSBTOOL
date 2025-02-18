@@ -1,5 +1,9 @@
 from PySide6.QtCore import Signal, QObject
+
+from src.Manager import DeviceManager
 from src.utils.singleton import singleton
+from Lib.CANPacketGenerator import CANPacketGenerator
+from src.Manager import DeviceType
 from robot import run
 from src.worker import RobotTestWorker
 import os
@@ -19,28 +23,41 @@ class RunWidget_Model(QObject):
         if ( len( testcase ) == 0 ):
             print( "No test case selected")
         else :
-            generate, msg, path = self.generate_robot_file(testcase,name_text)
-            print( msg )
-            if generate:
-                project_root = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-                lib_path = os.path.join(project_root, "Lib")
-                output_dir = os.path.join(project_root, "data", "robot")
-
-                # 創建並設置 worker
-                self.worker = RobotTestWorker(path, project_root, lib_path, output_dir)
-                self.worker.progress.connect(self.handle_progress)
-                self.worker.finished.connect(self.handle_finished)
-
-                # 開始執行
-                self.worker.start()
+            cmd = CANPacketGenerator.generate(
+                node=1,
+                can_id=0x401,
+                payload="00 64",
+                can_type=0
+            )
+            device_manager = DeviceManager.instance()
+            device_manager.worker.get_device( DeviceType.USB ).send_command( cmd )
+            # generate, msg, path = self.generate_robot_file(testcase,name_text)
+            # print( msg )
+            # if generate:
+            #     project_root = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+            #     lib_path = os.path.join(project_root, "Lib")
+            #     output_dir = os.path.join(project_root, "data", "robot")
+            #     print( f"output_dir : {output_dir}" )
+            #     print( f"project_root : {project_root}" )
+            #     print( f"lib_path : {lib_path}" )
+            #     # 創建並設置 worker
+            #
+            #     self.worker = RobotTestWorker(path, project_root, lib_path, output_dir)
+            #     self.worker.progress.connect(self.handle_progress)
+            #     self.worker.finished.connect(self.handle_finished)
+            #
+            #     # 開始執行
+            #     self.worker.start()
 
     def handle_progress(self, message):
         """處理測試進度更新"""
+        # print( "handle_progress" )
         self.test_progress.emit(message)
-        # print(message)  # 你可以改為更新 UI 上的進度顯示
+        print(message)  # 你可以改為更新 UI 上的進度顯示
 
     def handle_finished(self, success):
         """處理測試完成"""
+        print( "handle_finished" )
         self.test_finished.emit(success)
         self.worker = None
 

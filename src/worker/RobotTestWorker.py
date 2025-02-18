@@ -1,3 +1,4 @@
+from PySide6.QtWidgets import QApplication
 from robot import run
 from robot.api import ExecutionResult
 from PySide6.QtCore import QThread, Signal
@@ -19,6 +20,8 @@ class RobotTestWorker(QThread):
     def run(self):
         try:
             # 執行 Robot Framework 測試
+            print(f"Running in thread: {QThread.currentThread()}")
+            print(f"Main thread: {QApplication.instance().thread()}")
             result = run(
                 self.robot_file_path,
                 outputdir=self.output_dir,
@@ -27,11 +30,12 @@ class RobotTestWorker(QThread):
                 loglevel='DEBUG',
                 listener=ProgressListener(self.progress),
                 console='none',  # 關閉 Robot Framework 的控制台輸出
-                stdout=None,  # 關閉標準輸出
-                stderr=None,  # 關閉錯誤輸出
+                # stdout=None,  # 關閉標準輸出
+                # stderr=None,  # 關閉錯誤輸出
             )
             self.finished.emit(result == 0)
 
         except Exception as e:
+            print(f"Error running test case: {os.path.basename(self.robot_file_path)}")
             self.progress.emit(f"Error: {str(e)}")
             self.finished.emit(False)

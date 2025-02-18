@@ -1,60 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<robot generator="Robot 7.2 (Python 3.13.0 on win32)" generated="2025-02-17T09:52:09.695054" rpa="false" schemaversion="5">
+<robot generator="Robot 7.2 (Python 3.13.0 on win32)" generated="2025-02-17T17:52:42.349195" rpa="false" schemaversion="5">
 <suite id="s1" name="Generated Test" source="C:\Users\GrantWang\Desktop\SSB\ssb_tool\data\robot\generated_test.robot">
-<test id="s1-t1" name="HMI基本功能測試" line="11">
-<kw name="Click Button" owner="Lib.HMILibrary">
-<msg time="2025-02-17T09:52:09.920130" level="FAIL">Variable '${home_button}' not found.</msg>
-<arg>button_id=${home_button}</arg>
-<arg>delay=${0.5}</arg>
-<doc>Simulate clicking a button on HMI.</doc>
-<status status="FAIL" start="2025-02-17T09:52:09.919269" elapsed="0.000946">Variable '${home_button}' not found.</status>
+<test id="s1-t1" name="Execute Keyword - send_can_message" line="10">
+<kw name="Send Can Message" owner="Lib.BatteryLibrary">
+<msg time="2025-02-17T17:52:42.400017" level="DEBUG">Using proactor: IocpProactor</msg>
+<msg time="2025-02-17T17:52:42.400885" level="DEBUG">Current event loop state: open</msg>
+<msg time="2025-02-17T17:52:42.401060" level="DEBUG">Command sent: FF FF A0 03 53 13 00 00 01 04 00 00 02 00 64 00 00 00 00 00 00 5D 9E 38 36</msg>
+<msg time="2025-02-17T17:52:42.401245" level="INFO">{'type': 'test_start', 'data': {'test_name': 'Execute Keyword - send_can_message', 'status': 'RUNNING'}}
+{'type': 'keyword_start', 'data': {'test_name': 'Execute Keyword - send_can_message', 'keyword_name': 'Lib.BatteryLibrary.Send Can Message', 'status': 'RUNNING'}}
+發送訊息 - CAN ID: 0x401, Node: 0, Type: 0, Payload: 00 64</msg>
+<arg>can_id=0x401</arg>
+<arg>payload=00 64</arg>
+<arg>node=0</arg>
+<arg>can_type=0</arg>
+<doc>發送 CAN 訊息</doc>
+<status status="PASS" start="2025-02-17T17:52:42.399319" elapsed="0.001995"/>
 </kw>
-<kw name="Input Text" owner="Lib.HMILibrary">
-<arg>field_id=${search_input}</arg>
-<arg>text=${測試文字}</arg>
-<arg>clear_first=${True}</arg>
-<doc>Input text into a specified field.</doc>
-<status status="NOT RUN" start="2025-02-17T09:52:09.920381" elapsed="0.000045"/>
-</kw>
-<kw name="Verify Display Value" owner="Lib.HMILibrary">
-<arg>display_id=${status_display}</arg>
-<arg>expected_value=${就緒}</arg>
-<arg>timeout=${5}</arg>
-<doc>Verify the value shown on a display element.</doc>
-<status status="NOT RUN" start="2025-02-17T09:52:09.920589" elapsed="0.000039"/>
-</kw>
-<kw name="Select From Dropdown" owner="Lib.HMILibrary">
-<arg>dropdown_id=${mode_selector}</arg>
-<arg>option=${高級模式}</arg>
-<doc>Select an option from a dropdown menu.</doc>
-<status status="NOT RUN" start="2025-02-17T09:52:09.920719" elapsed="0.000029"/>
-</kw>
-<kw name="Check Element State" owner="Lib.HMILibrary">
-<arg>element_id=${advanced_settings_button}</arg>
-<arg>state=${enabled}</arg>
-<doc>Check if an element is in the expected state.</doc>
-<status status="NOT RUN" start="2025-02-17T09:52:09.920840" elapsed="0.000026"/>
-</kw>
-<doc>測試HMI的基本交互功能
-
-Preconditions:
-- 確保HMI系統已啟動
-- 檢查所有顯示元件正常</doc>
-<tag>required</tag>
-<status status="FAIL" start="2025-02-17T09:52:09.918555" elapsed="0.002464">Variable '${home_button}' not found.</status>
+<doc>發送 CAN 訊息</doc>
+<tag>auto-generated</tag>
+<tag>optional</tag>
+<status status="PASS" start="2025-02-17T17:52:42.398588" elapsed="0.002979"/>
 </test>
 <doc>Untitled</doc>
-<status status="FAIL" start="2025-02-17T09:52:09.702693" elapsed="0.218589"/>
+<status status="PASS" start="2025-02-17T17:52:42.357987" elapsed="0.043977"/>
 </suite>
 <statistics>
 <total>
-<stat pass="0" fail="1" skip="0">All Tests</stat>
+<stat pass="1" fail="0" skip="0">All Tests</stat>
 </total>
 <tag>
-<stat pass="0" fail="1" skip="0">required</stat>
+<stat pass="1" fail="0" skip="0">auto-generated</stat>
+<stat pass="1" fail="0" skip="0">optional</stat>
 </tag>
 <suite>
-<stat name="Generated Test" id="s1" pass="0" fail="1" skip="0">Generated Test</stat>
+<stat name="Generated Test" id="s1" pass="1" fail="0" skip="0">Generated Test</stat>
 </suite>
 </statistics>
 <errors>

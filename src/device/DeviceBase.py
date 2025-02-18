@@ -17,7 +17,7 @@ class DeviceBase(ABC):
         pass
 
     @abstractmethod
-    async def send_command(self, cmd: str, data: Optional[bytes] = None) -> bool:
+    def send_command(self, cmd: bytes) -> bool:
         """發送命令"""
         pass
 
