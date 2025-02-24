@@ -205,6 +205,9 @@ class RunCaseWidget(QWidget):
             step = message.get('type')
             if step == 'test_start':
                 print( f"Running Test Case: {message['data']['test_name']}")
+            elif step == 'keyword_start':
+                self.update_progress_status( "running", -1, test_id)
+                print( f"Running Keyword: {message['data']['keyword_name']}")
             elif step == 'test_end':
                 result = message.get('data').get('status')
                 log = message.get('data').get('message')
@@ -213,9 +216,10 @@ class RunCaseWidget(QWidget):
                 print( f"Log: {log}")
                 print( f"======================"*3)
                 if result == 'PASS':
-                    self.update_test_status( True, test_id)
+                    self.update_progress_status( "passed", 100, test_id)
                 elif result == 'FAIL':
-                    self.update_test_status( False, test_id)
+                    error_msg = message.get('data').get('message')
+                    self.update_progress_status( "failed", 100, test_id, error_msg)
                 else:
                     print( f"Error: Unknown result: {result}")
 
@@ -223,17 +227,10 @@ class RunCaseWidget(QWidget):
         except Exception as e:
             print(f"Error parsing message: {e}")
 
-    def update_test_status(self, success, test_id:long):
+    def update_progress_status(self, status, progress_value, test_id:long, error_msg:str = ""):
         """更新測試狀態"""
-        print( f"update_test_status: {success} {test_id}")
         panel = self.test_cases[test_id]['panel']
-        if success:
-            status = "passed"
-        else:
-            status = "failed"
-        # update_status(self, status: str, progress: int = None)
-        panel.update_status(status, 100)
-
+        panel.update_status(status, progress_value, error_msg)
         self._update_ui()
 
     def reset_test(self):

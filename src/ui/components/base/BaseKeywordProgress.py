@@ -42,14 +42,13 @@ class BaseKeywordProgressCard(QFrame):
         # 設置固定高度 (根據參數數量動態調整)
         base_height = 140  # 基礎高度
         param_height = len(self.keyword_config.get('arguments', [])) * 40
-        self.setFixedHeight(base_height + param_height)
+        self.setMinimumHeight(base_height + param_height)
 
-    def _init_param_values(self):
-        """初始化參數值，使用默認值"""
-        for arg in self.keyword_config.get('arguments', []):
-            name = arg.get('name')
-            default = arg.get('default')
-            self.param_values[name] = default
+        # running Timer
+        self.timer = QTimer()
+        self.timer.setInterval(100)  # 每0.1秒更新一次
+        self.timer.timeout.connect(self._update_running_time)
+        self.start_time = None
 
 
     def _setup_ui(self):
@@ -58,17 +57,50 @@ class BaseKeywordProgressCard(QFrame):
         # 主布局
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 12, 16, 12)
-        layout.setSpacing(12)
+        layout.setSpacing(0)
 
-        # 添加標題區域
-        layout.addWidget(self._create_header())
+        # 建立一個容器來包含所有內容
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
 
-        # 添加參數輸入區域
-        layout.addWidget(self._create_params_section())
+        # 添加各個區域到容器中
+        header = self._create_header()
+        params = self._create_params_section()
+        progress = self._create_progress_section()
+        error = self._create_error_section()
 
-        # 添加進度區域
-        layout.addWidget(self._create_progress_section())
+        # 設置各區域的大小策略
+        header.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        params.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        progress.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        error.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
+        # 添加到容器布局
+        content_layout.addWidget(header)
+        content_layout.addWidget(params)
+        content_layout.addWidget(progress)
+        content_layout.addWidget(error)
+
+        # 設置容器的大小策略
+        content_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        # 將容器添加到主布局
+        layout.addWidget(content_widget)
+
+    def _get_base_stylesheet(self):
+        """獲取基本樣式表"""
+        return """
+            KeywordProgressCard {
+                background-color: #FF0000;
+                border: 2px solid #A0A0A0;
+                margin: 8px 8px 0px 8px  ;  
+            }
+        """
+
+
+    # region UI
     def _setup_shadow(self):
         """設置陰影效果"""
         shadow = QGraphicsDropShadowEffect(self)
@@ -165,52 +197,6 @@ class BaseKeywordProgressCard(QFrame):
 
         return progress_widget
 
-    def _get_base_stylesheet(self):
-        """獲取基本樣式表"""
-        return """
-            KeywordProgressCard {
-                background-color: #FF0000;
-                border: 2px solid #A0A0A0;
-                margin: 8px 8px 0px 8px  ;  
-            }
-        """
-
-    def update_status(self, status: str, progress: int = None):
-        """更新執行狀態"""
-        self.status = status
-
-        # 更新狀態標籤
-        self.status_label.setText(status.upper())
-        self.status_label.setStyleSheet(f"""
-            background-color: {self.STATUS_COLORS[status]};
-            color: white;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
-        """)
-
-        # 更新進度條
-        if progress is not None:
-            self.progress = progress
-            self.progress_bar.setValue(progress)
-            self.progress_bar.setStyleSheet(f"""
-                QProgressBar {{
-                    background-color: #F5F5F5;
-                    border: none;
-                    border-radius: 4px;
-                }}
-                QProgressBar::chunk {{
-                    background-color: {self.STATUS_COLORS[status]};
-                    border-radius: 4px;
-                }}
-            """)
-
-    def update_execution_time(self, time_in_seconds: float):
-        """更新執行時間"""
-        self.execution_time = time_in_seconds
-        self.time_label.setText(f"{time_in_seconds:.1f}s")
-
     def _create_params_section(self):
         """創建參數輸入區域"""
         params_widget = QWidget()
@@ -246,7 +232,6 @@ class BaseKeywordProgressCard(QFrame):
 
         return params_widget
 
-
     def _create_input_field(self, arg):
         """創建適合參數類型的輸入框"""
         arg_type = arg.get('type', 'str').lower()
@@ -274,6 +259,43 @@ class BaseKeywordProgressCard(QFrame):
             )
 
         return input_field
+
+    def _create_error_section(self):
+        """創建錯誤訊息區域"""
+        error_widget = QWidget()
+        error_layout = QVBoxLayout(error_widget)
+        error_layout.setContentsMargins(8, 0, 8, 8)  # 減少上下邊距
+
+        self.error_label = QLabel()
+        self.error_label.setText("")
+        self.error_label.setWordWrap(True)  # 允許文字換行
+        self.error_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)  # 允許水平擴展
+        self.error_label.setStyleSheet("""
+            QLabel {
+                color: #8B0000;
+                padding: 8px;
+                border: 1px solid #8B0000;
+                border-radius: 4px;
+                font-size: 12px;
+                background-color: #FFF0F0;
+            }
+        """)
+        self.error_label.hide()  # 預設隱藏
+
+        error_layout.addWidget(self.error_label)
+        return error_widget
+
+    #endregion
+
+
+    # region Parameter Management Methods
+
+    def _init_param_values(self):
+        """初始化參數值，使用默認值"""
+        for arg in self.keyword_config.get('arguments', []):
+            name = arg.get('name')
+            default = arg.get('default')
+            self.param_values[name] = default
 
     def _handle_value_changed(self, name: str, value):
         """處理值變更"""
@@ -318,8 +340,105 @@ class BaseKeywordProgressCard(QFrame):
                 else:
                     input_field.setText(str(value) if value is not None else '')
 
+    #endregion
+
+
+    # region STATUS UPDATE
+
+    def update_execution_time(self, time_in_seconds: float):
+        """更新執行時間"""
+        self.execution_time = time_in_seconds
+        self.time_label.setText(f"{time_in_seconds:.1f}s")
+
     def reset_status(self):
         """重置狀態為初始值"""
         self.update_status('waiting', 0)
         self.update_execution_time(0.0)
+        self.stop_timer()
+        self.start_time = None
 
+    def update_status(self, status: str, progress: int = None, error_msg: str = None):
+        """更新執行狀態"""
+        self.status = status
+
+        # 更新狀態標籤
+        self.status_label.setText(status.upper())
+        self.status_label.setStyleSheet(f"""
+            background-color: {self.STATUS_COLORS[status]};
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        """)
+
+        # 更新進度條
+        if progress is not None:
+            self.progress = progress
+            self.progress_bar.setValue(progress)
+            self.progress_bar.setStyleSheet(f"""
+                QProgressBar {{
+                    background-color: #F5F5F5;
+                    border: none;
+                    border-radius: 4px;
+                }}
+                QProgressBar::chunk {{
+                    background-color: {self.STATUS_COLORS[status]};
+                    border-radius: 4px;
+                }}
+            """)
+            if status == 'running':
+                self.set_progress_start()
+                self.start_timer()
+            else :
+                self.set_progress_normal()
+                self.stop_timer()
+
+            # 更新錯誤訊息
+            self.update_error(error_msg)
+
+    def update_error(self, error_msg: str):
+        """更新錯誤訊息
+        Args:
+            error_msg (str): 錯誤訊息文字，如果是空字串則隱藏錯誤訊息區塊
+        """
+        if self.error_label:  # 添加檢查
+            if error_msg:
+                self.error_label.setText(error_msg)
+                self.error_label.show()
+            else:
+                self.error_label.clear()
+                self.error_label.hide()
+
+    #endregion
+
+
+    # region PROGRESS BAR
+    def set_progress_start(self):
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(0)
+
+    def set_progress_normal(self):
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(100)
+
+    #endregion
+
+
+    # region RUNNING TIMER
+    def _update_running_time(self):
+        """更新運行時間"""
+        if self.start_time is not None:
+            elapsed = (QDateTime.currentDateTime().toMSecsSinceEpoch() - self.start_time) / 1000.0
+            self.update_execution_time(elapsed)
+
+    def start_timer(self):
+        """開始計時"""
+        self.start_time = QDateTime.currentDateTime().toMSecsSinceEpoch()
+        self.timer.start()
+
+    def stop_timer(self):
+        """停止計時"""
+        self.timer.stop()
+
+    #endregion

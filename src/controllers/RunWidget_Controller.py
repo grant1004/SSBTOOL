@@ -14,7 +14,7 @@ class RunWidgetController(QObject):
         # 提供方法來設置 view
         self.view = view
         self.model.test_progress.connect(self.view.update_progress)
-        self.model.test_finished.connect(self.view.update_test_status)
+        # self.model.test_finished.connect(self.view.update_test_status)
 
     def RunCommand(self):
         testcase = self.view.test_cases
