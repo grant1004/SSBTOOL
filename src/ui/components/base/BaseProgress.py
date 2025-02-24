@@ -341,6 +341,15 @@ class CollapsibleProgressPanel(QFrame):
                 }
             """)
 
+    def reset_status(self):
+        """重置所有關鍵字的狀態和進度"""
+        for item in self.keyword_items:
+            item.update_status(TestStatus.WAITING, 0)
+
+        self.overall_progress.setValue(0)
+        self.update_overall_status(TestStatus.WAITING)
+
+
 
 
 

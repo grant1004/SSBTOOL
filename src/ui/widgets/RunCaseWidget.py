@@ -1,6 +1,8 @@
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
+from numpy import long
+
 from src.utils import Container
 from src.ui.components.base import CollapsibleProgressPanel, BaseKeywordProgressCard
 import json
@@ -89,27 +91,37 @@ class RunCaseWidget(QWidget):
     def dropEvent(self, event):
         mime_data = event.mimeData()
         """
-                x-testcase : 
-                    {'id': 'TEST_001', 
-                     'name': 'Test Case 001, Test Case 001', 
-                     'description': '測試功能A的運作情況', 
-                     'setup': {
-                        'preconditions': ['預先條件1', '預先條件2']}, 
-                        'estimated_time': 300, 
-                        'steps': [{'step_id': 1, 'name': '步驟1', 'action': '執行動作1', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果1'}, {'step_id': 2, 'name': '步驟2', 'action': '執行動作2', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果2'}, {'step_id': 3, 'name': '步驟3', 'action': '執行動作3', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果3'}, {'step_id': 4, 'name': '步驟4', 'action': '執行動作4', 'params': {'param1': '值3'}, 'expected': '預期結果4'}], 
-                        'priority': 'required'
-                        }
-                x-keyword : 
-                    {'id': 'BMS_MCU_Reset', 
-                     'name': 'BMS_MCU_Reset', 
-                     'category': 'common', 
-                     'description': '', 
-                     'arguments': [], 
-                     'returns': '', 
-                     'priority': 'required'
+            x-testcase : 
+                {'id': 'TEST_001', 
+                 'name': 'Test Case 001, Test Case 001', 
+                 'description': '測試功能A的運作情況', 
+                 'setup': {
+                    'preconditions': ['預先條件1', '預先條件2']}, 
+                    'estimated_time': 300, 
+                    'steps': [{'step_id': 1, 'name': '步驟1', 'action': '執行動作1', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果1'}, {'step_id': 2, 'name': '步驟2', 'action': '執行動作2', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果2'}, {'step_id': 3, 'name': '步驟3', 'action': '執行動作3', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果3'}, {'step_id': 4, 'name': '步驟4', 'action': '執行動作4', 'params': {'param1': '值3'}, 'expected': '預期結果4'}], 
+                    'priority': 'required'
                     }
+            
+            x-keyword :
+            {'id': 'send_can_message', 
+             'config': {
+                'id': 'send_can_message', 
+                'name': 'send_can_message', 
+                'category': 'battery', 
+                'description': '發送 CAN 訊息', 
+                'arguments': [
+                    {'name': 'can_id', 'type': 'any', 'description': '', 'default': None, 'value': '401'}, 
+                    {'name': 'payload', 'type': 'any', 'description': '', 'default': None, 'value': '00'}, 
+                    {'name': 'node', 'type': 'any', 'description': '', 'default': '1', 'value': '1'}, 
+                    {'name': 'can_type', 'type': 'any', 'description': '', 'default': '0', 'value': '0'}], 
+                'returns': '', 
+                'priority': 'optional'}
+            }
+                        
+                
+                
 
-                """
+        """
         if mime_data.hasFormat('application/x-testcase'):
             data = mime_data.data('application/x-testcase')
             data_type = 'testcase'
@@ -140,6 +152,7 @@ class RunCaseWidget(QWidget):
             panel = BaseKeywordProgressCard(case_data['config'], parent=self)
 
         # 添加到內容布局
+        # print( case_data )
         self.content_layout.addWidget(panel)
         panel_id = id(panel)
         # print( panel_id )
@@ -163,27 +176,66 @@ class RunCaseWidget(QWidget):
         else:
             return self.Name_LineEdit.text()
 
-    def update_progress(self, message_str):
+    def update_progress(self, message:dict, test_id:long):
         """更新進度顯示"""
+        """ message EX: 
+            {'data': {'status': 'RUNNING', 
+                      'test_name': 'Execute Keyword - send_can_message [id]2278790270912'}, 
+             'type': 'test_start'}
+            {'data': {'keyword_name': 'Lib.BatteryLibrary.Send Can Message', 
+                      'status': 'RUNNING', 
+                      'test_name': 'Execute Keyword - send_can_message [id]2278790270912'}, 
+             'type': 'keyword_start'}
+            {'data': {'keyword_name': 'Lib.BatteryLibrary.Send Can Message', 
+                      'level': 'FAIL', 
+                      'message': '發送錯誤: USB 設備未連接', 
+                      'test_name': 'Execute Keyword - send_can_message [id]2278790270912'}, 
+             'type': 'log'}
+            {'data': {'keyword_name': 'Lib.BatteryLibrary.Send Can Message', 
+                      'message': '', 
+                      'status': 'FAIL', 
+                      'test_name': 'Execute Keyword - send_can_message [id]2278790270912'}, 
+             'type': 'keyword_end'}
+            {'data': {'message': '發送錯誤: USB 設備未連接', 
+                      'status': 'FAIL', 
+                      'test_name': 'Execute Keyword - send_can_message [id]2278790270912'},
+             'type': 'test_end'}
+        """
         try:
-            import ast
+            step = message.get('type')
+            if step == 'test_start':
+                print( f"Running Test Case: {message['data']['test_name']}")
+            elif step == 'test_end':
+                result = message.get('data').get('status')
+                log = message.get('data').get('message')
+                print( f"Test Case {message['data']['test_name']} End")
+                print( f"Result: {result}")
+                print( f"Log: {log}")
+                print( f"======================"*3)
+                if result == 'PASS':
+                    self.update_test_status( True, test_id)
+                elif result == 'FAIL':
+                    self.update_test_status( False, test_id)
+                else:
+                    print( f"Error: Unknown result: {result}")
 
-            message = ast.literal_eval(message_str)
-
-            test_name = message['data']['test_name']
-            msg_type = message['type']
-            if msg_type == 'testcase':
-                panel_id = message['panel_id']
-                panel = self.test_cases[panel_id]['panel']
-                panel.update_progress(message)
-            elif msg_type == 'keyword':
-                panel_id = message['panel_id']
-                panel = self.test_cases[panel_id]['panel']
-                panel.update_progress(message)
 
         except Exception as e:
             print(f"Error parsing message: {e}")
 
-
-    def update_test_status(self, success):
+    def update_test_status(self, success, test_id:long):
         """更新測試狀態"""
+        print( f"update_test_status: {success} {test_id}")
+        panel = self.test_cases[test_id]['panel']
+        if success:
+            status = "passed"
+        else:
+            status = "failed"
+        # update_status(self, status: str, progress: int = None)
+        panel.update_status(status, 100)
+
+        self._update_ui()
+
+    def reset_test(self):
+        for panel in self.test_cases.values():
+            panel['panel'].reset_status()

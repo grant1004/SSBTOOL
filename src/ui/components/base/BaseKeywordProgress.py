@@ -7,7 +7,7 @@ import json
 class BaseKeywordProgressCard(QFrame):
     """關鍵字進度卡片元件"""
     STATUS_COLORS = {
-        'waiting': '#FFC107',  # 黃色
+        'waiting': '#FFA000',  # 黃色
         'running': '#2196F3',  # 藍色
         'passed': '#4CAF50',  # 綠色
         'failed': '#F44336'  # 紅色
@@ -113,9 +113,9 @@ class BaseKeywordProgressCard(QFrame):
     def _create_progress_section(self):
         """創建進度顯示區域"""
         progress_widget = QWidget()
-        progress_layout = QVBoxLayout(progress_widget)
-        progress_layout.setSpacing(0)
-        progress_layout.setContentsMargins(8, 0, 8, 8)
+        progress_layout = QHBoxLayout(progress_widget)
+        progress_layout.setSpacing(12)
+        progress_layout.setContentsMargins(8, 8, 8, 8)
 
         # 進度條
         self.progress_bar = QProgressBar()
@@ -136,14 +136,14 @@ class BaseKeywordProgressCard(QFrame):
         """)
 
         # 狀態行
-        status_row = QWidget()
-        status_layout = QHBoxLayout(status_row)
-        status_layout.setContentsMargins(0, 0, 0, 0)
+        # status_row = QWidget()
+        # status_layout = QHBoxLayout(status_row)
+        # status_layout.setContentsMargins(0, 0, 0, 0)
 
         # 狀態標籤
         self.status_label = QLabel("WAITING")
-        self.status_label.setStyleSheet("""
-            background-color: #FFC107;
+        self.status_label.setStyleSheet(f"""
+            background-color: #FFA000;
             color: white;
             padding: 4px 12px;
             border-radius: 8px;
@@ -158,12 +158,10 @@ class BaseKeywordProgressCard(QFrame):
             font-size: 12px;
         """)
 
-        status_layout.addWidget(self.status_label)
-        status_layout.addStretch()
-        status_layout.addWidget(self.time_label)
-
-        progress_layout.addWidget(self.progress_bar)
-        progress_layout.addWidget(status_row)
+        # 正確的添加順序
+        progress_layout.addWidget(self.status_label)  # 先加入狀態標籤
+        progress_layout.addWidget(self.progress_bar)  # 加入進度條
+        progress_layout.addWidget(self.time_label)  # 加入時間標籤
 
         return progress_widget
 
@@ -319,3 +317,9 @@ class BaseKeywordProgressCard(QFrame):
                     input_field.setCurrentText(str(value if value is not None else 'False'))
                 else:
                     input_field.setText(str(value) if value is not None else '')
+
+    def reset_status(self):
+        """重置狀態為初始值"""
+        self.update_status('waiting', 0)
+        self.update_execution_time(0.0)
+

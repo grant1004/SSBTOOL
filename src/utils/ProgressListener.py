@@ -1,3 +1,6 @@
+from PySide6.QtCore import QMetaObject, Qt, Q_ARG
+
+
 class ProgressListener:
     ROBOT_LISTENER_API_VERSION = 2
 
@@ -6,7 +9,9 @@ class ProgressListener:
         self.current_test = None
         self.current_keyword = None
 
+
     def start_test(self, name, attrs):
+        """測試案例開始時的處理"""
         self.current_test = name
         message = {
             "type": "test_start",
@@ -15,21 +20,23 @@ class ProgressListener:
                 "status": "RUNNING"
             }
         }
-        self.signal.emit(str(message))
+        self._emit_message(message)
 
     def end_test(self, name, attrs):
+        """測試案例結束時的處理"""
         status = "PASS" if attrs['status'] == 'PASS' else "FAIL"
         message = {
             "type": "test_end",
             "data": {
                 "test_name": name,
                 "status": status,
-                "message": attrs.get('message', '')  # 包含錯誤信息
+                "message": attrs.get('message', '')
             }
         }
-        self.signal.emit(str(message))
+        self._emit_message(message)
 
     def start_keyword(self, name, attrs):
+        """關鍵字開始時的處理"""
         if attrs.get('type', '') == 'KEYWORD':
             self.current_keyword = name
             message = {
@@ -40,9 +47,11 @@ class ProgressListener:
                     "status": "RUNNING"
                 }
             }
-            self.signal.emit(str(message))
+            # print( message )
+            self._emit_message(message)
 
     def end_keyword(self, name, attrs):
+        """關鍵字結束時的處理"""
         if attrs.get('type', '') == 'KEYWORD':
             status = attrs['status']
             message = {
@@ -51,12 +60,13 @@ class ProgressListener:
                     "test_name": self.current_test,
                     "keyword_name": name,
                     "status": status,
-                    "message": attrs.get('message', '')  # 包含錯誤信息
+                    "message": attrs.get('message', '')
                 }
             }
-            self.signal.emit(str(message))
+            self._emit_message(message)
 
     def log_message(self, message):
+        """記錄訊息的處理"""
         level = message['level']
         if level in ('ERROR', 'FAIL'):
             message = {
@@ -68,4 +78,16 @@ class ProgressListener:
                     "message": message['message']
                 }
             }
-            self.signal.emit(str(message))
+            self._emit_message(message)
+
+    def _emit_message(self, message:dict):
+        """統一的消息發送處理"""
+        try:
+            # 直接使用 signal 的 emit 方法
+            self.signal.emit(message)
+
+            # 添加調試輸出
+            # print(f"Emitting message: {message}")
+
+        except Exception as e:
+            print(f"Error emitting message: {e}")

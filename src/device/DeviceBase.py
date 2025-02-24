@@ -16,6 +16,7 @@ class DeviceBase(ABC):
         """斷開連接"""
         pass
 
+
     @abstractmethod
     def send_command(self, cmd: bytes) -> bool:
         """發送命令"""

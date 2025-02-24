@@ -19,6 +19,7 @@ class RunWidgetController(QObject):
     def RunCommand(self):
         testcase = self.view.test_cases
         Name_text = self.view.get_name_text()
+        self.view.reset_test()
         return self.model.run_command( testcase, Name_text )
 
     def GenerateCommand(self):

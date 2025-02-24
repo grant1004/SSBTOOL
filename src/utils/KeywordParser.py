@@ -32,18 +32,95 @@ class KeywordParser:
     def __init__(self):
         self.keywords_by_category: Dict[str, Dict[str, KeywordInfo]] = {}
 
+    # def parse_library(self, library_instance: Any, category: str) -> List[KeywordInfo]:
+    #     """解析庫實例中的所有關鍵字"""
+    #     if category not in self.keywords_by_category:
+    #         self.keywords_by_category[category] = {}
+    #
+    #     keywords = []
+    #
+    #     for name, member in inspect.getmembers(library_instance):
+    #         if name.startswith('_'):  # 跳過私有方法
+    #             continue
+    #
+    #         if hasattr(member, 'robot_name') or inspect.ismethod(member):
+    #             try:
+    #                 # 解析文檔字符串
+    #                 doc = inspect.getdoc(member) or ''
+    #                 description, args_doc, returns_doc = self._parse_docstring(doc)
+    #
+    #                 # 獲取方法簽名
+    #                 signature = inspect.signature(member)
+    #
+    #                 # 解析參數
+    #                 arguments = []
+    #                 for param_name, param in signature.parameters.items():
+    #                     if param_name == 'self':
+    #                         continue
+    #
+    #                     # 獲取參數類型
+    #                     param_type = (param.annotation.__name__
+    #                                   if param.annotation != inspect.Parameter.empty
+    #                                   else 'any')
+    #
+    #                     # 獲取默認值
+    #                     default = None
+    #                     if param.default != inspect.Parameter.empty:
+    #                         default = str(param.default)
+    #
+    #                     # 獲取參數描述
+    #                     param_desc = args_doc.get(param_name, '')
+    #
+    #                     arguments.append(ArgumentInfo(
+    #                         name=param_name,
+    #                         type=param_type,
+    #                         description=param_desc,
+    #                         default=default,
+    #                         value=default
+    #                     ))
+    #
+    #                 # 創建關鍵字信息
+    #                 keyword_info = KeywordInfo(
+    #                     name=name,
+    #                     description=description,
+    #                     category=category,
+    #                     arguments=arguments,
+    #                     returns=returns_doc,
+    #                     library_name=library_instance.__class__.__name__,
+    #                     priority=self._determine_priority(name, description)
+    #                 )
+    #
+    #                 # print( keyword_info )
+    #                 keywords.append(keyword_info)
+    #                 self.keywords_by_category[category][name] = keyword_info
+    #
+    #             except Exception as e:
+    #                 print(f"Error parsing keyword {name}: {e}")
+    #
+    #     return keywords
+
     def parse_library(self, library_instance: Any, category: str) -> List[KeywordInfo]:
-        """解析庫實例中的所有關鍵字"""
+        """解析庫實例中的所有關鍵字
+
+        Args:
+            library_instance: 要解析的 Library 實例
+            category: 關鍵字類別（例如：'battery', 'common' 等）
+
+        Returns:
+            List[KeywordInfo]: 解析出的關鍵字資訊列表
+        """
         if category not in self.keywords_by_category:
             self.keywords_by_category[category] = {}
 
         keywords = []
 
         for name, member in inspect.getmembers(library_instance):
-            if name.startswith('_'):  # 跳過私有方法
+            # 跳過私有方法
+            if name.startswith('_'):
                 continue
 
-            if hasattr(member, 'robot_name') or inspect.ismethod(member):
+            # 只檢查有 @keyword 裝飾器的方法
+            if hasattr(member, 'robot_name'):
                 try:
                     # 解析文檔字符串
                     doc = inspect.getdoc(member) or ''
@@ -68,7 +145,7 @@ class KeywordParser:
                         if param.default != inspect.Parameter.empty:
                             default = str(param.default)
 
-                        # 獲取參數描述
+                        # 從文檔中獲取參數描述
                         param_desc = args_doc.get(param_name, '')
 
                         arguments.append(ArgumentInfo(
@@ -90,7 +167,6 @@ class KeywordParser:
                         priority=self._determine_priority(name, description)
                     )
 
-                    # print( keyword_info )
                     keywords.append(keyword_info)
                     self.keywords_by_category[category][name] = keyword_info
 

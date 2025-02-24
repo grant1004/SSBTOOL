@@ -1,0 +1,90 @@
+重新設計 SSB 軟體系統架構 : 
+
+舊 :  UI 生成 .robot, 開啟 thread 在背景執行 robotframework。
+　　簡單來說，這個系統是像流水線一樣，一步一步往下執行
+　　 ( 生成 .robot > 建立 thread 連接USB > 執行 .robot > 等待結果 > 回傳給完整報告給 UI )
+
+系統 : UI -> robot -> thread -> USB -> 硬體  
+
+優點 :
+　１．UI 專注在 .robot 生成
+　２．實現簡單，開發成本低
+　３．執行流程線性，容易理解
+　４．資源消耗較低
+
+缺點 : 
+　１．控制問題：UI 無法掌控 robot 的執行進度、無法即時監控硬體狀態
+　２．資源衝突：UI 和 thread 不能同時操控 USB、缺乏資源管理機制
+　３．擴展性受限：難以加入新的硬體設備
+　４．維護困難：各部分緊密耦合、錯誤追踪困難、修改容易影響其他部分
+　５．狀態管理：缺乏統一的狀態管理、測試執行狀態不透明、硬體連接狀態難以監控
+
+
+===========================================================================
+新 : 將 UI、robot、通訊 三個獨立建立，三者都有自己的介面，使用OOP的方式建立，
+　　這個系統是為了解決 UI 無法操控USB 和控管robot 狀態，使用了 Facade Pattern 的設計模式來建立。
+　　Facade Pattern（門面模式）：將各部件包裝起來並設計簡單的對外接口　
+　　並設計了一個 Manager 用來管理所有子物件( UI、robot、USB、Loader、Power )
+　　
+系統 :                 <--> UI 
+　　　　　　　  <--> USB
+          Manager <--> robot　　  
+                          <--> loader
+                          <--> Power 
+
+優點 : 
+　１．每個系統可以通過 Manager 在沒有耦合的狀態下使用介面和彼此溝通。
+　２．解決舊系統的衝突
+　３．更好管理和維護（每個部件可以獨立使用和測試）
+
+缺點：
+　１．系統複雜度提升：需要更多的接口設計與維護、錯誤處理變得更複雜、Manager 的實現與維護成本較高
+　２．效能考量：所有操作都經過 Manager，增加通信開銷、多子系統間的狀態同步可能造成延遲
+　３．系統擴展時需遵循既定模式
+　
+
+
+
+SSB Tool 使用的設計模式：
+
+1. MVC (Model-View-Controller)：
+- Model: `TestCaseWidget_Model`, `RunWidget_Model`
+- View: `TopWidget`, `TestCaseWidget`, `RunCaseWidget`, `RunWidget`
+- Controller: `TestCaseWidgetController`, `RunWidgetController`, `TopWidgetController`
+
+2. Facade Pattern (外觀模式)：
+- `DeviceManager`：管理所有硬體設備
+- 提供統一接口給 UI 和 Robot Framework
+
+3. Singleton Pattern (單例模式)：
+- `DeviceManager`
+- `Container` 類
+- `RunWidgetController`
+
+4. Observer Pattern (觀察者模式)：
+- 使用 Qt 的 Signal/Slot 機制
+- 設備狀態監控 (`ComponentMonitor`)
+- 測試進度監控 (`ProgressListener`)
+
+5. Factory Pattern (工廠模式)：
+- `LibraryLoader`：動態加載不同的 Robot Framework 庫
+- 動態創建不同類型的測試組件
+
+6. Strategy Pattern (策略模式)：
+- `KeywordParser`：處理不同類型的關鍵字解析
+- 測試案例的優先級處理
+
+7. Command Pattern (命令模式)：
+- `CANPacketGenerator`：封裝 CAN 通信命令
+- Robot Framework 命令生成
+
+8. Composite Pattern (組合模式)：
+- 測試案例的組織結構
+- UI 組件的層級結構
+
+這些設計模式的組合使系統具有：
+- 高度模組化
+- 良好的可維護性
+- 清晰的責任分離
+- 靈活的擴展性
+

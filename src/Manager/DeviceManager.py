@@ -63,8 +63,6 @@ class DeviceMonitorWorker(QObject):
         """
         try:
             current_status = self._device.is_connected
-            # print(f"Monitor >>> Device {self._device_type.name} status: {current_status}")
-
             # Only emit if status changed
             if current_status != self._last_status:
                 self.device_status_changed.emit(self._device_type, current_status)

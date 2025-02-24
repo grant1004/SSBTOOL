@@ -1,212 +1,186 @@
-from src.device import DeviceBase
-from typing import Optional
-import serial_asyncio
-import serial
-from serial import SerialException
+import usb.core
+import usb.util
 import asyncio
+from src.device import DeviceBase
 import logging
-import ctypes
+
 
 
 class USBDevice(DeviceBase):
     def __init__(self):
         super().__init__()
-        self._port = None
-        self._reader = None
-        self._writer = None
-        self._connected = False
+        self.device = None
+        self.ep_out = None
+        self.ep_in = None
+        self.interface = None
         self._logger = logging.getLogger(__name__)
-        self._connection_lost = False
-        self._transport = None
-        self._protocol = None
+        self.vendor_id = 0x5458  # 替換為您的設備 vendor ID
+        self.product_id = 0x1222  # 替換為您的設備 product ID
 
-    async def connect(self, port: str = "COM30") -> bool:
-        try:
-            if self._connected:
-                return True
-
-            self._port = port
-            self._transport, self._protocol = await serial_asyncio.create_serial_connection(
-                asyncio.get_event_loop(),
-                lambda: SerialProtocol(self._handle_connection_lost),
-                port,
-                baudrate=115200,
-                bytesize=serial.EIGHTBITS,
-                parity=serial.PARITY_NONE,
-                stopbits=serial.STOPBITS_ONE,
-                timeout=1
-            )
-
-            # 直接使用 transport 進行寫入操作
-            self._writer = self._transport
-            self._reader = self._protocol
-            self._connected = True
-            self._connection_lost = False
-            self._logger.info(f"Successfully connected to device on port {port}")
-            return True
-
-        except Exception as e:
-            self._logger.error(f"Failed to connect to device: {str(e)}")
-            self.disconnect()
-            return False
-
-    def _handle_connection_lost(self, exc=None):
-        """
-        處理連接丟失的內部方法
-        """
-        try:
-            if exc:
-                error_msg = str(exc)
-                if isinstance(exc, SerialException) and "ClearCommError failed" in error_msg:
-                    self._logger.warning("USB device disconnected: ClearCommError")
-                else:
-                    self._logger.error(f"Connection lost with error: {error_msg}")
-            else:
-                self._logger.warning("Connection lost detected")
-
-            if self._connected:
-                self._connection_lost = True
-                self._connected = False
-                asyncio.create_task(self._cleanup_after_disconnect())
-
-        except Exception as e:
-            self._logger.error(f"Error in connection lost handler: {str(e)}")
-
-    async def _cleanup_after_disconnect(self):
-        """
-        在連接丟失後執行清理工作
-        """
-        try:
-            if self._transport:
-                try:
-                    # 安全地關閉 transport
-                    self._transport.abort()  # 使用 abort 而不是 close 來避免阻塞
-                except Exception as e:
-                    self._logger.debug(f"Transport abort error (expected): {str(e)}")
-
-            self._reader = None
-            self._writer = None
-            self._transport = None
-
-        except Exception as e:
-            self._logger.error(f"Error during cleanup after disconnect: {str(e)}")
-        finally:
-            self._connected = False
-            self._connection_lost = False
-
-    def disconnect(self) -> bool:
-        try:
-            if not self._connected and not self._transport:
-                return True
-
-            if self._transport:
-                try:
-                    self._transport.abort()  # 使用 abort 來避免阻塞
-                except Exception as e:
-                    self._logger.debug(f"Transport abort error (expected): {str(e)}")
-
-            self._reader = None
-            self._writer = None
-            self._transport = None
-            self._connected = False
-            self._connection_lost = False
-            self._logger.info("Device disconnected")
-            return True
-
-        except Exception as e:
-            self._logger.error(f"Error during disconnect: {str(e)}")
-            return False
-
-    def send_command(self, command: bytes) -> bool:
-        """發送命令
+    async def connect(self, port: str = None) -> bool:
+        """連接 USB 設備
 
         Args:
-            command: 要發送的完整命令（bytes格式）
+            port: 不使用，保留參數僅為相容性
 
         Returns:
-            bool: 是否發送成功
+            bool: 連接是否成功
         """
-        if not self._connected or self._connection_lost:
+        try:
+            # 尋找設備
+            self.device = usb.core.find(
+                idVendor=self.vendor_id,
+                idProduct=self.product_id
+            )
+
+            if self.device is None:
+                self._logger.error(f'Device not found (VID=0x{self.vendor_id:04X}, PID=0x{self.product_id:04X})')
+                return False
+
+            # 設置配置
+            self.device.set_configuration()
+
+            # 獲取接口
+            cfg = self.device.get_active_configuration()
+            self.interface = cfg[(1, 0)]  # 使用第一個接口
+
+            # 找到輸出端點
+            self.ep_out = usb.util.find_descriptor(
+                self.interface,
+                custom_match=lambda e:
+                usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_OUT
+            )
+
+            # 找到輸入端點
+            self.ep_in = usb.util.find_descriptor(
+                self.interface,
+                custom_match=lambda e:
+                usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_IN
+            )
+
+            if not all([self.ep_out, self.ep_in]):
+                self._logger.error('Could not find endpoints')
+                return False
+
+            self._connected = True
+            self._logger.info('USB device connected successfully')
+            return True
+
+        except Exception as e:
+            self._logger.error(f'Failed to connect: {str(e)}')
+            await self.disconnect()
+            return False
+
+    async def disconnect(self) -> None:
+        """斷開 USB 設備連接"""
+        try:
+            if self.device:
+                usb.util.dispose_resources(self.device)
+
+            self.device = None
+            self.ep_out = None
+            self.ep_in = None
+            self.interface = None
+            self._connected = False
+            self._logger.info('USB device disconnected')
+
+        except Exception as e:
+            self._logger.error(f'Error during disconnect: {str(e)}')
+
+    def send_command(self, command: bytes) -> bool:
+        """發送命令到 USB 設備
+
+        Args:
+            command: 要發送的命令（bytes格式）
+
+        Returns:
+            bool: 發送是否成功
+        """
+        if not self._connected:
             raise ConnectionError("Device not connected")
 
         try:
-            # transport.write 不返回字節數，而是直接寫入
-            # 檢查事件循環狀態
-
-            self._transport.write(command)
-            print(f"Command sent: {command.hex(' ').upper()}")
-            self._logger.debug(f"Command sent: {command.hex(' ').upper()}")
+            bytes_written = self.ep_out.write(command)
+            self._logger.debug(f'Sent {bytes_written} bytes: {command.hex(" ").upper()}')
             return True
 
-        except SerialException as e:
-            if "ClearCommError failed" in str(e):
-                print("USB device disconnected during command send")
-                self._logger.warning("USB device disconnected during command send")
-                self._handle_connection_lost(e)
-            else:
-                print(f"Serial error during command send: {str(e)}")
-                self._logger.error(f"Serial error during command send: {str(e)}")
-                self._handle_connection_lost(e)
-            return False
-
         except Exception as e:
-            print(f"Error sending command: {str(e)}")
-            self._logger.error(f"Error sending command: {str(e)}")
-            self._handle_connection_lost(e)
+            self._logger.error(f'Error sending command: {str(e)}')
+            self._connected = False
             return False
 
     def cleanup(self) -> bool:
+        """清理資源"""
         try:
-            self.disconnect()
-            self._port = None
+            asyncio.get_event_loop().run_until_complete(self.disconnect())
             return True
-
         except Exception as e:
-            self._logger.error(f"Error during cleanup: {str(e)}")
+            self._logger.error(f'Error during cleanup: {str(e)}')
             return False
-
-    @property
-    def is_connected(self) -> bool:
-        """
-        取得當前連接狀態
-
-        Returns:
-            bool: 是否已連接
-        """
-        try:
-            if self._transport and not self._connection_lost:
-                # 嘗試檢查 serial port 狀態
-                serial_instance = self._transport.serial
-                if serial_instance and serial_instance.is_open:
-                    return True
-        except (SerialException, AttributeError, IOError) as e:
-            self._logger.debug(f"Connection check error (expected): {str(e)}")
-            return False
-        except Exception as e:
-            self._logger.error(f"Unexpected error in is_connected: {str(e)}")
-            return False
-
-        return False
 
     @property
     def status(self) -> str:
-        """
-        取得當前連接狀態字串
+        """獲取設備狀態"""
+        try:
+            if self.device and self._connected:
+                # 嘗試獲取設備狀態
+                cfg = self.device.get_active_configuration()
+                return "connected"
+        except:
+            pass
+        return "disconnected"
 
-        Returns:
-            str: 'connected' 或 'disconnected'
-        """
-        return "connected" if self.is_connected else "disconnected"
+    # @property
+    # def is_connected(self) -> bool:
+    #     """檢查設備是否已連接"""
+    #     try:
+    #         if not self.device or not self._connected:
+    #             return False
+    #
+    #         try:
+    #             # 請求設備狀態
+    #             self.device.ctrl_transfer(
+    #                 bmRequestType=0x80,  # Device to Host
+    #                 bRequest=0x00,  # GET_STATUS
+    #                 wValue=0x0000,
+    #                 wIndex=0x0000,
+    #                 data_or_wLength=2
+    #             )
+    #             return True
+    #
+    #         except usb.core.USBError:
+    #             self._connected = False
+    #             self.device = None
+    #             return False
+    #
+    #     except Exception as e:
+    #         self._logger.error(f"Error checking USB connection: {str(e)}")
+    #         self._connected = False
+    #         self.device = None
+    #         return False
 
+    @property
+    def is_connected(self) -> bool:
+        """檢查設備是否已連接"""
+        try:
+            if not self.device or not self._connected:
+                return False
 
-class SerialProtocol(asyncio.Protocol):
-    def __init__(self, connection_lost_callback):
-        self._connection_lost_callback = connection_lost_callback
-        super().__init__()
+            # 直接檢查設備是否還在系統中
+            device = usb.core.find(
+                idVendor=self.vendor_id,
+                idProduct=self.product_id
+            )
 
-    def connection_lost(self, exc):
-        """
-        當連接丟失時調用
-        """
-        if self._connection_lost_callback:
-            self._connection_lost_callback(exc)  # 傳遞異常到回調
+            if device is None:
+                self._connected = False
+                self.device = None
+                return False
+
+            return True
+
+        except Exception as e:
+            self._logger.error(f"Error checking USB connection: {str(e)}")
+            self._connected = False
+            self.device = None
+            return False

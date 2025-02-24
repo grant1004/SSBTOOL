@@ -14,10 +14,12 @@ class PowerDevice(DeviceBase):
     async def disconnect(self) -> None:
         self._connected = False
 
-    async def send_command(self, cmd: bytes) -> bool:
+    def send_command(self, cmd: bytes) -> bool:
         if not self._connected:
             raise ConnectionError("Device not connected")
         return True
+
+
 
     def cleanup(self) -> bool:
         """清空"""

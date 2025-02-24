@@ -1,4 +1,5 @@
-from PySide6.QtCore import Signal, QObject
+from PySide6.QtCore import Signal, QObject, Slot, Qt, QThread
+from numpy import long
 
 from src.Manager import DeviceManager
 from src.utils.singleton import singleton
@@ -11,54 +12,64 @@ import os
 @singleton
 class RunWidget_Model(QObject):
 
-    test_progress = Signal(str)  # 測試進度信號
-    test_finished = Signal(bool)  # 測試完成信號
+    test_progress = Signal(dict, long)  # 測試進度信號, test id
+    test_finished = Signal(bool, long)  # 測試完成信號, test id
 
     def __init__(self):
         super().__init__()
+        self.thread = None
+        self.test_id = None
+        self.now_TestCase = None
+        self.isRunning = None
         self.worker = None
 
-    def run_command(self, testcase, name_text ):
-        # print("Click Run Command")
-        if ( len( testcase ) == 0 ):
-            print( "No test case selected")
-        else :
-            cmd = CANPacketGenerator.generate(
-                node=1,
-                can_id=0x401,
-                payload="00 64",
-                can_type=0
-            )
-            device_manager = DeviceManager.instance()
-            device_manager.worker.get_device( DeviceType.USB ).send_command( cmd )
-            # generate, msg, path = self.generate_robot_file(testcase,name_text)
-            # print( msg )
-            # if generate:
-            #     project_root = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-            #     lib_path = os.path.join(project_root, "Lib")
-            #     output_dir = os.path.join(project_root, "data", "robot")
-            #     print( f"output_dir : {output_dir}" )
-            #     print( f"project_root : {project_root}" )
-            #     print( f"lib_path : {lib_path}" )
-            #     # 創建並設置 worker
-            #
-            #     self.worker = RobotTestWorker(path, project_root, lib_path, output_dir)
-            #     self.worker.progress.connect(self.handle_progress)
-            #     self.worker.finished.connect(self.handle_finished)
-            #
-            #     # 開始執行
-            #     self.worker.start()
 
+    def run_command(self, testcase, name_text):
+        if len(testcase) == 0:
+            print("No test case selected")
+            return
+
+        if self.thread and self.thread.isRunning():
+            self.thread.quit()
+            self.thread.wait()
+
+        self.isRunning = True
+        self.now_TestCase = testcase
+        generate, msg, path = self.generate_robot_file(testcase, name_text)
+        # print(msg)
+
+        if generate:
+            project_root = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+            lib_path = os.path.join(project_root, "Lib")
+            output_dir = os.path.join(project_root, "data", "robot")
+
+            # 創建並設置新的 worker thread 用來執行 .robot
+            self.worker = RobotTestWorker(path, project_root, lib_path, output_dir)
+            self.worker.progress.connect(self.handle_progress, Qt.ConnectionType.QueuedConnection)
+            self.worker.finished.connect(self.handle_finished, Qt.ConnectionType.QueuedConnection)
+
+            self.thread = QThread()
+            self.thread.started.connect( self.worker.run )
+
+            self.worker.moveToThread(self.thread)
+
+            self.thread.start()
+
+    @Slot(dict)  # 明確標記為槽函數
     def handle_progress(self, message):
         """處理測試進度更新"""
         # print( "handle_progress" )
-        self.test_progress.emit(message)
-        print(message)  # 你可以改為更新 UI 上的進度顯示
+        # print( message )
+        self.test_id = int(self._get_id_from_testName(message.get('data', "No data in progress message.").get('test_name')))
+        self.test_progress.emit(message, self.test_id)
 
+    @Slot(dict)  # 明確標記為槽函數
     def handle_finished(self, success):
         """處理測試完成"""
-        print( "handle_finished" )
-        self.test_finished.emit(success)
+        # print( "handle_finished" )
+        if self.test_id is not None :
+            self.test_finished.emit(success, self.test_id)
+
         self.worker = None
 
     def generate_command(self):
@@ -69,6 +80,7 @@ class RunWidget_Model(QObject):
 
     def import_command(self):
         print( "Click Import Command")
+
 
     # generate .robot
     def generate_robot_file(self, test_cases, name_text):
@@ -107,7 +119,7 @@ class RunWidget_Model(QObject):
         # 收集所有使用到的庫
         for test in test_cases.values():
             # 從 config 類別中抓取庫
-            # print( test )
+            # print( test.get('panel') )
             if category := test.get('data', {}).get('config', {}).get('category'):
                 libraries.add(category)
 
@@ -115,8 +127,8 @@ class RunWidget_Model(QObject):
             if libraries_in_setup := test.get('data', {}).get('config', {}).get('setup', {}).get('library'):
                 # print( f"libraries_in_setup: {libraries_in_setup}" )
                 libraries.update(libraries_in_setup)
-            else :
-                print( "no libraries_in_setup" )
+            # else :
+                # print( "no libraries_in_setup" )
 
 
         # print( f"Libraries: {libraries}" )
@@ -132,14 +144,14 @@ class RunWidget_Model(QObject):
         robot_content.append("*** Test Cases ***")
 
         # 處理每個測試項目
-        for test in test_cases.values():
+        for key, test in test_cases.items():
             config = test.get('data', {}).get('config', {})
             if 'category' in config:
                 # 是 keyword
-                robot_content.extend(self._generate_content_keyword(test))
+                robot_content.extend(self._generate_content_keyword(key,test))
             else:
                 # 是 test case
-                robot_content.extend(self._generate_content_testcase(test))
+                robot_content.extend(self._generate_content_testcase(key,test))
 
         return '\n'.join(robot_content)
 
@@ -174,13 +186,14 @@ class RunWidget_Model(QObject):
             "${TIMEOUT}    30s"
         ]
 
-    def _generate_content_testcase(self, test):
+    def _generate_content_testcase(self, key, test):
         """生成測試案例內容"""
         content = []
         config = test.get('data', {}).get('config', {})
 
         # 測試案例名稱
-        content.append(config.get('name', 'Unnamed Test'))
+        testName = f"{config.get('name', 'Unknown')} [id]{key}"
+        content.append(testName)
 
         # Tags
         content.append(f"    [Tags]    {config.get('priority', 'normal')}")
@@ -210,13 +223,13 @@ class RunWidget_Model(QObject):
         content.append("")  # 添加空行分隔
         return content
 
-    def _generate_content_keyword(self, test):
+    def _generate_content_keyword(self, key, test):
         """生成關鍵字內容"""
         content = []
         config = test.get('data', {}).get('config', {})
 
         # 生成唯一的測試案例名稱
-        test_name = f"Execute Keyword - {config.get('name', 'Unknown')}"
+        test_name = f"Execute Keyword - {config.get('name', 'Unknown')} [id]{key}"
         content.append(test_name)
         content.append(f"    [Tags]    auto-generated    {config.get('priority', 'normal')}")
 
@@ -250,3 +263,28 @@ class RunWidget_Model(QObject):
         content.append("")  # 添加空行分隔
         return content
 
+    def _get_id_from_testName(self, data: str) -> str:
+        """
+        從測試名稱中提取 ID
+
+        Args:
+            data (str): 測試名稱字符串，格式如 "Execute Keyword - send_can_message [id]2972073797632"
+
+        Returns:
+            str: 提取出的 ID，如果沒找到則返回空字符串
+        """
+        try:
+            # 使用 split 分割字符串，找到包含 [id] 的部分
+            if "[id]" in data:
+                # 找到 [id] 的位置並截取後面的數字
+                id_start = data.find("[id]") + len("[id]")
+                id_value = data[id_start:]
+
+                # 如果 ID 後面還有其他文字，只取數字部分
+                # 使用 strip() 去除可能的空格
+                return id_value.split()[0].strip()
+            return ""
+
+        except Exception as e:
+            print(f"Error extracting ID: {e}")
+            return ""

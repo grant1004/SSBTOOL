@@ -1,39 +1,98 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<robot generator="Robot 7.2 (Python 3.13.0 on win32)" generated="2025-02-17T17:52:42.349195" rpa="false" schemaversion="5">
+<robot generator="Robot 7.2 (Python 3.13.0 on win32)" generated="2025-02-24T09:00:30.839366" rpa="false" schemaversion="5">
 <suite id="s1" name="Generated Test" source="C:\Users\GrantWang\Desktop\SSB\ssb_tool\data\robot\generated_test.robot">
-<test id="s1-t1" name="Execute Keyword - send_can_message" line="10">
+<test id="s1-t1" name="Execute Keyword - send_can_message [id]2820524682368" line="10">
 <kw name="Send Can Message" owner="Lib.BatteryLibrary">
-<msg time="2025-02-17T17:52:42.400017" level="DEBUG">Using proactor: IocpProactor</msg>
-<msg time="2025-02-17T17:52:42.400885" level="DEBUG">Current event loop state: open</msg>
-<msg time="2025-02-17T17:52:42.401060" level="DEBUG">Command sent: FF FF A0 03 53 13 00 00 01 04 00 00 02 00 64 00 00 00 00 00 00 5D 9E 38 36</msg>
-<msg time="2025-02-17T17:52:42.401245" level="INFO">{'type': 'test_start', 'data': {'test_name': 'Execute Keyword - send_can_message', 'status': 'RUNNING'}}
-{'type': 'keyword_start', 'data': {'test_name': 'Execute Keyword - send_can_message', 'keyword_name': 'Lib.BatteryLibrary.Send Can Message', 'status': 'RUNNING'}}
-發送訊息 - CAN ID: 0x401, Node: 0, Type: 0, Payload: 00 64</msg>
-<arg>can_id=0x401</arg>
-<arg>payload=00 64</arg>
-<arg>node=0</arg>
+<msg time="2025-02-24T09:00:30.853618" level="DEBUG">Sent 25 bytes: FF FF 04 4B 78 35 01 00 01 04 00 00 01 11 00 00 00 00 00 00 00 BC 08 06 B3</msg>
+<msg time="2025-02-24T09:00:30.864233" level="INFO">發送訊息 - CAN ID: 0x401, Node: 1, Type: 0, Payload: 11</msg>
+<arg>can_id=401</arg>
+<arg>payload=11</arg>
+<arg>node=1</arg>
 <arg>can_type=0</arg>
 <doc>發送 CAN 訊息</doc>
-<status status="PASS" start="2025-02-17T17:52:42.399319" elapsed="0.001995"/>
+<status status="PASS" start="2025-02-24T09:00:30.852647" elapsed="0.011667"/>
 </kw>
 <doc>發送 CAN 訊息</doc>
 <tag>auto-generated</tag>
 <tag>optional</tag>
-<status status="PASS" start="2025-02-17T17:52:42.398588" elapsed="0.002979"/>
+<status status="PASS" start="2025-02-24T09:00:30.852210" elapsed="0.012314"/>
+</test>
+<test id="s1-t2" name="Execute Keyword - send_can_message [id]2820510780288" line="15">
+<kw name="Send Can Message" owner="Lib.BatteryLibrary">
+<msg time="2025-02-24T09:00:30.870314" level="DEBUG">Sent 25 bytes: FF FF 11 4B 78 35 01 00 02 04 00 00 01 22 00 00 00 00 00 00 00 1D 53 AC 13</msg>
+<msg time="2025-02-24T09:00:30.895656" level="INFO">Result: PASS
+Log: 
+==================================================================
+update_test_status: True 2820524682368
+發送訊息 - CAN ID: 0x402, Node: 1, Type: 0, Payload: 22</msg>
+<arg>can_id=402</arg>
+<arg>payload=22</arg>
+<arg>node=1</arg>
+<arg>can_type=0</arg>
+<doc>發送 CAN 訊息</doc>
+<status status="PASS" start="2025-02-24T09:00:30.864976" elapsed="0.030793"/>
+</kw>
+<doc>發送 CAN 訊息</doc>
+<tag>auto-generated</tag>
+<tag>optional</tag>
+<status status="PASS" start="2025-02-24T09:00:30.864729" elapsed="0.031303"/>
+</test>
+<test id="s1-t3" name="Execute Keyword - send_can_message [id]2820524575232" line="20">
+<kw name="Send Can Message" owner="Lib.BatteryLibrary">
+<msg time="2025-02-24T09:00:30.897217" level="DEBUG">Sent 25 bytes: FF FF 30 4B 78 35 01 00 03 04 00 00 01 33 00 00 00 00 00 00 00 D7 E0 DA 40</msg>
+<msg time="2025-02-24T09:00:30.931412" level="INFO">發送訊息 - CAN ID: 0x403, Node: 1, Type: 0, Payload: 33
+Test Case Execute Keyword - send_can_message [id]2820510780288 End
+Result: PASS
+Log: 
+==================================================================
+update_test_status: True 2820510780288</msg>
+<arg>can_id=403</arg>
+<arg>payload=33</arg>
+<arg>node=1</arg>
+<arg>can_type=0</arg>
+<doc>發送 CAN 訊息</doc>
+<status status="PASS" start="2025-02-24T09:00:30.896593" elapsed="0.034947"/>
+</kw>
+<doc>發送 CAN 訊息</doc>
+<tag>auto-generated</tag>
+<tag>optional</tag>
+<status status="PASS" start="2025-02-24T09:00:30.896292" elapsed="0.035500"/>
+</test>
+<test id="s1-t4" name="Execute Keyword - send_can_message [id]2820524483072" line="25">
+<kw name="Send Can Message" owner="Lib.BatteryLibrary">
+<msg time="2025-02-24T09:00:30.934087" level="DEBUG">Sent 25 bytes: FF FF 55 4B 78 35 01 00 04 04 00 00 01 44 00 00 00 00 00 00 00 4F B1 6C F2</msg>
+<msg time="2025-02-24T09:00:30.960919" level="INFO">Running Test Case: Execute Keyword - send_can_message [id]2820524575232
+發送訊息 - CAN ID: 0x404, Node: 1, Type: 0, Payload: 44
+Test Case Execute Keyword - send_can_message [id]2820524575232 End
+Result: PASS
+Log: 
+==================================================================
+update_test_status: True 2820524575232</msg>
+<arg>can_id=404</arg>
+<arg>payload=44</arg>
+<arg>node=1</arg>
+<arg>can_type=0</arg>
+<doc>發送 CAN 訊息</doc>
+<status status="PASS" start="2025-02-24T09:00:30.932322" elapsed="0.028701"/>
+</kw>
+<doc>發送 CAN 訊息</doc>
+<tag>auto-generated</tag>
+<tag>optional</tag>
+<status status="PASS" start="2025-02-24T09:00:30.931944" elapsed="0.029567"/>
 </test>
 <doc>Untitled</doc>
-<status status="PASS" start="2025-02-17T17:52:42.357987" elapsed="0.043977"/>
+<status status="PASS" start="2025-02-24T09:00:30.840101" elapsed="0.121626"/>
 </suite>
 <statistics>
 <total>
-<stat pass="1" fail="0" skip="0">All Tests</stat>
+<stat pass="4" fail="0" skip="0">All Tests</stat>
 </total>
 <tag>
-<stat pass="1" fail="0" skip="0">auto-generated</stat>
-<stat pass="1" fail="0" skip="0">optional</stat>
+<stat pass="4" fail="0" skip="0">auto-generated</stat>
+<stat pass="4" fail="0" skip="0">optional</stat>
 </tag>
 <suite>
-<stat name="Generated Test" id="s1" pass="1" fail="0" skip="0">Generated Test</stat>
+<stat name="Generated Test" id="s1" pass="4" fail="0" skip="0">Generated Test</stat>
 </suite>
 </statistics>
 <errors>
