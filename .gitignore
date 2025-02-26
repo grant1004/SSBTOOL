@@ -90,6 +90,7 @@ coverage.xml
 # Documentation
 docs/_build/
 doc/_build/
+*.html
 
 # Project specific
 config.ini
