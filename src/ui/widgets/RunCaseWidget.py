@@ -236,3 +236,6 @@ class RunCaseWidget(QWidget):
     def reset_test(self):
         for panel in self.test_cases.values():
             panel['panel'].reset_status()
+
+    def test_finished(self, result:bool):
+        print( f"Test Case Finished")

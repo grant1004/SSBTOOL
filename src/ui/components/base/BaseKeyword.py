@@ -1,10 +1,11 @@
 # components/base/BaseKeyWordCard.py
-from typing import Any
+from wsgiref.validate import header_re
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 import json
+
 
 class BaseKeywordCard(QFrame):
     """關鍵字卡片元件"""
@@ -38,14 +39,16 @@ class BaseKeywordCard(QFrame):
         border-radius: 4px;
     """
     CARD_STYLESHEET = """
-        KeywordCard {
-            background-color: white;
-            border-radius: 8px;
-        }
-        KeywordCard:hover {
-            background-color: #F8F9FA;
-        }
-    """
+            BaseKeywordCard {
+                background-color: #F5F5F5;
+                border-radius: 8px;
+                border: 1px solid transparent;                
+            }
+            BaseKeywordCard:hover {
+                background-color: #F8F9FA;
+                border: 1px solid #006C4D;
+            }
+        """
 
     def __init__(self, card_id: str, config: dict, parent=None):
         super().__init__(parent)
@@ -55,15 +58,19 @@ class BaseKeywordCard(QFrame):
         self.config = config
         self.is_expanded = False
 
+
         # Initialize argument values with defaults
         self.argument_values = {}
         self._init_argument_values()
 
+
+        self._setup_shadow()
+
         # UI 初始化
-        self._setup_ui()
-        self.setObjectName("keyword-card")
-        self.setStyleSheet(self.CARD_STYLESHEET)
-        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+        self.setMaximumWidth(400)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self.setContentsMargins(16, 16, 16, 16)
+        self._setup_layout()
 
         # 高度設置
         self.collapsed_height = 100
@@ -77,37 +84,83 @@ class BaseKeywordCard(QFrame):
         self.min_height_animation = QPropertyAnimation(self, b"minimumHeight")
         self.min_height_animation.setDuration(200)
 
-        # 主題管理
-        self.theme_manager = self.get_theme_manager()
-        if self.theme_manager:
-            self.theme_manager.theme_changed.connect(self._update_theme)
+
+        self.setObjectName("keyword-card")
+        self.setStyleSheet(self.CARD_STYLESHEET)
+        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
 
     def _init_argument_values(self):
         """Initialize argument values with their defaults"""
         for arg in self.config.get('arguments', []):
             self.argument_values[arg['name']] = arg.get('default')
 
-    def _setup_ui(self):
-        """初始化 UI"""
-        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
-        self.setContentsMargins(8,8,8,8)
-        self._setup_shadow()
-        self._setup_layout()
-
     def _setup_shadow(self):
         """設置陰影效果"""
         self.shadow = QGraphicsDropShadowEffect(self)
-        self.shadow.setColor(QColor(0, 0, 0, 30))
+        self.shadow.setColor(QColor(0, 0, 0, 60))
         self.shadow.setBlurRadius(10)
         self.shadow.setOffset(0, 2)
         self.setGraphicsEffect(self.shadow)
 
+    def _setup_layout(self):
+        """設置主布局"""
+        layout = QVBoxLayout(self)
+        # 將主布局的邊距設為 0，而是由卡片的 contentsMargins 來控制
+        layout.setContentsMargins(0, 0, 0, 0)
+        # 為每個元素之間設置統一的間距
+        layout.setSpacing(8)
+
+        # 標題區域
+        self.header_widget = self._create_header()
+
+        layout.addWidget(self.header_widget)
+
+        # 簡短描述 - 放在容器中以控制左邊距
+        description_container = QWidget()
+        description_layout = QHBoxLayout(description_container)
+        description_layout.setContentsMargins(0, 0, 0, 0)  # 不額外添加邊距
+
+        self.description_label = QLabel()
+        self.description_label.setStyleSheet(self.INFO_STYLESHEET)
+        self.description_label.setWordWrap(True)
+        self.description_label.setMinimumHeight(50)
+        self.description_label.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+        )
+        self.description_label.font().setPixelSize(14)
+        self._update_description_text()
+
+        description_layout.addWidget(self.description_label)
+        layout.addWidget(description_container)
+
+        # 參數預覽
+        params_container = QWidget()
+        params_layout = QHBoxLayout(params_container)
+        params_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.params_preview = self._create_params_preview()
+        params_layout.addWidget(self.params_preview)
+
+        layout.addWidget(params_container)
+
+        # 展開時顯示的詳細信息
+        self.details_widget = self._create_details_widget()
+        self.details_widget.hide()
+        layout.addWidget(self.details_widget)
+
+        layout.addStretch()
+
+
+
+    # region UI
     def _create_header(self):
         """創建標題區域"""
         header_widget = QWidget()
+        # 將 header 內部的邊距設為 0，而是通過布局的 spacing 來控制間距
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(8)
+
+        header_layout.setSpacing(12)  # 設置標題與分類標籤之間的間距
 
         # Keyword 名稱
         self.title_label = QLabel(self.config.get('name', ''))
@@ -121,44 +174,12 @@ class BaseKeywordCard(QFrame):
             background-color: #0077EE;
             {self.CATEGORY_STYLESHEET}
         """)
+        self.category_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         header_layout.addWidget(self.title_label, 1)
         header_layout.addWidget(self.category_label, 0)
 
         return header_widget
-
-    def _setup_layout(self):
-        """設置主布局"""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
-
-        # 標題區域
-        self.header_widget = self._create_header()
-        layout.addWidget(self.header_widget)
-
-        # 簡短描述
-        self.description_label = QLabel()
-        self.description_label.setStyleSheet(self.INFO_STYLESHEET)
-        self.description_label.setWordWrap(True)
-        self.description_label.setFixedWidth(300)
-        self.description_label.setContentsMargins(16, 0, 0, 0)
-        self.description_label.font().setPixelSize(14)
-        self._update_description_text()
-
-        layout.addWidget(self.description_label)
-
-        # 參數預覽
-        self.params_preview = self._create_params_preview()
-        layout.addWidget(self.params_preview)
-
-        # 展開時顯示的詳細信息
-        self.details_widget = self._create_details_widget()
-        self.details_widget.hide()
-        layout.addWidget(self.details_widget)
-
-        layout.addStretch()
-
     def _create_params_preview(self):
         """創建參數預覽"""
         params = self.config.get('arguments', [])
@@ -167,61 +188,79 @@ class BaseKeywordCard(QFrame):
             background-color: #E0E0E0;
             color: #333333;
             border-radius: 4px;
-            padding: 2px 8px;
+            padding: 2px 6px;
             font-size: 14px;
             font-weight: bold;
-            margin-left: 16px;
         """)
         return label
-
     def _create_details_widget(self):
         """創建詳細信息區域"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.setContentsMargins(16, 8, 16, 8)
-        layout.setSpacing(12)
-
+        # 詳細信息區不需要額外的邊距，因為卡片已有邊距
+        layout.setContentsMargins(0, 8, 0, 8)
+        layout.setSpacing(12)  # 增加詳細區域的元素間距
+        # 使用擴展的大小策略
         # 完整描述
         if description := self.config.get('description', ''):
+            desc_section = QWidget()
+            desc_layout = QVBoxLayout(desc_section)
+            desc_layout.setContentsMargins(0, 0, 0, 0)
+            desc_layout.setSpacing(4)
+
             desc_label = QLabel("Description")
             desc_label.setStyleSheet("font-weight: bold;")
-            layout.addWidget(desc_label)
+            desc_layout.addWidget(desc_label)
 
             desc_content = QLabel(description)
             desc_content.setStyleSheet(self.INFO_STYLESHEET)
             desc_content.setWordWrap(True)
-            layout.addWidget(desc_content)
+            desc_layout.addWidget(desc_content)
+
+            layout.addWidget(desc_section)
 
         # 參數列表
         if arguments := self.config.get('arguments', []):
+            args_section = QWidget()
+            args_section_layout = QVBoxLayout(args_section)
+            args_section_layout.setContentsMargins(0, 0, 0, 0)
+            args_section_layout.setSpacing(0)
+
             args_label = QLabel("Arguments")
             args_label.setStyleSheet("font-weight: bold;")
-            layout.addWidget(args_label)
+            args_section_layout.addWidget(args_label)
 
             args_widget = QWidget()
             args_layout = QVBoxLayout(args_widget)
             args_layout.setContentsMargins(0, 0, 0, 0)
-            args_layout.setSpacing(4)
+            args_layout.setSpacing(0)  # 增加參數項之間的間距
 
             for arg in arguments:
                 arg_widget = self._create_argument_widget(arg)
                 args_layout.addWidget(arg_widget)
 
-            layout.addWidget(args_widget)
+            args_section_layout.addWidget(args_widget)
+            layout.addWidget(args_section)
 
         # 返回值
         if returns := self.config.get('returns', ''):
+            returns_section = QWidget()
+            returns_layout = QVBoxLayout(returns_section)
+            returns_layout.setContentsMargins(0, 0, 0, 0)
+            returns_layout.setSpacing(4)
+
             returns_label = QLabel("Returns")
             returns_label.setStyleSheet("font-weight: bold;")
-            layout.addWidget(returns_label)
+            returns_layout.addWidget(returns_label)
 
             returns_content = QLabel(returns)
             returns_content.setStyleSheet(self.INFO_STYLESHEET)
             returns_content.setWordWrap(True)
-            layout.addWidget(returns_content)
+            returns_layout.addWidget(returns_content)
+
+            layout.addWidget(returns_section)
 
         return widget
-
     def _update_description_text(self):
         """更新描述文字"""
         description = self.config.get('description', '')
@@ -233,7 +272,6 @@ class BaseKeywordCard(QFrame):
         )
         self.description_label.setText(elided_text)
         self.description_label.setToolTip(description)
-
     def _calculate_expanded_height(self):
         """計算展開後需要的總高度"""
         self.details_widget.show()
@@ -243,50 +281,33 @@ class BaseKeywordCard(QFrame):
                   self.details_widget.sizeHint().height() +
                   40)  # 額外空間
         return height
+    def _create_argument_widget(self, arg: dict):
+        """創建參數顯示組件，添加值編輯功能"""
+        widget = QWidget()
+        layout = QHBoxLayout(widget)
+        # 減少參數內部的左右邊距，使其更緊湊
+        widget.setMinimumHeight(40)
+        layout.setContentsMargins(0, 4, 0, 4)
+        layout.setSpacing(0)
 
-    def get_theme_manager(self):
-        """獲取主題管理器"""
-        parent = self.parent()
-        while parent:
-            if hasattr(parent, 'theme_manager'):
-                return parent.theme_manager
-            parent = parent.parent()
-        return None
+        # 參數名稱和類型標籤
+        name = arg.get('name', '')
+        arg_type = arg.get('type', 'any')
+        param_text = f"{name}: {arg_type}"
+        param_label = QLabel(param_text)
+        param_label.setStyleSheet(self.PARAM_STYLESHEET)
+        layout.addWidget(param_label)
+        layout.addStretch()
 
-    def _update_theme(self):
-        """更新主題"""
-        if not self.theme_manager:
-            return
+        return widget
+    # endregion
 
-        current_theme = self.theme_manager._themes[self.theme_manager._current_theme]
-
-        self.setStyleSheet(f"""
-            KeywordCard {{
-                background-color: {current_theme.SURFACE};
-                border-radius: 8px;
-            }}
-            KeywordCard:hover {{
-                background-color: {current_theme.SURFACE_VARIANT};
-            }}
-        """)
-
-        self.title_label.setStyleSheet(f"""
-            font-size: 14px;
-            font-weight: bold;
-            color: {current_theme.TEXT_PRIMARY};
-        """)
-
-        self.description_label.setStyleSheet(f"""
-            font-size: 12px;
-            color: {current_theme.TEXT_SECONDARY};
-        """)
-
+    #region EVENT
     def mousePressEvent(self, event):
         """滑鼠按下事件"""
         if event.button() == Qt.MouseButton.LeftButton:
             self.drag_start_position = event.pos()
             self.clicked.emit(self.card_id)
-
     def mouseMoveEvent(self, event):
         """滑鼠移動事件 - 處理拖放"""
         if not (event.buttons() & Qt.MouseButton.LeftButton):
@@ -319,7 +340,6 @@ class BaseKeywordCard(QFrame):
         drag.setPixmap(pixmap)
         drag.setHotSpot(event.pos())
         drag.exec_(Qt.DropAction.CopyAction)
-
     def focusInEvent(self, event):
         """獲得焦點時展開"""
         self.is_expanded = True
@@ -334,7 +354,6 @@ class BaseKeywordCard(QFrame):
         self.height_animation.start()
         self.min_height_animation.start()
         super().focusInEvent(event)
-
     def focusOutEvent(self, event):
         """失去焦點時收起"""
         self.is_expanded = False
@@ -349,22 +368,4 @@ class BaseKeywordCard(QFrame):
         self.height_animation.start()
         self.min_height_animation.start()
         super().focusOutEvent(event)
-
-    def _create_argument_widget(self, arg: dict):
-        """創建參數顯示組件，添加值編輯功能"""
-        # print( "_create_argument_widget")
-        widget = QWidget()
-        layout = QHBoxLayout(widget)
-        layout.setContentsMargins(8, 0, 8, 0)
-        layout.setSpacing(8)
-
-        # 參數名稱和類型標籤
-        name = arg.get('name', '')
-        arg_type = arg.get('type', 'any')
-        param_text = f"{name}: {arg_type}"
-        param_label = QLabel(param_text)
-        param_label.setStyleSheet(self.PARAM_STYLESHEET)
-        layout.addWidget(param_label)
-        layout.addStretch()
-
-        return widget
+    #endregion

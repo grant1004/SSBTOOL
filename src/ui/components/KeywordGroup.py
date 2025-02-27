@@ -96,10 +96,6 @@ class KeywordGroup(QScrollArea):
                     parent=self
                 )
 
-                # 設置主題
-                if hasattr(self, 'theme_manager'):
-                    card.theme_manager = self.theme_manager
-                    card._update_theme()
 
                 # 連接點擊事件
                 card.clicked.connect(self._click_card)

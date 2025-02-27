@@ -1,5 +1,7 @@
+
 from PySide6.QtCore import Signal, QObject, Slot, Qt, QThread
 from numpy import long
+import json
 
 from src.Manager import DeviceManager
 from src.utils.singleton import singleton
@@ -13,7 +15,7 @@ import os
 class RunWidget_Model(QObject):
 
     test_progress = Signal(dict, long)  # 測試進度信號, test id
-    test_finished = Signal(bool, long)  # 測試完成信號, test id
+    test_finished = Signal(bool)  # 測試完成信號, test id
 
     def __init__(self):
         super().__init__()
@@ -68,12 +70,42 @@ class RunWidget_Model(QObject):
         """處理測試完成"""
         # print( "handle_finished" )
         if self.test_id is not None :
-            self.test_finished.emit(success, self.test_id)
-
+            self.test_finished.emit(success)
         self.worker = None
 
-    def generate_command(self):
-        print( "Click Generate Command")
+    def generate_command(self, testcase, name_text):
+        """生成測試指令並保存為 JSON 檔案
+        Args:
+            testcase (dict): 測試案例字典
+            name_text (str): 測試名稱
+        """
+        print("Click Generate Command")
+        if len(testcase) == 0:
+            print("No test case selected")
+            return
+
+        # 建立基本結構
+        command = {
+            "testName": name_text,
+            "testcases": []
+        }
+
+        # 添加測試案例
+        for key, test in testcase.items():
+            test_data = test.get('data', {})
+            if test_data:  # 確保有資料才添加
+                command["testcases"].append(test_data)
+
+        # 生成檔案名稱 (使用測試名稱)
+        filename = f"{name_text}.json"
+
+        # 寫入 JSON 檔案
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(command, f, indent=4, ensure_ascii=False)
+            print(f"Successfully generated {filename}")
+        except Exception as e:
+            print(f"Error generating JSON file: {str(e)}")
 
     def report_command(self):
         print( "Click Report Command")

@@ -7,6 +7,7 @@ import logging
 
 
 class USBDevice(DeviceBase):
+
     def __init__(self):
         super().__init__()
         self.device = None
@@ -16,6 +17,7 @@ class USBDevice(DeviceBase):
         self._logger = logging.getLogger(__name__)
         self.vendor_id = 0x5458  # 替換為您的設備 vendor ID
         self.product_id = 0x1222  # 替換為您的設備 product ID
+        self.file_name = "databuffer.txt"
 
     async def connect(self, port: str = None) -> bool:
         """連接 USB 設備
@@ -87,7 +89,7 @@ class USBDevice(DeviceBase):
         except Exception as e:
             self._logger.error(f'Error during disconnect: {str(e)}')
 
-    def send_command(self, command: bytes) -> bool:
+    def send_command(self, command: bytes, get: bool = False ) -> bool:
         """發送命令到 USB 設備
 
         Args:
@@ -129,35 +131,6 @@ class USBDevice(DeviceBase):
         except:
             pass
         return "disconnected"
-
-    # @property
-    # def is_connected(self) -> bool:
-    #     """檢查設備是否已連接"""
-    #     try:
-    #         if not self.device or not self._connected:
-    #             return False
-    #
-    #         try:
-    #             # 請求設備狀態
-    #             self.device.ctrl_transfer(
-    #                 bmRequestType=0x80,  # Device to Host
-    #                 bRequest=0x00,  # GET_STATUS
-    #                 wValue=0x0000,
-    #                 wIndex=0x0000,
-    #                 data_or_wLength=2
-    #             )
-    #             return True
-    #
-    #         except usb.core.USBError:
-    #             self._connected = False
-    #             self.device = None
-    #             return False
-    #
-    #     except Exception as e:
-    #         self._logger.error(f"Error checking USB connection: {str(e)}")
-    #         self._connected = False
-    #         self.device = None
-    #         return False
 
     @property
     def is_connected(self) -> bool:

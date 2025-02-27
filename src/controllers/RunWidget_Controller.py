@@ -14,6 +14,7 @@ class RunWidgetController(QObject):
         # 提供方法來設置 view
         self.view = view
         self.model.test_progress.connect(self.view.update_progress)
+        self.model.test_finished.connect(self.view.test_finished)
         # self.model.test_finished.connect(self.view.update_test_status)
 
     def RunCommand(self):
@@ -23,7 +24,9 @@ class RunWidgetController(QObject):
         return self.model.run_command( testcase, Name_text )
 
     def GenerateCommand(self):
-        return self.model.generate_command()
+        testcase = self.view.test_cases
+        Name_text = self.view.get_name_text()
+        return self.model.generate_command( testcase, Name_text)
 
     def ReportCommand(self):
         return self.model.report_command()
