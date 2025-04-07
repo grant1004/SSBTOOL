@@ -1,6 +1,0 @@
-2025-03-04 11:25:49,617 - Listener-USBDevice - INFO - Starting message listener for device USBDevice
-
---- Listening session started at 2025-03-04 11:25:49.619459 ---
-
---- Listening session ended at 2025-03-04 11:25:49.619459 ---
-2025-03-04 11:25:49,622 - Listener-USBDevice - INFO - Stopped message listener for device USBDevice
