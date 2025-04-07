@@ -3,11 +3,7 @@ from PySide6.QtCore import Signal, QObject, Slot, Qt, QThread
 from numpy import long
 import json
 
-from src.Manager import DeviceManager
-from src.utils.singleton import singleton
-from Lib.CANPacketGenerator import CANPacketGenerator
-from src.Manager import DeviceType
-from robot import run
+from src.Container import singleton
 from src.worker import RobotTestWorker
 import os
 

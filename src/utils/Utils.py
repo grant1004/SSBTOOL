@@ -7,7 +7,7 @@ def change_icon_color(icon, color):
     px = icon.pixmap(16, 16)
 
     painter = QPainter(px)
-    painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
+    painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
     painter.fillRect(px.rect(), QColor(color))
     painter.end()
 

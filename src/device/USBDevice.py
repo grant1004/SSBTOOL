@@ -3,6 +3,7 @@ import usb.util
 import asyncio
 from src.device import DeviceBase
 import logging
+import src.CanFrame as CanFrame
 
 
 
@@ -17,7 +18,6 @@ class USBDevice(DeviceBase):
         self._logger = logging.getLogger(__name__)
         self.vendor_id = 0x5458  # 替換為您的設備 vendor ID
         self.product_id = 0x1222  # 替換為您的設備 product ID
-        self.file_name = "databuffer.txt"
 
     async def connect(self, port: str = None) -> bool:
         """連接 USB 設備
@@ -157,3 +157,41 @@ class USBDevice(DeviceBase):
             self._connected = False
             self.device = None
             return False
+
+    def receive_data(self):
+        """簡單讀取USB設備資料
+
+        Args:
+            timeout: 讀取超時時間（毫秒）
+            max_size: 一次讀取的最大字節數
+
+        Returns:
+            bytes: 接收到的資料，如果沒有資料則返回空bytes
+        """
+        timeout: int = 1000
+        if not self._connected:
+            raise ConnectionError("Device not connected")
+
+        try:
+            # 直接嘗試讀取資料
+            data_dlc = 25
+            data = self.ep_in.read( data_dlc, timeout)
+
+            if data:
+                data_bytes = bytes(data)
+                parse_data = CanFrame.Parser.parse(data_bytes)
+                return parse_data
+
+            return b""
+
+        except usb.core.USBError as e:
+            # 忽略超時錯誤，這是正常的
+            if e.errno == 110:  # 操作超時
+                return b""
+            else:
+                self._logger.error(f'接收資料時發生錯誤: {str(e)}')
+                return b""
+        except Exception as e:
+            self._logger.error(f'接收資料時發生未知錯誤: {str(e)}')
+            return b""
+

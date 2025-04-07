@@ -1,5 +1,6 @@
 from importlib import import_module
 from typing import Dict, Type, Optional
+import sys, os
 
 
 class LibraryLoader:
@@ -31,8 +32,20 @@ class LibraryLoader:
             # 獲取模組和類名
             module_path, class_name = self.LIBRARY_MAPPING[category]
 
-            # 動態導入模組
-            module = import_module(module_path)
+            # 嘗試直接導入（適用於已編譯模式）
+            try:
+                module = import_module(module_path)
+            except ImportError:
+                # 如果直接導入失敗，嘗試通過路徑載入（適用於文件系統模式）
+                if getattr(sys, 'frozen', False):
+                    # 打包環境
+                    base_dir = os.path.dirname(sys.executable)
+                    lib_path = os.path.join(base_dir, "Lib")
+                    if lib_path not in sys.path:
+                        sys.path.insert(0, lib_path)
+
+                # 再次嘗試導入
+                module = import_module(module_path)
 
             # 獲取類
             library_class = getattr(module, class_name)
@@ -45,9 +58,5 @@ class LibraryLoader:
 
             return library_instance
 
-        except ImportError as e:
-            raise ImportError(f"Failed to import library for category '{category}': {e}")
-        except AttributeError as e:
-            raise AttributeError(f"Failed to find library class for category '{category}': {e}")
         except Exception as e:
             raise Exception(f"Error creating library instance for category '{category}': {e}")

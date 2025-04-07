@@ -19,7 +19,8 @@ class PowerDevice(DeviceBase):
             raise ConnectionError("Device not connected")
         return True
 
-
+    def receive_data(self) -> bytes:
+        pass
 
     def cleanup(self) -> bool:
         """清空"""

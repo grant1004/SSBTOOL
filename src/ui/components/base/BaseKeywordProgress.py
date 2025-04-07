@@ -56,13 +56,13 @@ class BaseKeywordProgressCard(QFrame):
         self._setup_shadow()
         # 主布局
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setContentsMargins(0,0,0,0)
         layout.setSpacing(0)
 
         # 建立一個容器來包含所有內容
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setContentsMargins(4, 4, 4, 4)
         content_layout.setSpacing(0)
 
         # 添加各個區域到容器中
