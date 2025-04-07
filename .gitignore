@@ -98,3 +98,4 @@ settings.json
 *.bak
 output/
 temp/
+src/logs/
