@@ -2,7 +2,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 from enum import Enum
-from src.utils import get_icon_path
+from src.utils import get_icon_path, Utils
 
 
 class TestStatus(Enum):
@@ -10,6 +10,7 @@ class TestStatus(Enum):
     RUNNING = "running"  # 執行中
     PASSED = "passed"  # 通過
     FAILED = "failed"  # 失敗
+
 
 class KeywordProgressItem(QWidget):
     """關鍵字進度項組件"""
@@ -135,8 +136,13 @@ class KeywordProgressItem(QWidget):
             font-weight: bold;
         """)
 
+
 class CollapsibleProgressPanel(QFrame):
     """可展開的進度面板"""
+    # 新增信號用於菜單操作
+    delete_requested = Signal(QObject)  # 刪除請求信號
+    move_up_requested = Signal(QObject)  # 向上移動請求信號
+    move_down_requested = Signal(QObject)  # 向下移動請求信號
 
     def __init__(self, config: dict, parent=None):
         super().__init__(parent)
@@ -171,12 +177,15 @@ class CollapsibleProgressPanel(QFrame):
             """)
         # margin top right bottom left
 
+        # 允許右鍵選單
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
+
     def _setup_ui(self):
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(16, 12, 16, 12)
         self.main_layout.setSpacing(8)
-
 
         # 標題欄
         self.header = QWidget()
@@ -203,7 +212,7 @@ class CollapsibleProgressPanel(QFrame):
 
         # 展開/收起按鈕
         self.expand_button = QPushButton()
-        self.expand_button.setFixedSize(16,16)
+        self.expand_button.setFixedSize(16, 16)
         self.expand_button.setStyleSheet("""
             QPushButton {
                 border: none;
@@ -349,15 +358,32 @@ class CollapsibleProgressPanel(QFrame):
         self.overall_progress.setValue(0)
         self.update_overall_status(TestStatus.WAITING)
 
+    def show_context_menu(self, position):
+        """顯示右鍵選單"""
+        context_menu = QMenu(self)
 
+        # 新增選單項目
+        delete_action = context_menu.addAction("刪除")
+        move_up_action = context_menu.addAction("向上移動")
+        move_down_action = context_menu.addAction("向下移動")
 
+        # 設置圖標（可選）
+        delete_icon = QIcon(get_icon_path("delete.svg"))
+        delete_action.setIcon(Utils.change_icon_color(delete_icon, "#000000"))
 
+        upward_icon = QIcon(get_icon_path("arrow_drop_up.svg"))
+        move_up_action.setIcon(Utils.change_icon_color(upward_icon, "#000000"))
 
+        downward_icon = QIcon(get_icon_path("arrow_drop_down.svg"))
+        move_down_action.setIcon(Utils.change_icon_color(downward_icon, "#000000"))
 
+        # 獲取所選操作
+        action = context_menu.exec_(self.mapToGlobal(position))
 
-
-
-
-
-
-
+        # 處理所選操作
+        if action == delete_action:
+            self.delete_requested.emit(self)
+        elif action == move_up_action:
+            self.move_up_requested.emit(self)
+        elif action == move_down_action:
+            self.move_down_requested.emit(self)

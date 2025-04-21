@@ -3,6 +3,8 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 import json
 
+from src.utils import Utils
+
 
 class BaseKeywordProgressCard(QFrame):
     """關鍵字進度卡片元件"""
@@ -13,8 +15,12 @@ class BaseKeywordProgressCard(QFrame):
         'failed': '#F44336'  # 紅色
     }
 
-
     parameter_changed = Signal(str, str)  # (參數名, 新值)
+
+    # 新增信號用於菜單操作
+    delete_requested = Signal(QObject)  # 刪除請求信號
+    move_up_requested = Signal(QObject)  # 向上移動請求信號
+    move_down_requested = Signal(QObject)  # 向下移動請求信號
 
     def __init__(self, keyword_config: dict, parent=None):
         super().__init__(parent)
@@ -50,19 +56,22 @@ class BaseKeywordProgressCard(QFrame):
         self.timer.timeout.connect(self._update_running_time)
         self.start_time = None
 
+        # 允許右鍵選單
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
 
     def _setup_ui(self):
         """初始化 UI"""
         self._setup_shadow()
         # 主布局
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0,0,0,0)
+        layout.setContentsMargins(16, 12, 16, 12)
         layout.setSpacing(0)
 
         # 建立一個容器來包含所有內容
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(4, 4, 4, 4)
+        content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
 
         # 添加各個區域到容器中
@@ -98,7 +107,6 @@ class BaseKeywordProgressCard(QFrame):
                 margin: 8px 8px 0px 8px  ;  
             }
         """
-
 
     # region UI
     def _setup_shadow(self):
@@ -225,8 +233,8 @@ class BaseKeywordProgressCard(QFrame):
             # row: int, column: int, rowSpan: int, columnSpan: int,
             row_layout.addWidget(name_label, 0, 0)
             row_layout.addWidget(input_field, 0, 1)
-            row_layout.setColumnStretch(0,1)
-            row_layout.setColumnStretch(1,1)
+            row_layout.setColumnStretch(0, 1)
+            row_layout.setColumnStretch(1, 1)
 
             params_layout.addWidget(param_row)
 
@@ -285,8 +293,7 @@ class BaseKeywordProgressCard(QFrame):
         error_layout.addWidget(self.error_label)
         return error_widget
 
-    #endregion
-
+    # endregion
 
     # region Parameter Management Methods
 
@@ -340,8 +347,7 @@ class BaseKeywordProgressCard(QFrame):
                 else:
                     input_field.setText(str(value) if value is not None else '')
 
-    #endregion
-
+    # endregion
 
     # region STATUS UPDATE
 
@@ -390,7 +396,7 @@ class BaseKeywordProgressCard(QFrame):
             if status == 'running':
                 self.set_progress_start()
                 self.start_timer()
-            else :
+            else:
                 self.set_progress_normal()
                 self.stop_timer()
 
@@ -410,8 +416,7 @@ class BaseKeywordProgressCard(QFrame):
                 self.error_label.clear()
                 self.error_label.hide()
 
-    #endregion
-
+    # endregion
 
     # region PROGRESS BAR
     def set_progress_start(self):
@@ -422,8 +427,7 @@ class BaseKeywordProgressCard(QFrame):
         self.progress_bar.setMinimum(0)
         self.progress_bar.setMaximum(100)
 
-    #endregion
-
+    # endregion
 
     # region RUNNING TIMER
     def _update_running_time(self):
@@ -441,4 +445,42 @@ class BaseKeywordProgressCard(QFrame):
         """停止計時"""
         self.timer.stop()
 
-    #endregion
+    # endregion
+
+    # region CONTEXT MENU
+    def show_context_menu(self, position):
+        """顯示右鍵選單"""
+        context_menu = QMenu(self)
+
+        # 新增選單項目
+        delete_action = context_menu.addAction("刪除")
+        move_up_action = context_menu.addAction("向上移動")
+        move_down_action = context_menu.addAction("向下移動")
+
+        # 設置圖標（可從 src/assets/Icons 獲取）
+        try:
+            from src.utils import get_icon_path
+            delete_icon = QIcon(get_icon_path("delete.svg"))
+            delete_action.setIcon(Utils.change_icon_color(delete_icon, "#000000"))
+
+            upward_icon = QIcon(get_icon_path("arrow_drop_up.svg"))
+            move_up_action.setIcon(Utils.change_icon_color(upward_icon, "#000000"))
+
+            downward_icon = QIcon(get_icon_path("arrow_drop_down.svg"))
+            move_down_action.setIcon(Utils.change_icon_color(downward_icon, "#000000"))
+
+        except ImportError:
+            # 如果無法導入圖標，繼續而不設置圖標
+            pass
+
+        # 獲取所選操作
+        action = context_menu.exec_(self.mapToGlobal(position))
+
+        # 處理所選操作
+        if action == delete_action:
+            self.delete_requested.emit(self)
+        elif action == move_up_action:
+            self.move_up_requested.emit(self)
+        elif action == move_down_action:
+            self.move_down_requested.emit(self)
+    # endregion

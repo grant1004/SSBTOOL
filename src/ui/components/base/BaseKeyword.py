@@ -1,6 +1,4 @@
-# components/base/BaseKeyWordCard.py
-from wsgiref.validate import header_re
-
+# components/base/BaseKeywordCard.py
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -58,11 +56,9 @@ class BaseKeywordCard(QFrame):
         self.config = config
         self.is_expanded = False
 
-
         # Initialize argument values with defaults
         self.argument_values = {}
         self._init_argument_values()
-
 
         self._setup_shadow()
 
@@ -83,7 +79,6 @@ class BaseKeywordCard(QFrame):
         self.height_animation.setDuration(200)
         self.min_height_animation = QPropertyAnimation(self, b"minimumHeight")
         self.min_height_animation.setDuration(200)
-
 
         self.setObjectName("keyword-card")
         self.setStyleSheet(self.CARD_STYLESHEET)
@@ -112,26 +107,22 @@ class BaseKeywordCard(QFrame):
 
         # 標題區域
         self.header_widget = self._create_header()
-
         layout.addWidget(self.header_widget)
 
-        # 簡短描述 - 放在容器中以控制左邊距
-        description_container = QWidget()
-        description_layout = QHBoxLayout(description_container)
-        description_layout.setContentsMargins(0, 0, 0, 0)  # 不額外添加邊距
+        # 簡短描述區域 - 折疊時顯示
+        self.description_container = QWidget()
+        description_layout = QHBoxLayout(self.description_container)
+        description_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.description_label = QLabel()
-        self.description_label.setStyleSheet(self.INFO_STYLESHEET)
-        self.description_label.setWordWrap(True)
-        self.description_label.setMinimumHeight(50)
-        self.description_label.setAlignment(
+        self.collapsed_description_label = QLabel()
+        self.collapsed_description_label.setStyleSheet(self.INFO_STYLESHEET)
+        self.collapsed_description_label.setWordWrap(True)
+        self.collapsed_description_label.setAlignment(
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
         )
-        self.description_label.font().setPixelSize(14)
-        self._update_description_text()
+        description_layout.addWidget(self.collapsed_description_label)
 
-        description_layout.addWidget(self.description_label)
-        layout.addWidget(description_container)
+        layout.addWidget(self.description_container)
 
         # 參數預覽
         params_container = QWidget()
@@ -150,7 +141,8 @@ class BaseKeywordCard(QFrame):
 
         layout.addStretch()
 
-
+        # 更新描述文字
+        self._update_description_text()
 
     # region UI
     def _create_header(self):
@@ -180,6 +172,7 @@ class BaseKeywordCard(QFrame):
         header_layout.addWidget(self.category_label, 0)
 
         return header_widget
+
     def _create_params_preview(self):
         """創建參數預覽"""
         params = self.config.get('arguments', [])
@@ -193,6 +186,7 @@ class BaseKeywordCard(QFrame):
             font-weight: bold;
         """)
         return label
+
     def _create_details_widget(self):
         """創建詳細信息區域"""
         widget = QWidget()
@@ -200,7 +194,7 @@ class BaseKeywordCard(QFrame):
         # 詳細信息區不需要額外的邊距，因為卡片已有邊距
         layout.setContentsMargins(0, 8, 0, 8)
         layout.setSpacing(12)  # 增加詳細區域的元素間距
-        # 使用擴展的大小策略
+
         # 完整描述
         if description := self.config.get('description', ''):
             desc_section = QWidget()
@@ -212,9 +206,11 @@ class BaseKeywordCard(QFrame):
             desc_label.setStyleSheet("font-weight: bold;")
             desc_layout.addWidget(desc_label)
 
+            # 創建完整描述的標籤
             desc_content = QLabel(description)
             desc_content.setStyleSheet(self.INFO_STYLESHEET)
-            desc_content.setWordWrap(True)
+            desc_content.setWordWrap(True)  # 確保可以自動換行
+            desc_content.setTextFormat(Qt.TextFormat.PlainText)  # 使用純文本格式
             desc_layout.addWidget(desc_content)
 
             layout.addWidget(desc_section)
@@ -261,26 +257,42 @@ class BaseKeywordCard(QFrame):
             layout.addWidget(returns_section)
 
         return widget
+
     def _update_description_text(self):
         """更新描述文字"""
         description = self.config.get('description', '')
-        metrics = QFontMetrics(self.description_label.font())
+
+        # 設置摺疊狀態的描述 (截斷版本)
+        metrics = QFontMetrics(self.collapsed_description_label.font())
         elided_text = metrics.elidedText(
             description,
             Qt.TextElideMode.ElideRight,
             300
         )
-        self.description_label.setText(elided_text)
-        self.description_label.setToolTip(description)
+        self.collapsed_description_label.setText(elided_text)
+        self.collapsed_description_label.setToolTip(description)
+
+        # 確保描述容器的高度適合
+        self.collapsed_description_label.setMinimumHeight(40)
+        self.collapsed_description_label.setMaximumHeight(40)
+
     def _calculate_expanded_height(self):
         """計算展開後需要的總高度"""
+        # 確保詳細部分可見以計算高度
         self.details_widget.show()
+
+        # 計算總高度
         height = (self.header_widget.height() +
-                  self.description_label.height() +
                   self.params_preview.height() +
                   self.details_widget.sizeHint().height() +
-                  40)  # 額外空間
+                  60)  # 額外空間
+
+        # 計算完成後再隱藏詳細部分（如果當前未展開）
+        if not self.is_expanded:
+            self.details_widget.hide()
+
         return height
+
     def _create_argument_widget(self, arg: dict):
         """創建參數顯示組件，添加值編輯功能"""
         widget = QWidget()
@@ -300,14 +312,16 @@ class BaseKeywordCard(QFrame):
         layout.addStretch()
 
         return widget
+
     # endregion
 
-    #region EVENT
+    # region EVENT
     def mousePressEvent(self, event):
         """滑鼠按下事件"""
         if event.button() == Qt.MouseButton.LeftButton:
             self.drag_start_position = event.pos()
             self.clicked.emit(self.card_id)
+
     def mouseMoveEvent(self, event):
         """滑鼠移動事件 - 處理拖放"""
         if not (event.buttons() & Qt.MouseButton.LeftButton):
@@ -340,10 +354,18 @@ class BaseKeywordCard(QFrame):
         drag.setPixmap(pixmap)
         drag.setHotSpot(event.pos())
         drag.exec_(Qt.DropAction.CopyAction)
+
     def focusInEvent(self, event):
         """獲得焦點時展開"""
         self.is_expanded = True
+
+        # 隱藏摺疊時的描述
+        self.description_container.hide()
+
+        # 顯示詳細信息
         self.details_widget.show()
+
+        # 計算並設置新高度
         target_height = self._calculate_expanded_height()
 
         self.height_animation.setStartValue(self.height())
@@ -354,10 +376,16 @@ class BaseKeywordCard(QFrame):
         self.height_animation.start()
         self.min_height_animation.start()
         super().focusInEvent(event)
+
     def focusOutEvent(self, event):
         """失去焦點時收起"""
         self.is_expanded = False
+
+        # 關閉詳細信息並顯示摺疊的描述
         self.details_widget.hide()
+        self.description_container.show()
+
+        # 回到摺疊高度
         target_height = self.collapsed_height
 
         self.height_animation.setStartValue(self.height())
@@ -368,4 +396,4 @@ class BaseKeywordCard(QFrame):
         self.height_animation.start()
         self.min_height_animation.start()
         super().focusOutEvent(event)
-    #endregion
+    # endregion

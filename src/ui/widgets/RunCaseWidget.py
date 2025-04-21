@@ -9,8 +9,8 @@ import json
 
 
 class RunCaseWidget(QWidget):
-
     update_ui = Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
@@ -22,8 +22,7 @@ class RunCaseWidget(QWidget):
         self._setup_ui()
 
         self.test_cases = {}
-        self.update_ui.connect( self._update_ui )
-
+        self.update_ui.connect(self._update_ui)
 
     def _setup_ui(self):
         self.main_layout = QGridLayout(self)
@@ -36,12 +35,6 @@ class RunCaseWidget(QWidget):
         self.Name_LineEdit.setPlaceholderText("Enter Test Case Name")
         self.Name_LineEdit.setFixedHeight(40)
 
-        # 創建容器widget來包含scroll area並設置padding
-        # self.scroll_container = QWidget()
-        # scroll_container_layout = QVBoxLayout(self.scroll_container)
-        # scroll_container_layout.setContentsMargins(0, 28, 0, 0)  # 頂部25的padding
-        # scroll_container_layout.setSpacing(0)
-
         # 創建滾動區域
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
@@ -51,15 +44,12 @@ class RunCaseWidget(QWidget):
         # 創建內容容器
         self.content_widget = QWidget()
         self.content_layout = QVBoxLayout(self.content_widget)
-        self.content_layout.setContentsMargins(0,0,0,0)  # 移除內容容器的邊距
+        self.content_layout.setContentsMargins(0, 0, 0, 0)  # 移除內容容器的邊距
         self.content_layout.setSpacing(0)
         self.content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         # 設置滾動區域的內容
         self.scroll_area.setWidget(self.content_widget)
-
-        # 將scroll area添加到容器中
-        # scroll_container_layout.addWidget(self.scroll_area)
 
         # 設置列（column）的比例
         self.main_layout.setColumnStretch(0, 15)
@@ -101,7 +91,7 @@ class RunCaseWidget(QWidget):
                     'steps': [{'step_id': 1, 'name': '步驟1', 'action': '執行動作1', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果1'}, {'step_id': 2, 'name': '步驟2', 'action': '執行動作2', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果2'}, {'step_id': 3, 'name': '步驟3', 'action': '執行動作3', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果3'}, {'step_id': 4, 'name': '步驟4', 'action': '執行動作4', 'params': {'param1': '值3'}, 'expected': '預期結果4'}], 
                     'priority': 'required'
                     }
-            
+
             x-keyword :
             {'id': 'send_can_message', 
              'config': {
@@ -117,9 +107,9 @@ class RunCaseWidget(QWidget):
                 'returns': '', 
                 'priority': 'optional'}
             }
-                        
-                
-                
+
+
+
 
         """
         if mime_data.hasFormat('application/x-testcase'):
@@ -147,9 +137,17 @@ class RunCaseWidget(QWidget):
         if data_type == 'testcase':
             # 創建測試案例面板
             panel = CollapsibleProgressPanel(case_data['config'], parent=self)
+            # 連接右鍵選單信號
+            panel.delete_requested.connect(self.handle_delete_item)
+            panel.move_up_requested.connect(self.handle_move_up_item)
+            panel.move_down_requested.connect(self.handle_move_down_item)
         else:
             # 創建關鍵字面板
             panel = BaseKeywordProgressCard(case_data['config'], parent=self)
+            # 連接右鍵選單信號
+            panel.delete_requested.connect(self.handle_delete_item)
+            panel.move_up_requested.connect(self.handle_move_up_item)
+            panel.move_down_requested.connect(self.handle_move_down_item)
 
         # 添加到內容布局
         # print( case_data )
@@ -157,9 +155,9 @@ class RunCaseWidget(QWidget):
         panel_id = id(panel)
         # print( panel_id )
         # 保存引用
-        self.test_cases[panel_id]= {
+        self.test_cases[panel_id] = {
             'panel': panel,
-            'data': case_data, # json
+            'data': case_data,  # json
             'type': data_type  # testcase keyword
         }
 
@@ -171,12 +169,12 @@ class RunCaseWidget(QWidget):
         self.repaint()
 
     def get_name_text(self):
-        if ( self.Name_LineEdit.text() == "" ):
+        if (self.Name_LineEdit.text() == ""):
             return "Untitled"
         else:
             return self.Name_LineEdit.text()
 
-    def update_progress(self, message:dict, test_id:long):
+    def update_progress(self, message: dict, test_id: long):
         """更新進度顯示"""
         """ message EX: 
             {'data': {'status': 'RUNNING', 
@@ -204,30 +202,30 @@ class RunCaseWidget(QWidget):
         try:
             step = message.get('type')
             if step == 'test_start':
-                print( f"Running Test Case: {message['data']['test_name']}")
+                print(f"Running Test Case: {message['data']['test_name']}")
             elif step == 'keyword_start':
-                self.update_progress_status( "running", -1, test_id)
-                print( f"Running Keyword: {message['data']['keyword_name']}")
+                self.update_progress_status("running", -1, test_id)
+                print(f"Running Keyword: {message['data']['keyword_name']}")
             elif step == 'test_end':
                 result = message.get('data').get('status')
                 log = message.get('data').get('message')
-                print( f"Test Case {message['data']['test_name']} End")
-                print( f"Result: {result}")
-                print( f"Log: {log}")
-                print( f"======================"*3)
+                print(f"Test Case {message['data']['test_name']} End")
+                print(f"Result: {result}")
+                print(f"Log: {log}")
+                print(f"======================" * 3)
                 if result == 'PASS':
-                    self.update_progress_status( "passed", 100, test_id)
+                    self.update_progress_status("passed", 100, test_id)
                 elif result == 'FAIL':
                     error_msg = message.get('data').get('message')
-                    self.update_progress_status( "failed", 100, test_id, error_msg)
+                    self.update_progress_status("failed", 100, test_id, error_msg)
                 else:
-                    print( f"Error: Unknown result: {result}")
+                    print(f"Error: Unknown result: {result}")
 
 
         except Exception as e:
             print(f"Error parsing message: {e}")
 
-    def update_progress_status(self, status, progress_value, test_id:long, error_msg:str = ""):
+    def update_progress_status(self, status, progress_value, test_id: long, error_msg: str = ""):
         """更新測試狀態"""
         panel = self.test_cases[test_id]['panel']
         panel.update_status(status, progress_value, error_msg)
@@ -237,5 +235,50 @@ class RunCaseWidget(QWidget):
         for panel in self.test_cases.values():
             panel['panel'].reset_status()
 
-    def test_finished(self, result:bool):
-        print( f"Test Case Finished")
+    def test_finished(self, result: bool):
+        print(f"Test Case Finished")
+
+    # 新增處理右鍵選單動作的方法
+    def handle_delete_item(self, panel):
+        """處理刪除項目"""
+        # 找到對應的panel_id
+        panel_id = id(panel)
+
+        if panel_id in self.test_cases:
+            # 從布局中移除
+            self.content_layout.removeWidget(panel)
+            # 隱藏和刪除panel
+            panel.hide()
+            panel.deleteLater()
+            # 從字典中移除
+            del self.test_cases[panel_id]
+            # 更新UI
+            self._update_ui()
+
+    def handle_move_up_item(self, panel):
+        """處理向上移動項目"""
+        # 找到當前項目在佈局中的索引
+        index = self.content_layout.indexOf(panel)
+
+        # 檢查是否可以上移（不是第一個）
+        if index > 0:
+            # 從佈局中移除
+            self.content_layout.removeWidget(panel)
+            # 在新位置添加
+            self.content_layout.insertWidget(index - 1, panel)
+            # 更新UI
+            self._update_ui()
+
+    def handle_move_down_item(self, panel):
+        """處理向下移動項目"""
+        # 找到當前項目在佈局中的索引
+        index = self.content_layout.indexOf(panel)
+
+        # 檢查是否可以下移（不是最後一個）
+        if index < self.content_layout.count() - 1:
+            # 從佈局中移除
+            self.content_layout.removeWidget(panel)
+            # 在新位置添加
+            self.content_layout.insertWidget(index + 1, panel)
+            # 更新UI
+            self._update_ui()
