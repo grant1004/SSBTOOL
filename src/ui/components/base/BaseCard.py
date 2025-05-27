@@ -156,7 +156,7 @@ class BaseCard(QFrame):
     def _setup_layout(self):
         """設置主布局"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0,0,0,0)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
         # 標題區域
@@ -214,8 +214,12 @@ class BaseCard(QFrame):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        # 前置條件
-        if preconditions := self.config.get('setup', {}).get('preconditions', []):
+        # 處理新格式的依賴信息
+        dependencies = self.config.get('dependencies', {})
+
+        # 前置條件（保持向下兼容）
+        preconditions = self.config.get('setup', {}).get('preconditions', [])
+        if preconditions:
             precond_label = QLabel("Preconditions:")
             precond_label.setStyleSheet("font-weight: bold;")
             layout.addWidget(precond_label)
@@ -225,8 +229,14 @@ class BaseCard(QFrame):
                 item_label.setStyleSheet(self.INFO_STYLESHEET)
                 layout.addWidget(item_label)
 
-        if libraries := self.config.get('setup', {}).get('library', []):
-            library_label = QLabel("Library:")
+        # 新格式的 libraries 依賴
+        libraries = dependencies.get('libraries', [])
+        if not libraries:
+            # 向下兼容舊格式
+            libraries = self.config.get('setup', {}).get('library', [])
+
+        if libraries:
+            library_label = QLabel("Required Libraries:")
             library_label.setStyleSheet("font-weight: bold;")
             layout.addWidget(library_label)
 
@@ -235,34 +245,82 @@ class BaseCard(QFrame):
                 item_label.setStyleSheet(self.INFO_STYLESHEET)
                 layout.addWidget(item_label)
 
+        # 新格式的 keywords 依賴
+        keywords = dependencies.get('keywords', [])
+        if keywords:
+            keywords_label = QLabel("Required Keywords:")
+            keywords_label.setStyleSheet("font-weight: bold;")
+            layout.addWidget(keywords_label)
+
+            for keyword in keywords:
+                item_label = QLabel(f"    • {keyword}")
+                item_label.setStyleSheet(self.INFO_STYLESHEET)
+                layout.addWidget(item_label)
+
         # 步驟詳情
-        # if steps := self.config.get('steps', []):
-        #     steps_label = QLabel("Steps:")
-        #     steps_label.setStyleSheet("font-weight: bold;")
-        #     layout.addWidget(steps_label)
-        #
-        #     for step in steps:
-        #         step_widget = self._create_step_widget(step)
-        #         layout.addWidget(step_widget)
+        steps = self.config.get('steps', [])
+        if steps:
+            steps_label = QLabel("Steps:")
+            steps_label.setStyleSheet("font-weight: bold;")
+            layout.addWidget(steps_label)
+
+            for i, step in enumerate(steps, 1):
+                step_widget = self._create_step_widget(step, i)
+                layout.addWidget(step_widget)
 
         return widget
 
-    def _create_step_widget(self, step: dict):
+    def _create_step_widget(self, step: dict, step_number: int):
         """創建單個步驟的顯示組件"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(8, 0, 8, 0)
 
-        # 步驟標題
-        title = QLabel(f"{step.get('step_id', '')}. {step.get('name', '')}")
-        title.setStyleSheet("font-weight: bold;")
-        layout.addWidget(title)
+        # 判斷步驟類型並顯示相應信息
+        step_type = step.get('step_type', step.get('type', 'unknown'))
 
-        # 動作
-        if action := step.get('action'):
-            action_label = QLabel(f"Action: {action}")
-            action_label.setStyleSheet(self.INFO_STYLESHEET)
-            layout.addWidget(action_label)
+        if step_type == 'keyword':
+            # 新格式的 keyword 步驟
+            keyword_name = step.get('keyword_name', 'Unknown Keyword')
+            keyword_category = step.get('keyword_category', '')
+            parameters = step.get('parameters', {})
+
+            # 步驟標題
+            title_text = f"{step_number}. {keyword_name}"
+            if keyword_category:
+                title_text += f" ({keyword_category})"
+
+            title = QLabel(title_text)
+            title.setStyleSheet("font-weight: bold;")
+            layout.addWidget(title)
+
+            # 參數信息
+            if parameters:
+                params_text = ", ".join([f"{k}={v}" for k, v in parameters.items()])
+                param_label = QLabel(f"Parameters: {params_text}")
+                param_label.setStyleSheet(self.INFO_STYLESHEET)
+                layout.addWidget(param_label)
+
+        elif step_type == 'testcase':
+            # 嵌套的 testcase 步驟
+            testcase_name = step.get('testcase_name', step.get('name', 'Unknown Testcase'))
+
+            title = QLabel(f"{step_number}. [Testcase] {testcase_name}")
+            title.setStyleSheet("font-weight: bold; color: #0066CC;")
+            layout.addWidget(title)
+
+        else:
+            # 舊格式或其他格式的步驟（向下兼容）
+            step_name = step.get('name', step.get('action', f'Step {step_number}'))
+            title = QLabel(f"{step_number}. {step_name}")
+            title.setStyleSheet("font-weight: bold;")
+            layout.addWidget(title)
+
+            # 動作信息（舊格式）
+            if action := step.get('action'):
+                action_label = QLabel(f"Action: {action}")
+                action_label.setStyleSheet(self.INFO_STYLESHEET)
+                layout.addWidget(action_label)
 
         return widget
 

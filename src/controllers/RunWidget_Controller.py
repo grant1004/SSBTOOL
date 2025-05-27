@@ -25,8 +25,11 @@ class RunWidgetController(QObject):
 
     def GenerateCommand(self):
         testcase = self.view.test_cases
+        # self.view.show_test_info_input()
         Name_text = self.view.get_name_text()
-        return self.model.generate_command( testcase, Name_text)
+        category = "common"
+        priority = "normal"
+        return self.model.generate_command( testcase, Name_text, category, priority)
 
     def ReportCommand(self):
         return self.model.report_command()

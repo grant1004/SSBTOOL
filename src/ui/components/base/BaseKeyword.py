@@ -147,7 +147,7 @@ class BaseKeywordCard(QFrame):
     # region UI
     def _create_header(self):
         """創建標題區域"""
-        print( self.config )
+        # print( self.config )
         header_widget = QWidget()
         # 將 header 內部的邊距設為 0，而是通過布局的 spacing 來控制間距
         header_layout = QHBoxLayout(header_widget)

@@ -9,7 +9,6 @@ class ProgressListener:
         self.current_test = None
         self.current_keyword = None
 
-
     def start_test(self, name, attrs):
         """測試案例開始時的處理"""
         self.current_test = name

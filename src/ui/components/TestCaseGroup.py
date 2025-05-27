@@ -4,6 +4,7 @@ from PySide6.QtGui import *
 import json
 from src.ui.components.base import BaseCard, BaseKeywordCard
 
+
 class TestCaseGroup(QScrollArea):
     """測試案例組，用於顯示一組測試案例卡片"""
 
@@ -33,11 +34,38 @@ class TestCaseGroup(QScrollArea):
         self._setup_style()
 
     def load_from_data(self, data):
-        """直接從數據加載測試案例"""
-        if isinstance(data, dict) and 'test_cases' in data:
-            self.test_cases = data['test_cases']
-        else:
+        """從新的 JSON 格式加載測試案例"""
+        self.test_cases = []
+
+        if isinstance(data, dict):
+            # 處理新的 cards 格式：{"testcase_id": {"data": {"config": {...}}}}
+            for testcase_id, testcase_data in data.items():
+                if isinstance(testcase_data, dict) and 'data' in testcase_data:
+                    config = testcase_data['data'].get('config', {})
+                    # 建立卡片所需的格式
+                    test_case = {
+                        'id': testcase_id,
+                        'name': config.get('name', testcase_id),
+                        'description': config.get('description', ''),
+                        'type': config.get('type', 'testcase'),
+                        'category': config.get('category', 'user_defined'),
+                        'priority': config.get('priority', 'normal'),
+                        'steps': config.get('steps', []),
+                        'estimated_time' : config.get('estimated_time', 0),
+                        'dependencies': config.get('dependencies', {}),
+                        'created_by': config.get('created_by', 'user'),
+                        'created_at': config.get('created_at', ''),
+                        'metadata': config.get('metadata', {})
+                    }
+                    self.test_cases.append(test_case)
+
+            # 如果沒有找到 cards 格式，檢查是否為舊格式
+            if not self.test_cases and 'test_cases' in data:
+                self.test_cases = data['test_cases']
+        elif isinstance(data, list):
+            # 處理陣列格式（向下兼容）
             self.test_cases = data
+
         self._create_cards()
 
     def _create_cards(self):
@@ -45,7 +73,8 @@ class TestCaseGroup(QScrollArea):
         self.clear_cards()
 
         for test_case in self.test_cases:
-            # 直接使用原始測試案例數據，不需要重新格式化
+            # 使用測試案例數據創建卡片
+
             card = BaseCard(
                 card_id=test_case.get('id', f"test_{len(self.cards)}"),
                 config=test_case,
@@ -105,9 +134,11 @@ class TestCaseGroup(QScrollArea):
             should_show = (
                     filter_text in card.config.get('name', '').lower() or
                     filter_text in card.config.get('description', '').lower() or
+                    filter_text in card.config.get('category', '').lower() or
                     any(
-                        filter_text in str(step).lower()
+                        filter_text in str(step.get('keyword_name', '')).lower()
                         for step in card.config.get('steps', [])
+                        if isinstance(step, dict)
                     )
             )
             card.setVisible(should_show)

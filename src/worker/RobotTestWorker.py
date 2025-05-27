@@ -19,7 +19,11 @@ class RobotTestWorker(QObject):
         self.output_dir = output_dir
         self.event_loop = QEventLoop()
 
+
     def run(self):
+
+        print(f"> Project root:{self.project_root}\n> Lib path:{self.lib_path}\n> Output dir:{self.output_dir}")
+        print(f"> Running test case: {os.path.basename(self.robot_file_path)}")
         try:
             # 確保在同一個線程中創建 ProgressListener
             self.progress_listener = ProgressListener(self.progress)

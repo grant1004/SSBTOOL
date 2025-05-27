@@ -146,24 +146,13 @@ class CollapsibleProgressPanel(QFrame):
 
     def __init__(self, config: dict, parent=None):
         super().__init__(parent)
-        # print( config )
-        """ Config : 
-            {'id': 'TEST_001', 
-             'name': 'Test Case 001, Test Case 001', 
-             'description': '測試功能A的運作情況', 
-             'setup': {'preconditions': ['預先條件1', '預先條件2']}, 
-             'estimated_time': 300, 
-             'steps': [
-                {'step_id': 1, 'name': '步驟1', 'action': '執行動作1', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果1'}, 
-                {'step_id': 2, 'name': '步驟2', 'action': '執行動作2', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果2'}, 
-                {'step_id': 3, 'name': '步驟3', 'action': '執行動作3', 'params': {'param1': '值1', 'param2': '值2'}, 'expected': '預期結果3'}, 
-                {'step_id': 4, 'name': '步驟4', 'action': '執行動作4', 'params': {'param1': '值3'}, 'expected': '預期結果4'}], 
-             'priority': 'required'}
-        """
+
         self.setObjectName("CollapsibleProgressPanel")
         self.config = config
         self.is_expanded = False
-        self.keywords = config.get('steps', [])
+
+        # 處理新格式的 steps，轉換為舊格式以保持 UI 兼容
+        self.keywords = self._convert_steps_format(config.get('steps', []))
         self.keyword_items = []
         self.current_keyword_index = -1
         self._setup_ui()
@@ -180,6 +169,57 @@ class CollapsibleProgressPanel(QFrame):
         # 允許右鍵選單
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
+
+    def _convert_steps_format(self, steps):
+        """將新格式的 steps 轉換為舊格式，保持 UI 兼容性"""
+        converted_steps = []
+
+        for i, step in enumerate(steps, 1):
+            if isinstance(step, dict):
+                step_type = step.get('step_type', step.get('type', 'unknown'))
+
+                if step_type == 'keyword':
+                    # 新格式的 keyword 步驟
+                    keyword_name = step.get('keyword_name', 'Unknown Keyword')
+                    keyword_category = step.get('keyword_category', '')
+                    parameters = step.get('parameters', {})
+                    description = step.get('description', '')
+
+                    # 轉換為舊格式
+                    converted_step = {
+                        'step_id': i,
+                        'name': keyword_name,
+                        'action': f"{keyword_name} ({keyword_category})" if keyword_category else keyword_name,
+                        'params': parameters,
+                        'expected': description or f"執行 {keyword_name} 成功"
+                    }
+
+                elif step_type == 'testcase':
+                    # 嵌套的 testcase 步驟
+                    testcase_name = step.get('testcase_name', step.get('name', 'Unknown Testcase'))
+                    parameters = step.get('parameters', {})
+
+                    converted_step = {
+                        'step_id': i,
+                        'name': f"[Testcase] {testcase_name}",
+                        'action': f"執行測試案例: {testcase_name}",
+                        'params': parameters,
+                        'expected': f"測試案例 {testcase_name} 執行成功"
+                    }
+
+                else:
+                    # 舊格式或其他格式（向下兼容）
+                    converted_step = {
+                        'step_id': step.get('step_id', i),
+                        'name': step.get('name', f'步驟{i}'),
+                        'action': step.get('action', f'執行動作{i}'),
+                        'params': step.get('params', {}),
+                        'expected': step.get('expected', f'預期結果{i}')
+                    }
+
+                converted_steps.append(converted_step)
+
+        return converted_steps
 
     def _setup_ui(self):
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)

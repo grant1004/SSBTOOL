@@ -30,10 +30,10 @@ class RunCaseWidget(QWidget):
         self.main_layout.setSpacing(0)
 
         # 創建頂部輸入框
-        self.Name_LineEdit = QLineEdit()
-        self.Name_LineEdit.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        self.Name_LineEdit.setPlaceholderText("Enter Test Case Name")
-        self.Name_LineEdit.setFixedHeight(40)
+        # self.Name_LineEdit = QLabel()
+        # self.Name_LineEdit.setFont(QFont("Arial", 30, QFont.Weight.Bold))
+        # self.Name_LineEdit.setText("Working Area.")
+        # self.Name_LineEdit.setFixedHeight(40)
 
         # 創建滾動區域
         self.scroll_area = QScrollArea()
@@ -52,16 +52,16 @@ class RunCaseWidget(QWidget):
         self.scroll_area.setWidget(self.content_widget)
 
         # 設置列（column）的比例
-        self.main_layout.setColumnStretch(0, 15)
-        self.main_layout.setColumnStretch(1, 2)
+        # self.main_layout.setColumnStretch(0, 15)
+        # self.main_layout.setColumnStretch(1, 2)
 
         # 設置列（row）的比例
-        self.main_layout.setRowStretch(0, 1)
-        self.main_layout.setRowStretch(1, 15)
+        # self.main_layout.setRowStretch(0, 1)
+        # self.main_layout.setRowStretch(1, 15)
 
         # 添加到主布局  row column rowspan columnspan
-        self.main_layout.addWidget(self.scroll_area, 1, 0, -1, 2)  # 使用-1讓容器填充所有剩餘行
-        self.main_layout.addWidget(self.Name_LineEdit, 0, 0, 1, 1, Qt.AlignmentFlag.AlignTop)
+        self.main_layout.addWidget(self.scroll_area)  # 使用-1讓容器填充所有剩餘行
+        # self.main_layout.addWidget(self.Name_LineEdit, 0, 0, 1, 1, Qt.AlignmentFlag.AlignTop)
 
     def _setup_shadow(self):
         self.shadow = QGraphicsDropShadowEffect(self)
@@ -122,7 +122,10 @@ class RunCaseWidget(QWidget):
         else:
             return
 
+
+
         case_data = json.loads(str(data, encoding='utf-8'))
+        print( "Drop data : " + str(case_data) )
         self.add_item(case_data, data_type)
         event.acceptProposedAction()
 
@@ -169,10 +172,11 @@ class RunCaseWidget(QWidget):
         self.repaint()
 
     def get_name_text(self):
-        if (self.Name_LineEdit.text() == ""):
-            return "Untitled"
-        else:
-            return self.Name_LineEdit.text()
+        return "Untitled"
+        # if (self.Name_LineEdit.text() == ""):
+        #     return "Untitled"
+        # else:
+        #     return self.Name_LineEdit.text()
 
     def update_progress(self, message: dict, test_id: long):
         """更新進度顯示"""
@@ -237,7 +241,6 @@ class RunCaseWidget(QWidget):
 
     def test_finished(self, result: bool):
         print(f"Test Case Finished")
-
 
     # 新增處理右鍵選單動作的方法
     def handle_delete_item(self, panel):

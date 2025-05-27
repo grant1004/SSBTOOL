@@ -43,7 +43,7 @@ class TestCaseWidgetController:
     def load_category_data(self, category: str):
         """加載測試案例數據"""
         data = self.model.load_category_data(category)
-        self.view.test_case_group.load_from_data({'test_cases': data})
+        self.view.test_case_group.load_from_data(data)
 
     def load_keyword_data(self, category: str):
         """加載關鍵字數據"""
