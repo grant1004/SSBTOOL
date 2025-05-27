@@ -20,6 +20,10 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.robot 
+output.xml
+log.html
+report.html
 
 # Virtual Environment
 venv/

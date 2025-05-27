@@ -238,6 +238,7 @@ class RunCaseWidget(QWidget):
     def test_finished(self, result: bool):
         print(f"Test Case Finished")
 
+
     # 新增處理右鍵選單動作的方法
     def handle_delete_item(self, panel):
         """處理刪除項目"""
@@ -266,6 +267,8 @@ class RunCaseWidget(QWidget):
             self.content_layout.removeWidget(panel)
             # 在新位置添加
             self.content_layout.insertWidget(index - 1, panel)
+            # 重新構建 test_cases 字典以保持正確順序
+            self._rebuild_test_cases_order()
             # 更新UI
             self._update_ui()
 
@@ -280,5 +283,34 @@ class RunCaseWidget(QWidget):
             self.content_layout.removeWidget(panel)
             # 在新位置添加
             self.content_layout.insertWidget(index + 1, panel)
+            # 重新構建 test_cases 字典以保持正確順序
+            self._rebuild_test_cases_order()
             # 更新UI
             self._update_ui()
+
+    def _rebuild_test_cases_order(self):
+        """重新構建 test_cases 字典以反映當前布局順序"""
+        # 備份當前的 test_cases 數據
+        old_test_cases = self.test_cases.copy()
+        # 清空當前字典
+        self.test_cases.clear()
+
+        # 按照布局順序重新構建字典
+        for i in range(self.content_layout.count()):
+            widget = self.content_layout.itemAt(i).widget()
+            if widget:  # 確保 widget 存在
+                panel_id = id(widget)
+                # 如果在舊字典中找到對應數據，則添加到新字典
+                if panel_id in old_test_cases:
+                    self.test_cases[panel_id] = old_test_cases[panel_id]
+
+    def get_test_cases_in_order(self):
+        """獲取按照當前布局順序排列的測試用例列表"""
+        ordered_cases = []
+        for i in range(self.content_layout.count()):
+            widget = self.content_layout.itemAt(i).widget()
+            if widget:
+                panel_id = id(widget)
+                if panel_id in self.test_cases:
+                    ordered_cases.append(self.test_cases[panel_id])
+        return ordered_cases
