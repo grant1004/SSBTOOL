@@ -28,11 +28,6 @@ class RunWidget_Model(QObject):
             print("No test case selected")
             return
 
-
-        if self.thread and self.thread.isRunning():
-            self.thread.quit()
-            self.thread.wait()
-
         self.isRunning = True
         self.now_TestCase = testcase
 
@@ -48,24 +43,46 @@ class RunWidget_Model(QObject):
             print(f"Failed to generate robot file: {robot_msg}")
             return
 
-        print(f"Generated robot file: {robot_path}")
+        # print(f"Generated robot file: {robot_path}")
 
         # 第三階段：執行 robot file
         if robot_success:
-
             project_root = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
             lib_path = os.path.join(project_root, "Lib")
             output_dir = os.path.join(project_root, "report")
 
             # 創建並設置新的 worker thread 用來執行 .robot
             self.worker = RobotTestWorker(robot_path, project_root, lib_path, output_dir)
-            self.worker.progress.connect(self.handle_progress, Qt.ConnectionType.QueuedConnection)
-            self.worker.finished.connect(self.handle_finished, Qt.ConnectionType.QueuedConnection)
 
+            # 連接信號
+            self.worker.progress.connect(self.handle_progress, Qt.ConnectionType.DirectConnection)
+            self.worker.finished.connect(self.handle_finished, Qt.ConnectionType.DirectConnection)
+
+            # 創建新的線程
             self.thread = QThread()
-            self.thread.started.connect(self.worker.run)
 
+            # 將 worker 移動到線程
             self.worker.moveToThread(self.thread)
+
+            # *** 修正：連接線程啟動信號到 worker 的槽函數，而不是手動調用 run() ***
+            self.thread.started.connect(self.worker.start_work)
+
+            # 添加線程完成處理
+            def on_thread_finished():
+                print(f"[THREAD] Robot test execution thread finished\n")
+                self.isRunning = False
+
+            self.thread.finished.connect(on_thread_finished)
+
+            # *** 修正：當 worker 完成時，退出線程 ***
+            self.worker.finished.connect(self.thread.quit)
+
+            # *** 修正：當線程退出時，清理資源 ***
+            self.thread.finished.connect(self.worker.deleteLater)
+            self.thread.finished.connect(self.thread.deleteLater)
+
+            # 啟動線程
+            print(f"[MAIN] Starting Robot test execution...")
             self.thread.start()
 
     def generate_user_composition(self, test_cases, name_text):
@@ -100,7 +117,7 @@ class RunWidget_Model(QObject):
         # 分析所有 test cases 收集資訊
         for key, test in test_cases.items():
             config = test.get('data', {}).get('config', {})
-            print( "Config : " + str(config) )
+            # print( "Config : " + str(config) )
             # 收集 libraries
             if category := config.get('category'):
                 libraries.add(category)
@@ -320,7 +337,7 @@ class RunWidget_Model(QObject):
 
         # 處理每個獨立的 test case
         for testcase in composition.get('individual_testcases', []):
-            print( testcase )
+            # print( testcase )
             if testcase['type'] == 'keyword':
                 content.extend(self._generate_keyword_testcase(testcase))
             elif testcase['type'] == 'testcase':
@@ -430,20 +447,58 @@ class RunWidget_Model(QObject):
 
         return content
 
-    # 保留原有的其他方法
+    # @Slot(dict)
+    # def handle_progress(self, message):
+    #     """處理測試進度更新 - 改進版本"""
+    #     try:
+    #         print(f"[PROGRESS] Received message: {message}")  # 新增：調試信息
+    #
+    #         test_name = message.get('data', {}).get('test_name', '')
+    #         if test_name:
+    #             self.test_id = int(self._get_id_from_testName(test_name))
+    #             print(f"[PROGRESS] Extracted test_id: {self.test_id}")  # 新增：調試信息
+    #         else:
+    #             print(f"[PROGRESS] Warning: No test_name in message")
+    #
+    #         self.test_progress.emit(message, self.test_id)
+    #     except Exception as e:
+    #         print(f"[PROGRESS] Error handling progress: {e}")
+
     @Slot(dict)
     def handle_progress(self, message):
-        """處理測試進度更新"""
-        self.test_id = int(
-            self._get_id_from_testName( message.get('data', "No data in progress message.").get('test_name')))
-        self.test_progress.emit(message, self.test_id)
+        print(f"[MODEL] 🔥 Received: {message['type']}")
+        try:
+            test_name = message.get('data', {}).get('test_name', '')
+            print(f"[MODEL] 🔍 Extracting ID from: {test_name}")
+
+            self.test_id = int(self._get_id_from_testName(test_name))
+            print(f"[MODEL] ✅ Extracted test_id: {self.test_id}")
+
+            print(f"[MODEL] 📤 Emitting to UI...")
+            self.test_progress.emit(message, self.test_id)
+            print(f"[MODEL] ✅ Emitted to UI successfully")
+
+        except Exception as e:
+            print(f"[MODEL] ❌ Error: {e}")
+            import traceback
+            traceback.print_exc()
 
     @Slot(dict)
     def handle_finished(self, success):
-        """處理測試完成"""
-        if self.test_id is not None:
-            self.test_finished.emit(success)
-        self.worker = None
+        """處理測試完成 - 改進版本"""
+        try:
+            print(f"[FINISHED] Test completed with success: {success}")  # 新增：調試信息
+            if self.test_id is not None:
+                self.test_finished.emit(success)
+            else:
+                print(f"[FINISHED] Warning: test_id is None")
+
+            # 清理 worker 引用
+            self.worker = None
+            self.isRunning = False
+
+        except Exception as e:
+            print(f"[FINISHED] Error handling finished: {e}")
 
     def generate_command(self, testcase, name_text, category, priority):
         """生成測試指令並保存為 JSON 檔案 (保留原有功能)"""
@@ -575,7 +630,7 @@ class RunWidget_Model(QObject):
                 json.dump(existing_testcases, f, indent=4, ensure_ascii=False)
 
             success_msg = f"Testcase '{test_name}' 已保存到 cards (ID: {testcase_id})"
-            print(success_msg)
+            # print(success_msg)
 
             return True, success_msg, testcase_id
 
@@ -628,7 +683,7 @@ class RunWidget_Model(QObject):
             with open(user_testcases_path, 'r', encoding='utf-8') as f:
                 user_testcases = json.load(f)
 
-            print(f"載入了 {len(user_testcases)} 個使用者 testcases")
+            # print(f"載入了 {len(user_testcases)} 個使用者 testcases")
             return user_testcases
 
         except Exception as e:
@@ -662,7 +717,7 @@ class RunWidget_Model(QObject):
                 json.dump(user_testcases, f, indent=4, ensure_ascii=False)
 
             success_msg = f"已刪除 testcase: {testcase_name}"
-            print(success_msg)
+            # print(success_msg)
             return True, success_msg
 
         except Exception as e:

@@ -129,7 +129,8 @@ class KeywordGroup(QScrollArea):
 
     def _click_card(self, card_id: str):
         """處理卡片點擊事件"""
-        print(f"Clicked keyword {card_id}")
+        pass
+        # print(f"Clicked keyword {card_id}")
 
     def get_theme_manager(self):
         """遞迴向上查找 theme_manager"""

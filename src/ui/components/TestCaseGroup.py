@@ -160,7 +160,8 @@ class TestCaseGroup(QScrollArea):
 
     def _click_card(self, card_id: str):
         """卡片點擊處理"""
-        print(f"Clicked {card_id}")
+        pass
+        # print(f"Clicked {card_id}")
 
     def get_theme_manager(self):
         """遞迴向上查找 theme_manager"""

@@ -7,6 +7,230 @@ from src.utils import Container
 from src.ui.components.base import CollapsibleProgressPanel, BaseKeywordProgressCard
 import json
 
+import datetime
+from typing import Dict, Any
+
+
+class PrettyProgressPrinter:
+    """漂亮的測試進度顯示器"""
+
+    # ANSI 顏色代碼
+    COLORS = {
+        'RESET': '\033[0m',
+        'BOLD': '\033[1m',
+        'DIM': '\033[2m',
+        'RED': '\033[91m',
+        'GREEN': '\033[92m',
+        'YELLOW': '\033[93m',
+        'BLUE': '\033[94m',
+        'MAGENTA': '\033[95m',
+        'CYAN': '\033[96m',
+        'WHITE': '\033[97m',
+        'GRAY': '\033[90m'
+    }
+
+    # 圖標
+    ICONS = {
+        'test_start': '🚀',
+        'test_end': '✅',
+        'keyword_start': '⚡',
+        'keyword_end': '📝',
+        'log': '📋',
+        'running': '🔄',
+        'pass': '✅',
+        'fail': '❌',
+        'error': '⚠️',
+        'info': 'ℹ️'
+    }
+
+    def __init__(self, show_timestamp=True, use_colors=True, use_icons=True):
+        self.show_timestamp = show_timestamp
+        self.use_colors = use_colors
+        self.use_icons = use_icons
+        self.indent_level = 0
+
+    def _colorize(self, text: str, color: str) -> str:
+        """為文字添加顏色"""
+        if not self.use_colors:
+            return text
+        return f"{self.COLORS.get(color, '')}{text}{self.COLORS['RESET']}"
+
+    def _get_icon(self, icon_key: str) -> str:
+        """獲取圖標"""
+        if not self.use_icons:
+            return ""
+        return self.ICONS.get(icon_key, "") + " "
+
+    def _get_timestamp(self) -> str:
+        """獲取時間戳"""
+        if not self.show_timestamp:
+            return ""
+        return f"[{datetime.datetime.now().strftime('%H:%M:%S')}] "
+
+    def _get_indent(self) -> str:
+        """獲取縮排"""
+        return "  " * self.indent_level
+
+    def _format_test_start(self, data: Dict[str, Any]) -> str:
+        """格式化測試開始訊息"""
+        test_name = data.get('test_name', 'Unknown Test')
+        icon = self._get_icon('test_start')
+        timestamp = self._get_timestamp()
+        indent = self._get_indent()
+
+        header = "=" * 60
+        title = f"{icon}開始測試: {test_name}"
+
+        return (f"\n{self._colorize(header, 'CYAN')}\n"
+                f"{timestamp}{indent}{self._colorize(title, 'CYAN')}\n"
+                f"{self._colorize(header, 'CYAN')}")
+
+    def _format_test_end(self, data: Dict[str, Any]) -> str:
+        """格式化測試結束訊息"""
+        test_name = data.get('test_name', 'Unknown Test')
+        status = data.get('status', 'UNKNOWN')
+        message = data.get('message', '')
+
+        if status == 'PASS':
+            icon = self._get_icon('pass')
+            color = 'GREEN'
+            status_text = "測試通過"
+        elif status == 'FAIL':
+            icon = self._get_icon('fail')
+            color = 'RED'
+            status_text = "測試失敗"
+        else:
+            icon = self._get_icon('test_end')
+            color = 'YELLOW'
+            status_text = f"測試結束 ({status})"
+
+        timestamp = self._get_timestamp()
+        indent = self._get_indent()
+
+        result = (f"{timestamp}{indent}{icon}{self._colorize(status_text, color)}: "
+                  f"{self._colorize(test_name, 'WHITE')}")
+
+        if message:
+            result += f"\n{timestamp}{indent}  {self._colorize('訊息:', 'GRAY')} {self._colorize(message, color)}"
+
+        footer = "=" * 60
+        result += f"\n{self._colorize(footer, 'GRAY')}\n"
+
+        return result
+
+    def _format_keyword_start(self, data: Dict[str, Any]) -> str:
+        """格式化關鍵字開始訊息"""
+        keyword_name = data.get('keyword_name', 'Unknown Keyword')
+        icon = self._get_icon('keyword_start')
+        timestamp = self._get_timestamp()
+        indent = self._get_indent()
+
+        return (f"{timestamp}{indent}{icon}{self._colorize('執行關鍵字:', 'BLUE')} "
+                f"{self._colorize(keyword_name, 'WHITE')}")
+
+    def _format_keyword_end(self, data: Dict[str, Any]) -> str:
+        """格式化關鍵字結束訊息"""
+        keyword_name = data.get('keyword_name', 'Unknown Keyword')
+        status = data.get('status', 'UNKNOWN')
+        message = data.get('message', '')
+
+        if status == 'PASS':
+            icon = self._get_icon('pass')
+            color = 'GREEN'
+            status_text = "完成"
+        elif status == 'FAIL':
+            icon = self._get_icon('fail')
+            color = 'RED'
+            status_text = "失敗"
+        else:
+            icon = self._get_icon('keyword_end')
+            color = 'YELLOW'
+            status_text = status
+
+        timestamp = self._get_timestamp()
+        indent = self._get_indent()
+
+        result = (f"{timestamp}{indent}{icon}{self._colorize(f'關鍵字{status_text}:', color)} "
+                  f"{self._colorize(keyword_name, 'DIM')}")
+
+        if message:
+            result += f"\n{timestamp}{indent}  {self._colorize('→', 'GRAY')} {self._colorize(message, color)}"
+
+        return result
+
+    def _format_log(self, data: Dict[str, Any]) -> str:
+        """格式化日誌訊息"""
+        level = data.get('level', 'INFO')
+        message = data.get('message', '')
+        keyword_name = data.get('keyword_name', '')
+
+        if level == 'FAIL':
+            icon = self._get_icon('fail')
+            color = 'RED'
+            level_text = "錯誤"
+        elif level == 'ERROR':
+            icon = self._get_icon('error')
+            color = 'RED'
+            level_text = "錯誤"
+        elif level == 'WARN':
+            icon = self._get_icon('error')
+            color = 'YELLOW'
+            level_text = "警告"
+        else:
+            icon = self._get_icon('info')
+            color = 'CYAN'
+            level_text = "資訊"
+
+        timestamp = self._get_timestamp()
+        indent = self._get_indent()
+
+        result = f"{timestamp}{indent}{icon}{self._colorize(f'[{level_text}]', color)} {self._colorize(message, color)}"
+
+        if keyword_name:
+            result += f"\n{timestamp}{indent}  {self._colorize('來源:', 'GRAY')} {self._colorize(keyword_name, 'DIM')}"
+
+        return result
+
+    def update_progress(self, message: Dict[str, Any], test_id: int = None):
+        """更新進度顯示"""
+        try:
+            msg_type = message.get('type', 'unknown')
+            data = message.get('data', {})
+
+            # 根據訊息類型調整縮排
+            if msg_type == 'test_start':
+                self.indent_level = 0
+            elif msg_type in ['keyword_start', 'log']:
+                self.indent_level = 1
+            elif msg_type == 'keyword_end':
+                self.indent_level = 1
+            elif msg_type == 'test_end':
+                self.indent_level = 1
+
+            # 格式化不同類型的訊息
+            if msg_type == 'test_start':
+                formatted_msg = self._format_test_start(data)
+            elif msg_type == 'test_end':
+                formatted_msg = self._format_test_end(data)
+            elif msg_type == 'keyword_start':
+                formatted_msg = self._format_keyword_start(data)
+            elif msg_type == 'keyword_end':
+                formatted_msg = self._format_keyword_end(data)
+            elif msg_type == 'log':
+                formatted_msg = self._format_log(data)
+            else:
+                # 未知類型，使用簡單格式
+                timestamp = self._get_timestamp()
+                indent = self._get_indent()
+                formatted_msg = f"{timestamp}{indent}{self._colorize('[未知]', 'GRAY')} {str(message)}"
+
+            print(formatted_msg)
+
+        except Exception as e:
+            # 如果格式化失敗，回退到原始輸出
+            print(f"{self._colorize('[錯誤]', 'RED')} 格式化失敗: {e}")
+            print(f"> {str(message)}")
+
 
 class RunCaseWidget(QWidget):
     update_ui = Signal()
@@ -23,6 +247,10 @@ class RunCaseWidget(QWidget):
 
         self.test_cases = {}
         self.update_ui.connect(self._update_ui)
+
+        # 添加接收計數器
+        self._received_counter = 0
+        self._received_messages = []
 
     def _setup_ui(self):
         self.main_layout = QGridLayout(self)
@@ -125,7 +353,7 @@ class RunCaseWidget(QWidget):
 
 
         case_data = json.loads(str(data, encoding='utf-8'))
-        print( "Drop data : " + str(case_data) )
+        # print( "Drop data : " + str(case_data) )
         self.add_item(case_data, data_type)
         event.acceptProposedAction()
 
@@ -152,12 +380,11 @@ class RunCaseWidget(QWidget):
             panel.move_up_requested.connect(self.handle_move_up_item)
             panel.move_down_requested.connect(self.handle_move_down_item)
 
-        # 添加到內容布局
-        # print( case_data )
+
         self.content_layout.addWidget(panel)
+
         panel_id = id(panel)
-        # print( panel_id )
-        # 保存引用
+
         self.test_cases[panel_id] = {
             'panel': panel,
             'data': case_data,  # json
@@ -179,55 +406,51 @@ class RunCaseWidget(QWidget):
         #     return self.Name_LineEdit.text()
 
     def update_progress(self, message: dict, test_id: long):
-        """更新進度顯示"""
-        """ message EX: 
-            {'data': {'status': 'RUNNING', 
-                      'test_name': 'Execute Keyword - send_can_message [id]2278790270912'}, 
-             'type': 'test_start'}
-            {'data': {'keyword_name': 'Lib.BatteryLibrary.Send Can Message', 
-                      'status': 'RUNNING', 
-                      'test_name': 'Execute Keyword - send_can_message [id]2278790270912'}, 
-             'type': 'keyword_start'}
-            {'data': {'keyword_name': 'Lib.BatteryLibrary.Send Can Message', 
-                      'level': 'FAIL', 
-                      'message': '發送錯誤: USB 設備未連接', 
-                      'test_name': 'Execute Keyword - send_can_message [id]2278790270912'}, 
-             'type': 'log'}
-            {'data': {'keyword_name': 'Lib.BatteryLibrary.Send Can Message', 
-                      'message': '', 
-                      'status': 'FAIL', 
-                      'test_name': 'Execute Keyword - send_can_message [id]2278790270912'}, 
-             'type': 'keyword_end'}
-            {'data': {'message': '發送錯誤: USB 設備未連接', 
-                      'status': 'FAIL', 
-                      'test_name': 'Execute Keyword - send_can_message [id]2278790270912'},
-             'type': 'test_end'}
-        """
-        try:
-            step = message.get('type')
-            if step == 'test_start':
-                print(f"Running Test Case: {message['data']['test_name']}")
-            elif step == 'keyword_start':
-                self.update_progress_status("running", -1, test_id)
-                print(f"Running Keyword: {message['data']['keyword_name']}")
-            elif step == 'test_end':
-                result = message.get('data').get('status')
-                log = message.get('data').get('message')
-                print(f"Test Case {message['data']['test_name']} End")
-                print(f"Result: {result}")
-                print(f"Log: {log}")
-                print(f"======================" * 3)
-                if result == 'PASS':
-                    self.update_progress_status("passed", 100, test_id)
-                elif result == 'FAIL':
-                    error_msg = message.get('data').get('message')
-                    self.update_progress_status("failed", 100, test_id, error_msg)
-                else:
-                    print(f"Error: Unknown result: {result}")
+        """更新進度顯示 - 增強接收追蹤版本"""
+        self._received_counter += 1
+        msg_type = message.get('type', 'unknown')
 
+        print(f"[UI] 🔥 #{self._received_counter} Received: {msg_type} for test_id: {test_id}")
 
-        except Exception as e:
-            print(f"Error parsing message: {e}")
+        # 記錄接收的訊息
+        message_record = {
+            'counter': self._received_counter,
+            'type': msg_type,
+            'test_id': test_id,
+            'timestamp': QDateTime.currentDateTime().toString()
+        }
+        self._received_messages.append(message_record)
+
+        # try:
+        #     print(f"[UI] 🔥 Received update: {message['type']} for test_id: {test_id}")
+        #     pass
+        #     # if not hasattr(self, '_pretty_printer'):
+        #     #     self._pretty_printer = PrettyProgressPrinter()
+        #     #
+        #     #     # 顯示漂亮的進度
+        #     # self._pretty_printer.update_progress(message, test_id)
+        #     #
+        #     # step = message.get('type')
+        #     # if step == 'test_start':
+        #     #     print(f"Running Test Case: {message['data']['test_name']}")
+        #     # elif step == 'keyword_start':
+        #     #     self.update_progress_status("running", -1, test_id)
+        #     # elif step == 'keyword_end':
+        #     #     pass
+        #     # elif step == 'log':
+        #     #     pass
+        #     # elif step == 'test_end':
+        #     #     result = message.get('data').get('status')
+        #     #     if result == 'PASS':
+        #     #         self.update_progress_status("passed", 100, test_id)
+        #     #     elif result == 'FAIL':
+        #     #         error_msg = message.get('data').get('message')
+        #     #         self.update_progress_status("failed", 100, test_id, error_msg)
+        #     #     else:
+        #     #         print(f"Error: Unknown result: {result}")
+        #
+        # except Exception as e:
+        #     print(f"Error parsing message: {e}")
 
     def update_progress_status(self, status, progress_value, test_id: long, error_msg: str = ""):
         """更新測試狀態"""
@@ -240,7 +463,7 @@ class RunCaseWidget(QWidget):
             panel['panel'].reset_status()
 
     def test_finished(self, result: bool):
-        print(f"Test Case Finished")
+        print(f"[UI] 📋 Received messages history ({ self._received_counter }): {[m['type'] for m in self._received_messages]}")
 
     # 新增處理右鍵選單動作的方法
     def handle_delete_item(self, panel):
