@@ -307,7 +307,6 @@ class BaseKeywordProgressCard(QFrame):
     def _handle_value_changed(self, name: str, value):
         """處理值變更"""
         # 更新內部存儲
-        # print(f"Setting Parametere >>>> name: {name}, value: {value}")
         self.param_values[name] = value
         # 更新 config
         for arg in self.keyword_config['arguments']:
@@ -357,16 +356,141 @@ class BaseKeywordProgressCard(QFrame):
         self.time_label.setText(f"{time_in_seconds:.1f}s")
 
     def reset_status(self):
-        """重置狀態為初始值"""
-        self.update_status('waiting', 0)
-        self.update_execution_time(0.0)
+        """重置狀態為初始值 - 新版本"""
+        try:
+            # 重置基本狀態
+            self.status = 'waiting'
+
+            # 重置進度和時間
+            self.progress = 0
+            self.execution_time = 0.0
+
+            # 停止計時器和重置計時相關變數
+            self.stop_timer()
+            self.start_time = None
+
+            # 更新狀態顯示
+            self._update_status_display('waiting', 0)
+
+            # 設置正常進度條模式
+            self.set_progress_normal()
+
+            # 清除錯誤訊息
+            self.update_error("")
+
+            # 更新執行時間顯示
+            self.update_execution_time(0.0)
+
+            # 重置參數值為預設值（可選）
+            # self.reset_parameter_values()
+
+            print(f"[BaseKeywordProgressCard] Status reset for keyword: {self.keyword_config.get('name', 'Unknown')}")
+
+        except Exception as e:
+            print(f"[BaseKeywordProgressCard] Error resetting status: {e}")
+
+    def update_status(self, message: dict):
+        """更新執行狀態 - 基於完整 message"""
+
+        try:
+            msg_type = message.get('type', '')
+            data = message.get('data', {})
+            if msg_type == 'keyword_start':
+                self._handle_keyword_start(data)
+            elif msg_type == 'keyword_end':
+                self._handle_keyword_end(data)
+            elif msg_type == 'test_start':
+                self._handle_test_start(data)
+            elif msg_type == 'test_end':
+                self._handle_test_end(data)
+            elif msg_type == 'log':
+                self._handle_log(data)
+            else:
+                print(f"[BaseKeywordProgressCard] Unknown message type: {msg_type}")
+
+        except Exception as e:
+            print(f"[BaseKeywordProgressCard] Error updating status: {e}")
+            self.update_error(f"Status update error: {str(e)}")
+
+    def _handle_keyword_start(self, data):
+        """處理關鍵字開始"""
+        self.status = 'running'
+        self._update_status_display(self.status, self.progress)
+        self.set_progress_start()
+        self.start_timer()
+        self.update_error("")  # 清除之前的錯誤訊息
+
+    def _handle_keyword_end(self, data):
+        """處理關鍵字結束"""
+        robot_status = data.get('status', 'UNKNOWN')
+        error_message = data.get('message', '')
+
+        # 將 Robot Framework 狀態映射到我們的狀態
+        if robot_status == 'PASS':
+            self.status = 'passed'
+            progress = 100
+            self.update_error("")  # 清除錯誤訊息
+        elif robot_status == 'FAIL':
+            self.status = 'failed'
+            progress = 100
+            self.update_error(error_message)  # 顯示錯誤訊息
+        elif robot_status == 'NOT RUN':
+            self.status = 'running'
+            progress = 0
+            self.update_error("")
+        else:
+            # 處理其他未知狀態
+            self.status = 'running'
+            progress = 0
+
+        self._update_status_display(self.status, progress)
+        self.set_progress_normal()
         self.stop_timer()
-        self.start_time = None
 
-    def update_status(self, status: str, progress: int = None, error_msg: str = None):
-        """更新執行狀態"""
-        self.status = status
+    def _handle_test_start(self, data):
+        """處理測試開始 - 重置所有關鍵字狀態"""
+        self.status = 'running'
+        self._update_status_display(self.status, self.progress)
 
+    def _handle_test_end(self, data):
+        """處理測試結束"""
+        print(f"[BaseKeywordProgressCard] test end")
+        # 通常不需要特別處理，因為個別關鍵字已經處理完畢
+        # 但可以在這裡做一些清理工作或最終狀態確認
+        test_status = data.get('status', '')
+        error_message = data.get('message', '')
+        # 將 Robot Framework 狀態映射到我們的狀態
+        if test_status == 'PASS':
+            self.status = 'passed'
+            progress = 100
+            self.update_error("")  # 清除錯誤訊息
+        elif test_status == 'FAIL':
+            self.status = 'failed'
+            progress = 100
+            self.update_error(error_message)  # 顯示錯誤訊息
+        elif test_status == 'NOT RUN':
+            self.status = 'waiting'
+            progress = 0
+            self.update_error("")
+        else:
+            # 處理其他未知狀態
+            self.status = 'waiting'
+            progress = 0
+            print(f"[BaseKeywordProgressCard] Unknown robot status: {test_status}")
+
+        self._update_status_display(self.status, progress)
+
+    def _handle_log(self, data):
+        """處理日誌訊息"""
+        level = data.get('level', '')
+        message = data.get('message', '')
+
+        # 只處理與當前關鍵字相關的錯誤日誌
+        if level in ['ERROR', 'FAIL'] :
+            self.update_error(message)
+
+    def _update_status_display(self, status, progress=None):
+        """更新狀態顯示的內部方法"""
         # 更新狀態標籤
         self.status_label.setText(status.upper())
         self.status_label.setStyleSheet(f"""
@@ -393,15 +517,6 @@ class BaseKeywordProgressCard(QFrame):
                     border-radius: 4px;
                 }}
             """)
-            if status == 'running':
-                self.set_progress_start()
-                self.start_timer()
-            else:
-                self.set_progress_normal()
-                self.stop_timer()
-
-            # 更新錯誤訊息
-            self.update_error(error_msg)
 
     def update_error(self, error_msg: str):
         """更新錯誤訊息

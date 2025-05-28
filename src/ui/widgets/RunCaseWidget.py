@@ -409,9 +409,9 @@ class RunCaseWidget(QWidget):
         """更新進度顯示 - 增強接收追蹤版本"""
         self._received_counter += 1
         msg_type = message.get('type', 'unknown')
-
-        print(f"[UI] 🔥 #{self._received_counter} Received: {msg_type} for test_id: {test_id}")
-
+        #
+        # print(f"[UI] 🔥 #{self._received_counter} Received: {msg_type} for test_id: {test_id}")
+        #
         # 記錄接收的訊息
         message_record = {
             'counter': self._received_counter,
@@ -421,42 +421,10 @@ class RunCaseWidget(QWidget):
         }
         self._received_messages.append(message_record)
 
-        # try:
-        #     print(f"[UI] 🔥 Received update: {message['type']} for test_id: {test_id}")
-        #     pass
-        #     # if not hasattr(self, '_pretty_printer'):
-        #     #     self._pretty_printer = PrettyProgressPrinter()
-        #     #
-        #     #     # 顯示漂亮的進度
-        #     # self._pretty_printer.update_progress(message, test_id)
-        #     #
-        #     # step = message.get('type')
-        #     # if step == 'test_start':
-        #     #     print(f"Running Test Case: {message['data']['test_name']}")
-        #     # elif step == 'keyword_start':
-        #     #     self.update_progress_status("running", -1, test_id)
-        #     # elif step == 'keyword_end':
-        #     #     pass
-        #     # elif step == 'log':
-        #     #     pass
-        #     # elif step == 'test_end':
-        #     #     result = message.get('data').get('status')
-        #     #     if result == 'PASS':
-        #     #         self.update_progress_status("passed", 100, test_id)
-        #     #     elif result == 'FAIL':
-        #     #         error_msg = message.get('data').get('message')
-        #     #         self.update_progress_status("failed", 100, test_id, error_msg)
-        #     #     else:
-        #     #         print(f"Error: Unknown result: {result}")
-        #
-        # except Exception as e:
-        #     print(f"Error parsing message: {e}")
-
-    def update_progress_status(self, status, progress_value, test_id: long, error_msg: str = ""):
-        """更新測試狀態"""
         panel = self.test_cases[test_id]['panel']
-        panel.update_status(status, progress_value, error_msg)
+        # panel.update_status(message)
         self._update_ui()
+
 
     def reset_test(self):
         for panel in self.test_cases.values():

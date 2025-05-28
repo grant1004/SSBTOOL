@@ -76,7 +76,7 @@ class KeywordProgressItem(QWidget):
         layout.addWidget(self.progress_bar, 2)
         layout.addWidget(self.status_label)
 
-    def update_status(self, status: TestStatus, progress: int = None):
+    def update_status(self, status: TestStatus, progress: int = None, error_msg: str = None):
         """更新狀態和進度"""
         self.status = status
         if progress is not None:
