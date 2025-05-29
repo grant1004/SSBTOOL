@@ -500,7 +500,7 @@ class RunWidget_Model(QObject):
         except Exception as e:
             print(f"[FINISHED] Error handling finished: {e}")
 
-    def generate_command(self, testcase, name_text, category, priority):
+    def generate_command(self, testcase, name_text, category, priority, description):
         """生成測試指令並保存為 JSON 檔案 (保留原有功能)"""
         print("Click Generate Command")
         # 使用新的 generate_user_composition 方法
@@ -508,12 +508,12 @@ class RunWidget_Model(QObject):
 
         if success:
             print(f"Successfully generated user composition: {path}")
-            success2, msg2, path2 = self.generate_cards_from_json(path,category, priority)
+            success2, msg2, path2 = self.generate_cards_from_json(path,category, priority, description)
 
         else:
             print(f"Error: {msg}")
 
-    def generate_cards_from_json(self, user_composition_path, category, priority):
+    def generate_cards_from_json(self, user_composition_path, category, priority, description):
         """從 user composition JSON 生成 testcase card"""
         import time
         from datetime import datetime
@@ -586,7 +586,7 @@ class RunWidget_Model(QObject):
                         "config": {
                             "type": "testcase",
                             "name": test_name,
-                            "description": f"使用者創建的測試：{test_name}",
+                            "description": description,
                             "category": category,
                             "priority": priority,
                             "estimated_time": f"{estimated_time}min",

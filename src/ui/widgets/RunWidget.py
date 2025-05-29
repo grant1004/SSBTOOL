@@ -3,7 +3,6 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 from src.utils import get_icon_path
 from src.utils import Utils, Container
-from src.controllers import RunWidgetController
 
 
 class RunWidget(QWidget):
