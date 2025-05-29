@@ -620,7 +620,7 @@ class CollapsibleProgressPanel(QFrame):
             keyword_name = self._convert_from_robot_name(keyword_name)
             print(f"[CollapsibleProgressPanel] Change Keyword name: {keyword_name}")
             # 找到對應的關鍵字項目
-            item_index = self._find_keyword_item_index(keyword_name, mark_completed=False)
+            item_index = self._find_keyword_item_index(keyword_name, mark_completed=True)
 
         if item_index >= 0:
             # 映射 Robot Framework 狀態到我們的狀態

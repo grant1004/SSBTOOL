@@ -4,7 +4,7 @@
         "type": "user_composition",
         "test_name": "Untitled",
         "created_by": "robot_app",
-        "created_at": "2025-05-29T17:23:51.643454",
+        "created_at": "2025-05-29T17:34:34.449788",
         "description": "Generated test composition: Untitled"
     },
     "selected_settings": {
@@ -28,8 +28,8 @@
     ],
     "individual_testcases": [
         {
-            "test_id": 2260083558784,
-            "test_name": "Execute TestCase - 有很多重複指令的TEST [id]2260083558784",
+            "test_id": 2272579374336,
+            "test_name": "Execute TestCase - 有很多重複指令的TEST [id]2272579374336",
             "type": "testcase",
             "testcase_name": "有很多重複指令的TEST",
             "priority": "required",
