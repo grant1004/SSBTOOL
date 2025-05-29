@@ -219,6 +219,10 @@ class CollapsibleProgressPanel(QFrame):
         self.config = config
         self.is_expanded = False
 
+        # 執行上下文追蹤 - 使用堆疊結構支持多層嵌套
+        self.execution_stack = ['top_level']  # 執行堆疊，默認是頂層
+        self.current_execution_context = 'top_level'  # 當前執行上下文
+
         # 直接使用新格式，不進行格式轉換
         self.keywords = self._convert_steps_format(config.get('steps', []))
 
@@ -252,7 +256,7 @@ class CollapsibleProgressPanel(QFrame):
         self.customContextMenuRequested.connect(self.show_context_menu)
 
     def _build_keyword_mapping(self):
-        """建立 Robot keyword 名稱到 UI index 的順序映射 - 使用 list 結構"""
+        """建立 Robot keyword 名稱到 UI index 的順序映射 - 使用 testcase ID 版本"""
         mapping = []
 
         for index, step in enumerate(self.keywords):
@@ -263,13 +267,14 @@ class CollapsibleProgressPanel(QFrame):
                 continue
 
             if step_type == 'keyword':
-                # keyword 類型的映射
+                # keyword 類型的映射 - 這些是當前 testcase 層級的 keywords
                 keyword_name = step.get('keyword_name', '')
                 keyword_category = step.get('keyword_category', 'common')
 
                 # 建立可能的 Robot Framework keyword 名稱
                 possible_names = [
-                    keyword_name
+                    keyword_name,
+                    f"{keyword_category}.{keyword_name}",
                 ]
 
                 # 為每個可能的名稱創建映射項目
@@ -280,32 +285,67 @@ class CollapsibleProgressPanel(QFrame):
                         'unique_id': unique_id,
                         'type': 'keyword',
                         'display_name': keyword_name,
-                        'completed': False  # 執行狀態標記
+                        'execution_context': self._get_current_testcase_id(),  # 使用當前 testcase ID
+                        'completed': False
                     })
 
             elif step_type == 'testcase':
                 # testcase 類型的映射
                 testcase_name = step.get('testcase_name', '')
-
-                # Robot Framework 生成的 keyword 名稱格式
+                testcase_id = step.get('testcase_id', unique_id)  # 使用 testcase_id
                 safe_name = self._convert_to_robot_name(testcase_name)
-                generated_keyword = f"Execute_Testcase_{safe_name}_{unique_id}"
+                generated_keyword = f"Execute_Testcase_{safe_name}_{testcase_id}"
 
                 mapping.append({
                     'robot_keyword': generated_keyword,
                     'index': index,
                     'unique_id': unique_id,
                     'type': 'testcase',
+                    'testcase_id': testcase_id,  # 記錄 testcase ID
                     'display_name': f"[Testcase] {testcase_name}",
-                    'completed': False  # 執行狀態標記
+                    'execution_context': self._get_current_testcase_id(),  # 使用當前 testcase ID
+                    'completed': False
                 })
 
-        print(f"[CollapsibleProgressPanel] Built keyword mapping (list structure):")
+        print(f"[CollapsibleProgressPanel] Built keyword mapping (testcase ID based):")
         for i, item in enumerate(mapping):
-            print(
-                f"  [{i}] '{item['robot_keyword']}' -> index {item['index']} (ID: {item['unique_id']}, completed: {item['completed']})")
+            print(f"  [{i}] '{item['robot_keyword']}' -> index {item['index']} "
+                  f"(ID: {item['unique_id']}, context: {item['execution_context']})")
 
         return mapping
+
+    def _get_current_testcase_id(self):
+        """獲取當前執行的 testcase ID"""
+        # 從堆疊頂部獲取當前的執行上下文
+        return self.execution_stack[-1] if self.execution_stack else 'top_level'
+
+    def _extract_testcase_id_from_keyword(self, robot_keyword_name):
+        """從 Robot keyword 名稱中提取 testcase ID"""
+        import re
+
+        # 匹配格式：Execute_Testcase_NAME_ID
+        match = re.search(r'Execute_Testcase_.*_(\d+)$', robot_keyword_name)
+        if match:
+            return int(match.group(1))
+
+        return None
+
+    def _push_execution_context(self, testcase_id):
+        """推入新的執行上下文"""
+        self.execution_stack.append(str(testcase_id))
+        self.current_execution_context = str(testcase_id)
+        print(f"[CollapsibleProgressPanel] Pushed execution context: {testcase_id}, "
+              f"stack: {self.execution_stack}")
+
+    def _pop_execution_context(self):
+        """彈出當前執行上下文"""
+        if len(self.execution_stack) > 1:  # 保持至少一個 'top_level'
+            popped = self.execution_stack.pop()
+            self.current_execution_context = self.execution_stack[-1]
+            print(f"[CollapsibleProgressPanel] Popped execution context: {popped}, "
+                  f"current: {self.current_execution_context}")
+            return popped
+        return None
 
     def _convert_to_robot_name(self, keyword_name):
         """將 keyword 名稱轉換為 Robot Framework 安全格式"""
@@ -313,15 +353,6 @@ class CollapsibleProgressPanel(QFrame):
         # 清理名稱，移除特殊字符，保留中文
         safe_name = re.sub(r'[^a-zA-Z0-9_. \u4e00-\u9fff]', '_', str(keyword_name))
         return safe_name if safe_name else 'Unknown'
-
-    def _convert_from_robot_name(self, robot_keyword):
-        """將 Robot Framework 名稱格式轉換為 keyword mapping 中的名稱"""
-        import re
-        # 移除前綴，例如 'Lib.CommonLibrary.' 或其他庫名稱
-        base_name = re.sub(r'^Lib\.[a-zA-Z]+Library\.', '', robot_keyword)
-        # 將名稱轉換為小寫並用下劃線連接單詞
-        mapped_name = re.sub(r'[^\w\u4e00-\u9fff]+', '_', base_name).lower()
-        return mapped_name
 
     def _convert_steps_format(self, steps):
         """直接使用新格式，不進行格式轉換，為每個 step 添加唯一標識"""
@@ -360,6 +391,158 @@ class CollapsibleProgressPanel(QFrame):
                 converted_steps.append(step_copy)
 
         return converted_steps
+
+    def _find_keyword_item_index(self, robot_keyword_name, mark_completed=False):
+        """找到對應的 KeywordProgressItem 索引 - testcase ID 版本"""
+
+        print(f"[CollapsibleProgressPanel] Looking for keyword: {robot_keyword_name}")
+        print(f"[CollapsibleProgressPanel] Current execution context: {self.current_execution_context}")
+
+        # 1. 檢查是否是 testcase keyword
+        if robot_keyword_name.startswith('Execute_Testcase_'):
+            # 這是一個 testcase，直接查找
+            for mapping_item in self.keyword_mapping:
+                if (mapping_item['robot_keyword'] == robot_keyword_name and
+                        not mapping_item['completed']):
+
+                    index = mapping_item['index']
+                    if mark_completed:
+                        mapping_item['completed'] = True
+
+                    print(f"[CollapsibleProgressPanel] Found testcase: "
+                          f"{robot_keyword_name} -> index {index}")
+                    return index
+
+        # 2. 查找當前執行上下文中的 keyword
+        current_context_candidates = []
+        for mapping_item in self.keyword_mapping:
+            if (mapping_item['execution_context'] == self.current_execution_context and
+                    not mapping_item['completed']):
+
+                # 檢查名稱匹配
+                is_match = self._is_keyword_name_match(robot_keyword_name, mapping_item['robot_keyword'])
+                if is_match:
+                    print(
+                        f"[CollapsibleProgressPanel] Name match found: '{robot_keyword_name}' ↔ '{mapping_item['robot_keyword']}'")
+                    current_context_candidates.append(mapping_item)
+
+        # 如果在當前上下文找到匹配項
+        if current_context_candidates:
+            # 選擇第一個未完成的匹配項（按順序執行）
+            best_match = current_context_candidates[0]
+            index = best_match['index']
+
+            if mark_completed:
+                best_match['completed'] = True
+
+            print(f"[CollapsibleProgressPanel] Found in current context ({self.current_execution_context}): "
+                  f"{robot_keyword_name} -> index {index}")
+            return index
+
+        # 3. 備用方案：ID 匹配
+        extracted_id = self._extract_id_from_robot_keyword(robot_keyword_name)
+        if extracted_id:
+            for mapping_item in self.keyword_mapping:
+                if (mapping_item['unique_id'] == extracted_id and
+                        not mapping_item['completed']):
+
+                    index = mapping_item['index']
+                    if mark_completed:
+                        mapping_item['completed'] = True
+
+                    print(f"[CollapsibleProgressPanel] Found by ID match: "
+                          f"{robot_keyword_name} -> ID {extracted_id} -> index {index}")
+                    return index
+
+        # 4. 全局模糊匹配（最後備用）
+        print(f"[CollapsibleProgressPanel] No match in current context, trying global fuzzy match")
+        for mapping_item in self.keyword_mapping:
+            if not mapping_item['completed']:
+                is_match = self._is_keyword_name_match(robot_keyword_name, mapping_item['robot_keyword'])
+                if is_match:
+                    print(
+                        f"[CollapsibleProgressPanel] Global match found: '{robot_keyword_name}' ↔ '{mapping_item['robot_keyword']}'")
+                    index = mapping_item['index']
+                    if mark_completed:
+                        mapping_item['completed'] = True
+
+                    print(f"[CollapsibleProgressPanel] Found by global fuzzy match: "
+                          f"{robot_keyword_name} -> index {index}")
+                    return index
+
+        print(f"[CollapsibleProgressPanel] Could not find keyword: {robot_keyword_name}")
+        self._debug_print_mappings()
+        return -1
+
+    def _is_keyword_name_match(self, robot_keyword_name, mapping_keyword_name):
+        """檢查兩個 keyword 名稱是否匹配"""
+        # 精確匹配
+        if robot_keyword_name == mapping_keyword_name:
+            return True
+
+        import re
+
+        # 提取 Robot Framework keyword 的基本名稱
+        robot_base = self._extract_base_keyword_name_for_matching(robot_keyword_name)
+        mapping_base = self._extract_base_keyword_name_for_matching(mapping_keyword_name)
+
+        # 基本名稱匹配
+        if robot_base == mapping_base:
+            return True
+
+        # 特殊處理：Robot Framework 的名稱可能是 "Title Case"，而映射是 "snake_case"
+        robot_snake = self._convert_to_snake_case(robot_base)
+        mapping_snake = self._convert_to_snake_case(mapping_base)
+
+        return robot_snake == mapping_snake
+
+    def _extract_base_keyword_name_for_matching(self, keyword_name):
+        """提取用於匹配的基本 keyword 名稱"""
+        import re
+
+        # 移除完整的庫路徑 (如 "Lib.CommonLibrary.Delay" → "Delay")
+        base_name = re.sub(r'^.*\.([^.]+)',  r'\1', keyword_name)
+
+        # 如果沒有點，直接返回原名稱
+        if '.' not in keyword_name:
+            base_name = keyword_name
+
+        # 移除類別前綴 (如 "common.delay" → "delay")
+        base_name = re.sub(r'^[^.]*\.', '', base_name)
+
+        return base_name.lower()
+
+    def _debug_print_mappings(self):
+        """調試用：打印當前映射狀態"""
+        print(f"[CollapsibleProgressPanel] Current mappings:")
+        for i, item in enumerate(self.keyword_mapping):
+            print(f"  [{i}] '{item['robot_keyword']}' -> index {item['index']} "
+                  f"(context: {item['execution_context']}, completed: {item['completed']})")
+
+    def _extract_id_from_robot_keyword(self, robot_keyword_name):
+        """從 Robot keyword 名稱中提取唯一 ID"""
+        try:
+            import re
+
+            # 匹配格式：Execute_Testcase_NAME_ID
+            match = re.search(r'Execute_Testcase_.*_(\d+)$', robot_keyword_name)
+            if match:
+                return int(match.group(1))
+
+            # 匹配末尾的數字 ID
+            match = re.search(r'_(\d+)$', robot_keyword_name)
+            if match:
+                return int(match.group(1))
+
+            # 匹配任何數字序列
+            match = re.search(r'(\d+)', robot_keyword_name)
+            if match:
+                return int(match.group(1))
+
+        except (ValueError, AttributeError) as e:
+            print(f"[CollapsibleProgressPanel] Error extracting ID from {robot_keyword_name}: {e}")
+
+        return None
 
     def _setup_ui(self):
         """設置 UI"""
@@ -582,17 +765,21 @@ class CollapsibleProgressPanel(QFrame):
         self.update_overall_status(TestStatus.RUNNING)
 
     def _handle_keyword_start(self, data):
-        """處理關鍵字開始"""
+        """處理關鍵字開始 - testcase ID 版本"""
         keyword_name = data.get('original_keyword_name', '')
-        print(f"[CollapsibleProgressPanel] Keyword started: {keyword_name}")
+        is_nested_testcase = data.get('is_nested_testcase', False)
+
+        print(f"[CollapsibleProgressPanel] Keyword started: {keyword_name} "
+              f"(nested: {is_nested_testcase})")
+
+        # 檢查是否是 testcase keyword
+        if keyword_name.startswith('Execute_Testcase_'):
+            testcase_id = self._extract_testcase_id_from_keyword(keyword_name)
+            if testcase_id:
+                self._push_execution_context(testcase_id)
+
         # 找到對應的關鍵字項目
         item_index = self._find_keyword_item_index(keyword_name, mark_completed=False)
-
-        if item_index == -1 :
-            keyword_name = self._convert_from_robot_name(keyword_name)
-            print(f"[CollapsibleProgressPanel] Keyword started: {keyword_name}")
-            # 找到對應的關鍵字項目
-            item_index = self._find_keyword_item_index(keyword_name, mark_completed=False)
 
         if item_index >= 0:
             self.current_keyword_index = item_index
@@ -601,23 +788,27 @@ class CollapsibleProgressPanel(QFrame):
             # 如果是第一個關鍵字，更新整體狀態
             if item_index == 0:
                 self.update_overall_status(TestStatus.RUNNING)
+        else:
+            # 如果找不到匹配，可能是嵌套的 keyword
+            print(f"[CollapsibleProgressPanel] Keyword '{keyword_name}' not found in current context")
 
     def _handle_keyword_end(self, data):
-        """處理關鍵字結束"""
+        """處理關鍵字結束 - testcase ID 版本"""
         keyword_name = data.get('original_keyword_name', '')
         robot_status = data.get('status', 'UNKNOWN')
-        error_message = data.get('message', '')
+        is_nested_testcase = data.get('is_nested_testcase', False)
 
-        print(f"[CollapsibleProgressPanel] Keyword ended: {self._convert_to_robot_name(keyword_name)} - {robot_status}")
+        print(f"[CollapsibleProgressPanel] Keyword ended: {keyword_name} - {robot_status} "
+              f"(nested: {is_nested_testcase})")
+
+        # 檢查是否是 testcase keyword 結束
+        if keyword_name.startswith('Execute_Testcase_'):
+            testcase_id = self._extract_testcase_id_from_keyword(keyword_name)
+            if testcase_id:
+                self._pop_execution_context()
 
         # 找到對應的關鍵字項目
         item_index = self._find_keyword_item_index(keyword_name, mark_completed=True)
-
-        if item_index == -1 :
-            keyword_name = self._convert_from_robot_name(keyword_name)
-            print(f"[CollapsibleProgressPanel] Change Keyword name: {keyword_name}")
-            # 找到對應的關鍵字項目
-            item_index = self._find_keyword_item_index(keyword_name, mark_completed=True)
 
         if item_index >= 0:
             # 映射 Robot Framework 狀態到我們的狀態
@@ -633,16 +824,16 @@ class CollapsibleProgressPanel(QFrame):
                 self.completed_count += 1
             elif robot_status == 'NOT RUN':
                 status = TestStatus.NOT_RUN
-                progress = 100  # NOT RUN 也算完成，進度條設為100%
+                progress = 100
                 self.not_run_count += 1
-                self.completed_count += 1  # NOT RUN 也算作已完成
+                self.completed_count += 1
             else:
                 status = TestStatus.WAITING
                 progress = 0
-                print(f"[CollapsibleProgressPanel] Unknown robot status: {robot_status}")
 
-            print(
-                f"[CollapsibleProgressPanel] Updated counts - Passed: {self.passed_count}, Failed: {self.failed_count}, Not Run: {self.not_run_count}, Completed: {self.completed_count}/{self.total_count}")
+            print(f"[CollapsibleProgressPanel] Updated counts - "
+                  f"Passed: {self.passed_count}, Failed: {self.failed_count}, "
+                  f"Not Run: {self.not_run_count}, Completed: {self.completed_count}/{self.total_count}")
 
             # 更新關鍵字項目狀態
             self.keyword_items[item_index].update_status(status, progress)
@@ -652,6 +843,8 @@ class CollapsibleProgressPanel(QFrame):
 
             # 檢查是否需要更新整體狀態
             self._check_overall_completion()
+        else:
+            print(f"[CollapsibleProgressPanel] Keyword '{keyword_name}' not found for completion")
 
     def _handle_log(self, data):
         """處理日誌訊息"""
@@ -674,120 +867,6 @@ class CollapsibleProgressPanel(QFrame):
             self.update_overall_status(TestStatus.PASSED)
         elif test_status == 'FAIL':
             self.update_overall_status(TestStatus.FAILED)
-
-    def _find_keyword_item_index(self, robot_keyword_name, mark_completed=False):
-        """找到對應的 KeywordProgressItem 索引 - 使用 list 順序查找
-
-        Args:
-            robot_keyword_name: Robot Framework 傳入的 keyword 名稱
-            mark_completed: 是否標記為已完成 (在 keyword_end 時設為 True)
-        """
-
-
-        # 1. 精確匹配：完整的 robot keyword 名稱
-        for mapping_item in self.keyword_mapping:
-            if mapping_item['robot_keyword'] == robot_keyword_name:
-                if mapping_item['completed']:
-                    continue
-                index = mapping_item['index']
-                unique_id = mapping_item['unique_id']
-
-                # 只在 keyword_end 時標記為已完成
-                if mark_completed:
-                    mapping_item['completed'] = True
-                print( f"[CollapsibleProgressPanel] Found by exact match: {robot_keyword_name} -> index {index} (ID: {unique_id})")
-                return index
-
-        # 2. ID 精確匹配：從 Robot keyword 名稱提取 ID
-        extracted_id = self._extract_id_from_robot_keyword(robot_keyword_name)
-        if extracted_id:
-            for mapping_item in self.keyword_mapping:
-                if mapping_item['unique_id'] == extracted_id:
-                    # 如果已完成且不是要標記完成，跳過
-                    if mapping_item['completed'] and not mark_completed:
-                        continue
-
-                    index = mapping_item['index']
-
-                    # 只在 keyword_end 時標記為已完成
-                    if mark_completed:
-                        mapping_item['completed'] = True
-                        print(f"[CollapsibleProgressPanel] Marked as completed: index {index}")
-
-                    print(
-                        f"[CollapsibleProgressPanel] Found by ID match: {robot_keyword_name} -> ID {extracted_id} -> index {index}")
-                    return index
-
-        # 3. 模糊匹配：顯示名稱相似的項目
-        for mapping_item in self.keyword_mapping:
-            # 如果已完成且不是要標記完成，跳過
-            if mapping_item['completed']:
-                continue
-
-            display_name = mapping_item['display_name']
-            robot_keyword = mapping_item['robot_keyword']
-
-            # 檢查名稱相似度
-            if (self._is_similar_keyword(robot_keyword_name, display_name) or
-                    self._is_similar_keyword(robot_keyword_name, robot_keyword)):
-
-                index = mapping_item['index']
-                unique_id = mapping_item['unique_id']
-
-                # 只在 keyword_end 時標記為已完成
-                if mark_completed:
-                    mapping_item['completed'] = True
-                    print(f"[CollapsibleProgressPanel] Marked as completed: index {index}")
-
-                print(
-                    f"[CollapsibleProgressPanel] Found by fuzzy match: {robot_keyword_name} -> '{display_name}' -> index {index} (ID: {unique_id})")
-                return index
-
-        print(f"[CollapsibleProgressPanel] Could not find keyword: {robot_keyword_name}")
-        print(f"[CollapsibleProgressPanel] Available mappings:")
-        for i, item in enumerate(self.keyword_mapping):
-            print(
-                f"  [{i}] '{item['robot_keyword']}' -> index {item['index']} (ID: {item['unique_id']}, completed: {item['completed']})")
-
-        return -1
-
-    def _extract_id_from_robot_keyword(self, robot_keyword_name):
-        """從 Robot keyword 名稱中提取唯一 ID"""
-        try:
-            import re
-
-            # 匹配格式：Execute_Testcase_NAME_ID
-            match = re.search(r'Execute_Testcase_.*_(\d+)$', robot_keyword_name)
-            if match:
-                return int(match.group(1))
-
-            # 匹配末尾的數字 ID
-            match = re.search(r'_(\d+)$', robot_keyword_name)
-            if match:
-                return int(match.group(1))
-
-            # 匹配任何數字序列
-            match = re.search(r'(\d+)', robot_keyword_name)
-            if match:
-                return int(match.group(1))
-
-        except (ValueError, AttributeError) as e:
-            print(f"[CollapsibleProgressPanel] Error extracting ID from {robot_keyword_name}: {e}")
-
-        return None
-
-    def _is_similar_keyword(self, robot_keyword_name, target_name):
-        """檢查兩個 keyword 名稱是否相似"""
-        # 轉換為小寫進行比較
-        robot_clean = robot_keyword_name.lower()
-        target_clean = target_name.lower()
-
-        # 移除常見的前綴後綴
-        robot_clean = robot_clean.replace('execute_testcase_', '').replace('[testcase]', '').strip()
-        target_clean = target_clean.replace('execute_testcase_', '').replace('[testcase]', '').strip()
-
-        # 檢查包含關係
-        return robot_clean in target_clean or target_clean in robot_clean
 
     def _update_overall_progress(self):
         """更新整體進度條"""
@@ -860,8 +939,12 @@ class CollapsibleProgressPanel(QFrame):
         """)
 
     def reset_status(self):
-        """重置所有關鍵字的狀態和進度"""
+        """重置所有關鍵字的狀態和進度 - 重置執行堆疊"""
         print(f"[CollapsibleProgressPanel] Resetting status")
+
+        # 重置執行堆疊
+        self.execution_stack = ['top_level']
+        self.current_execution_context = 'top_level'
 
         # 重置所有計數器
         self.completed_count = 0
@@ -922,16 +1005,4 @@ class CollapsibleProgressPanel(QFrame):
             self.move_up_requested.emit(self)
         elif action == move_down_action:
             self.move_down_requested.emit(self)
-
-
-
-
-
-
-
-
-
-
-
-
 
