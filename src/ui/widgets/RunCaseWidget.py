@@ -422,7 +422,7 @@ class RunCaseWidget(QWidget):
         self._received_messages.append(message_record)
 
         panel = self.test_cases[test_id]['panel']
-        # panel.update_status(message)
+        panel.update_status(message)
         self._update_ui()
 
 

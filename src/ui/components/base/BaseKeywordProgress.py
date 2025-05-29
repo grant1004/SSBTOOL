@@ -7,12 +7,13 @@ from src.utils import Utils
 
 
 class BaseKeywordProgressCard(QFrame):
-    """關鍵字進度卡片元件"""
+    """關鍵字進度卡片元件 - 重構版本"""
     STATUS_COLORS = {
         'waiting': '#FFA000',  # 黃色
         'running': '#2196F3',  # 藍色
         'passed': '#4CAF50',  # 綠色
-        'failed': '#F44336'  # 紅色
+        'failed': '#F44336',  # 紅色
+        'not_run': '#FF9800'  # 橙色
     }
 
     parameter_changed = Signal(str, str)  # (參數名, 新值)
@@ -37,18 +38,19 @@ class BaseKeywordProgressCard(QFrame):
         # UI 初始化
         self._setup_ui()
         self.setObjectName("keyword-progress-card")
-        self.setStyleSheet("""
-                        #keyword-progress-card {
-                            background-color: #FFFFFF;
-                            border: 2px solid #A0A0A0;
-                            margin: 8px 8px 0px 8px  ;  
-                        }
-                    """)
 
-        # 設置固定高度 (根據參數數量動態調整)
-        base_height = 140  # 基礎高度
-        param_height = len(self.keyword_config.get('arguments', [])) * 40
-        self.setMinimumHeight(base_height + param_height)
+        # 重構後的樣式 - 與 CollapsibleProgressPanel 風格統一但有區別
+        self.setStyleSheet("""
+            #keyword-progress-card {
+                background-color: #FFFFFF;
+                border: 1px solid #D0D0D0;
+                border-radius: 6px;
+                margin: 4px 4px 0px 4px;
+            }
+        """)
+
+        # 動態計算高度
+        self._calculate_height()
 
         # running Timer
         self.timer = QTimer()
@@ -60,197 +62,168 @@ class BaseKeywordProgressCard(QFrame):
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
 
+    def _calculate_height(self):
+        """動態計算高度"""
+        base_height = 140  # 基礎高度
+        param_count = len(self.keyword_config.get('arguments', []))
+        param_height = param_count * 36 if param_count > 0 else 0  # 增加行高以配合更大字體
+        total_height = base_height + param_height
+        self.setMinimumHeight(total_height)
+
     def _setup_ui(self):
-        """初始化 UI"""
-        self._setup_shadow()
+        """初始化 UI - 重構版本"""
+        # 移除陰影效果，與 CollapsibleProgressPanel 保持一致
+        # self._setup_shadow()
+
         # 主布局
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 12, 16, 12)
-        layout.setSpacing(0)
+        layout.setContentsMargins(8, 6, 8, 6)  # 與 CollapsibleProgressPanel 一致的間距
+        layout.setSpacing(4)  # 緊湊的間距
 
-        # 建立一個容器來包含所有內容
-        content_widget = QWidget()
-        content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(0)
+        # 創建各個區域
+        header_section = self._create_header_section()
+        params_section = self._create_params_section()
+        progress_section = self._create_progress_section()
+        error_section = self._create_error_section()
 
-        # 添加各個區域到容器中
-        header = self._create_header()
-        params = self._create_params_section()
-        progress = self._create_progress_section()
-        error = self._create_error_section()
+        # 添加到主布局
+        layout.addWidget(header_section)
+        if params_section:
+            layout.addWidget(params_section)
+        layout.addWidget(progress_section)
+        layout.addWidget(error_section)
 
-        # 設置各區域的大小策略
-        header.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        params.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        progress.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        error.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        # 添加到容器布局
-        content_layout.addWidget(header)
-        content_layout.addWidget(params)
-        content_layout.addWidget(progress)
-        content_layout.addWidget(error)
-
-        # 設置容器的大小策略
-        content_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        # 將容器添加到主布局
-        layout.addWidget(content_widget)
-
-    def _get_base_stylesheet(self):
-        """獲取基本樣式表"""
-        return """
-            KeywordProgressCard {
-                background-color: #FF0000;
-                border: 2px solid #A0A0A0;
-                margin: 8px 8px 0px 8px  ;  
+    def _create_header_section(self):
+        """創建標題區域 - 重構版本"""
+        header_widget = QWidget()
+        header_widget.setStyleSheet("""
+            QWidget {
+                background-color: #F0F8FF;
+                border: none;
+                border-radius: 4px;
+                padding: 2px;
             }
-        """
-
-    # region UI
-    def _setup_shadow(self):
-        """設置陰影效果"""
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setColor(QColor(0, 0, 0, 30))
-        shadow.setBlurRadius(10)
-        shadow.setOffset(0, 2)
-        self.setGraphicsEffect(shadow)
-
-    def _create_header(self):
-        """創建標題區域"""
-        header = QWidget()
-        header.setFixedHeight(36)
-        header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(8, 0, 8, 0)
-
-        # Keyword 名稱
-        name_label = QLabel(self.keyword_config.get('name', ''))
-        name_label.setStyleSheet("""
-            font-size: 14px;
-            font-weight: bold;
-            color: #333333;
         """)
 
-        # 類別標籤
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(10, 6, 10, 6)
+        header_layout.setSpacing(8)
+
+        # Keyword 名稱 - 標題樣式
+        name_label = QLabel(self.keyword_config.get('name', ''))
+        name_label.setStyleSheet("""
+            font-size: 16px;
+            font-weight: 700;
+            color: #2C3E50;
+            background: transparent;
+        """)
+
+        # 類別標籤 - 重新設計
         category = self.keyword_config.get('category', '')
         category_label = QLabel(category)
         category_label.setStyleSheet("""
-            background-color: #0077CC;
+            background-color: #1976D2;
             color: white;
             padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: bold;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
         """)
 
-        header_layout.addWidget(name_label)
-        header_layout.addStretch()
-        header_layout.addWidget(category_label)
+        header_layout.addWidget(name_label, 1)
+        header_layout.addWidget(category_label, 0)
 
-        return header
+        return header_widget
 
-    def _create_progress_section(self):
-        """創建進度顯示區域"""
-        progress_widget = QWidget()
-        progress_layout = QHBoxLayout(progress_widget)
-        progress_layout.setSpacing(12)
-        progress_layout.setContentsMargins(8, 8, 8, 8)
+    def _create_params_section(self):
+        """創建參數輸入區域 - 重構版本"""
+        arguments = self.keyword_config.get('arguments', [])
+        if not arguments:
+            return None
 
-        # 進度條
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setValue(0)
-        self.progress_bar.setTextVisible(False)
-        self.progress_bar.setFixedHeight(8)
-        self.progress_bar.setStyleSheet("""
-            QProgressBar {
-                background-color: #F5F5F5;
+        params_widget = QWidget()
+        params_widget.setStyleSheet("""
+            QWidget {
+                background-color: #FAFAFA;
                 border: none;
                 border-radius: 4px;
             }
-            QProgressBar::chunk {
-                background-color: #4CAF50;
-                border-radius: 4px;
-            }
         """)
 
-        # 狀態行
-        # status_row = QWidget()
-        # status_layout = QHBoxLayout(status_row)
-        # status_layout.setContentsMargins(0, 0, 0, 0)
-
-        # 狀態標籤
-        self.status_label = QLabel("WAITING")
-        self.status_label.setStyleSheet(f"""
-            background-color: #FFA000;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: bold;
-        """)
-
-        # 執行時間
-        self.time_label = QLabel("0.0s")
-        self.time_label.setStyleSheet("""
-            color: #666666;
-            font-size: 12px;
-        """)
-
-        # 正確的添加順序
-        progress_layout.addWidget(self.status_label)  # 先加入狀態標籤
-        progress_layout.addWidget(self.progress_bar)  # 加入進度條
-        progress_layout.addWidget(self.time_label)  # 加入時間標籤
-
-        return progress_widget
-
-    def _create_params_section(self):
-        """創建參數輸入區域"""
-        params_widget = QWidget()
         params_layout = QVBoxLayout(params_widget)
-        params_layout.setSpacing(8)
-        params_layout.setContentsMargins(8, 8, 8, 8)
+        params_layout.setContentsMargins(10, 8, 10, 8)
+        params_layout.setSpacing(6)
 
-        self.param_inputs = {}  # 存儲參數輸入框的引用
+        # 參數標題 - 標題樣式
+        params_title = QLabel("參數設定")
+        params_title.setStyleSheet("""
+            font-size: 14px;
+            font-weight: 600;
+            color: #34495E;
+            background: transparent;
+        """)
+        params_layout.addWidget(params_title)
 
-        for arg in self.keyword_config.get('arguments', []):
-            param_row = QWidget()
-            row_layout = QGridLayout(param_row)
-            row_layout.setContentsMargins(0, 0, 0, 0)
+        # 存儲參數輸入框的引用
+        self.param_inputs = {}
 
-            # 參數名稱
-            name_label = QLabel(f"{arg['name']} ({arg['type'] if 'type' in arg else 'str'}):")
-            name_label.setStyleSheet("""
-                color: #666666;
-                font-size: 12px;
-            """)
-
-            # 參數輸入框
-            input_field = self._create_input_field(arg)
-            self.param_inputs[arg['name']] = input_field
-
-            # row: int, column: int, rowSpan: int, columnSpan: int,
-            row_layout.addWidget(name_label, 0, 0)
-            row_layout.addWidget(input_field, 0, 1)
-            row_layout.setColumnStretch(0, 1)
-            row_layout.setColumnStretch(1, 1)
-
+        for arg in arguments:
+            param_row = self._create_param_row(arg)
             params_layout.addWidget(param_row)
 
         return params_widget
 
+    def _create_param_row(self, arg):
+        """創建單個參數行"""
+        param_row = QWidget()
+        param_row.setStyleSheet("background: transparent;")
+
+        row_layout = QHBoxLayout(param_row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(8)
+
+        # 參數名稱和類型 - 內文樣式
+        name_text = f"{arg.get('name', '')} ({arg.get('type', 'str')})"
+        name_label = QLabel(name_text)
+        name_label.setFixedWidth(130)
+        name_label.setStyleSheet("""
+            color: #5D6D7E;
+            font-size: 12px;
+            font-weight: 500;
+            background: transparent;
+        """)
+
+        # 參數輸入框
+        input_field = self._create_input_field(arg)
+        input_field.setFixedHeight(28)  # 配合更大字體調整高度
+        self.param_inputs[arg['name']] = input_field
+
+        row_layout.addWidget(name_label)
+        row_layout.addWidget(input_field, 1)
+
+        return param_row
+
     def _create_input_field(self, arg):
-        """創建適合參數類型的輸入框"""
+        """創建適合參數類型的輸入框 - 重構版本"""
         arg_type = arg.get('type', 'str').lower()
         name = arg.get('name')
         default = arg.get('default')
         current_value = self.param_values.get(name, default)
 
+        base_style = """
+            border: 1px solid #E0E0E0;
+            border-radius: 3px;
+            padding: 4px 8px;
+            font-size: 12px;
+            font-weight: 400;
+            background-color: #FFFFFF;
+        """
+
         if arg_type == 'bool':
             input_field = QComboBox()
             input_field.addItems(['True', 'False'])
             input_field.setCurrentText(str(current_value) if current_value is not None else 'False')
+            input_field.setStyleSheet(f"QComboBox {{{base_style}}}")
             # 連接信號
             input_field.currentTextChanged.connect(
                 lambda text, n=name: self._handle_value_changed(n, text == 'True')
@@ -261,6 +234,7 @@ class BaseKeywordProgressCard(QFrame):
                 input_field.setText(str(current_value))
             if default is not None:
                 input_field.setPlaceholderText(f"Default: {default}")
+            input_field.setStyleSheet(f"QLineEdit {{{base_style}}}")
             # 連接信號
             input_field.textChanged.connect(
                 lambda text, n=name: self._handle_value_changed(n, text)
@@ -268,24 +242,97 @@ class BaseKeywordProgressCard(QFrame):
 
         return input_field
 
+    def _create_progress_section(self):
+        """創建進度顯示區域 - 重構版本"""
+        progress_widget = QWidget()
+        progress_widget.setStyleSheet("""
+            QWidget {
+                background-color: #F8F9FA;
+                border: none;
+                border-radius: 4px;
+            }
+        """)
+
+        progress_layout = QVBoxLayout(progress_widget)
+        progress_layout.setContentsMargins(10, 8, 10, 8)
+        progress_layout.setSpacing(6)
+
+        # 狀態行
+        status_row = QWidget()
+        status_row.setStyleSheet("background: transparent;")
+        status_layout = QHBoxLayout(status_row)
+        status_layout.setContentsMargins(0, 0, 0, 0)
+        status_layout.setSpacing(8)
+
+        # 狀態標籤
+        self.status_label = QLabel("WAITING")
+        self.status_label.setFixedWidth(80)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_label.setStyleSheet(f"""
+            background-color: {self.STATUS_COLORS['waiting']};
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        """)
+
+        # 執行時間 - 內文樣式
+        self.time_label = QLabel("0.0s")
+        self.time_label.setStyleSheet("""
+            color: #5D6D7E;
+            font-size: 12px;
+            font-weight: 500;
+            background: transparent;
+        """)
+
+        status_layout.addWidget(self.status_label)
+        status_layout.addStretch()
+        status_layout.addWidget(self.time_label)
+
+        # 進度條
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setFixedHeight(8)  # 稍微增加高度配合字體
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                background-color: #F0F0F0;
+                border: none;
+                border-radius: 4px;
+            }
+            QProgressBar::chunk {
+                background-color: #4CAF50;
+                border-radius: 4px;
+            }
+        """)
+
+        progress_layout.addWidget(status_row)
+        progress_layout.addWidget(self.progress_bar)
+
+        return progress_widget
+
     def _create_error_section(self):
-        """創建錯誤訊息區域"""
+        """創建錯誤訊息區域 - 重構版本"""
         error_widget = QWidget()
         error_layout = QVBoxLayout(error_widget)
-        error_layout.setContentsMargins(8, 0, 8, 8)  # 減少上下邊距
+        error_layout.setContentsMargins(0, 0, 0, 0)
+        error_layout.setSpacing(0)
 
         self.error_label = QLabel()
         self.error_label.setText("")
-        self.error_label.setWordWrap(True)  # 允許文字換行
-        self.error_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)  # 允許水平擴展
+        self.error_label.setWordWrap(True)
+        self.error_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         self.error_label.setStyleSheet("""
             QLabel {
-                color: #8B0000;
+                color: #D32F2F;
                 padding: 8px;
-                border: 1px solid #8B0000;
+                border: none;
                 border-radius: 4px;
                 font-size: 12px;
-                background-color: #FFF0F0;
+                font-weight: 400;
+                background-color: #FFEBEE;
             }
         """)
         self.error_label.hide()  # 預設隱藏
@@ -293,9 +340,7 @@ class BaseKeywordProgressCard(QFrame):
         error_layout.addWidget(self.error_label)
         return error_widget
 
-    # endregion
-
-    # region Parameter Management Methods
+    # ============ 保持原有的功能方法 ============
 
     def _init_param_values(self):
         """初始化參數值，使用默認值"""
@@ -306,19 +351,12 @@ class BaseKeywordProgressCard(QFrame):
 
     def _handle_value_changed(self, name: str, value):
         """處理值變更"""
-        # 更新內部存儲
         self.param_values[name] = value
-        # 更新 config
         for arg in self.keyword_config['arguments']:
             if arg['name'] == name:
                 arg['value'] = value
                 break
-        # 發出信號
         self.parameter_changed.emit(name, str(value))
-
-    def _update_param_value(self, name: str, value):
-        """更新參數值"""
-        self.param_values[name] = value
 
     def get_parameter_values(self):
         """獲取所有參數的當前值"""
@@ -328,7 +366,7 @@ class BaseKeywordProgressCard(QFrame):
         """設置特定參數的值"""
         if name in self.param_values:
             self.param_values[name] = value
-            if name in self.param_inputs:
+            if hasattr(self, 'param_inputs') and name in self.param_inputs:
                 input_field = self.param_inputs[name]
                 if isinstance(input_field, QComboBox):
                     input_field.setCurrentText(str(value))
@@ -338,17 +376,14 @@ class BaseKeywordProgressCard(QFrame):
     def reset_parameter_values(self):
         """重置所有參數值為默認值"""
         self._init_param_values()
-        for name, value in self.param_values.items():
-            if name in self.param_inputs:
-                input_field = self.param_inputs[name]
-                if isinstance(input_field, QComboBox):
-                    input_field.setCurrentText(str(value if value is not None else 'False'))
-                else:
-                    input_field.setText(str(value) if value is not None else '')
-
-    # endregion
-
-    # region STATUS UPDATE
+        if hasattr(self, 'param_inputs'):
+            for name, value in self.param_values.items():
+                if name in self.param_inputs:
+                    input_field = self.param_inputs[name]
+                    if isinstance(input_field, QComboBox):
+                        input_field.setCurrentText(str(value if value is not None else 'False'))
+                    else:
+                        input_field.setText(str(value) if value is not None else '')
 
     def update_execution_time(self, time_in_seconds: float):
         """更新執行時間"""
@@ -356,33 +391,19 @@ class BaseKeywordProgressCard(QFrame):
         self.time_label.setText(f"{time_in_seconds:.1f}s")
 
     def reset_status(self):
-        """重置狀態為初始值 - 新版本"""
+        """重置狀態為初始值"""
         try:
-            # 重置基本狀態
             self.status = 'waiting'
-
-            # 重置進度和時間
             self.progress = 0
             self.execution_time = 0.0
 
-            # 停止計時器和重置計時相關變數
             self.stop_timer()
             self.start_time = None
 
-            # 更新狀態顯示
             self._update_status_display('waiting', 0)
-
-            # 設置正常進度條模式
             self.set_progress_normal()
-
-            # 清除錯誤訊息
             self.update_error("")
-
-            # 更新執行時間顯示
             self.update_execution_time(0.0)
-
-            # 重置參數值為預設值（可選）
-            # self.reset_parameter_values()
 
             print(f"[BaseKeywordProgressCard] Status reset for keyword: {self.keyword_config.get('name', 'Unknown')}")
 
@@ -391,10 +412,10 @@ class BaseKeywordProgressCard(QFrame):
 
     def update_status(self, message: dict):
         """更新執行狀態 - 基於完整 message"""
-
         try:
             msg_type = message.get('type', '')
             data = message.get('data', {})
+
             if msg_type == 'keyword_start':
                 self._handle_keyword_start(data)
             elif msg_type == 'keyword_end':
@@ -414,101 +435,99 @@ class BaseKeywordProgressCard(QFrame):
 
     def _handle_keyword_start(self, data):
         """處理關鍵字開始"""
-        self.status = 'running'
-        self._update_status_display(self.status, self.progress)
-        self.set_progress_start()
-        self.start_timer()
-        self.update_error("")  # 清除之前的錯誤訊息
+        keyword_name = data.get('keyword_name', '')
+        current_keyword = self.keyword_config.get('name', '')
+
+        # 檢查是否是當前關鍵字（支援關鍵字名稱映射）
+        if self._is_current_keyword(keyword_name):
+            self.status = 'running'
+            self._update_status_display('running')
+            self.set_progress_start()
+            self.start_timer()
+            self.update_error("")
 
     def _handle_keyword_end(self, data):
         """處理關鍵字結束"""
+        keyword_name = data.get('keyword_name', '')
         robot_status = data.get('status', 'UNKNOWN')
         error_message = data.get('message', '')
 
-        # 將 Robot Framework 狀態映射到我們的狀態
-        if robot_status == 'PASS':
-            self.status = 'passed'
-            progress = 100
-            self.update_error("")  # 清除錯誤訊息
-        elif robot_status == 'FAIL':
-            self.status = 'failed'
-            progress = 100
-            self.update_error(error_message)  # 顯示錯誤訊息
-        elif robot_status == 'NOT RUN':
-            self.status = 'running'
-            progress = 0
-            self.update_error("")
-        else:
-            # 處理其他未知狀態
-            self.status = 'running'
-            progress = 0
+        # 檢查是否是當前關鍵字
+        if self._is_current_keyword(keyword_name):
+            if robot_status == 'PASS':
+                self.status = 'passed'
+                progress = 100
+                self.update_error("")
+            elif robot_status == 'FAIL':
+                self.status = 'failed'
+                progress = 100
+                self.update_error(error_message)
+            elif robot_status == 'NOT RUN':
+                self.status = 'not_run'
+                progress = 100
+                self.update_error("")
+            else:
+                self.status = 'waiting'
+                progress = 0
 
-        self._update_status_display(self.status, progress)
-        self.set_progress_normal()
-        self.stop_timer()
+            self._update_status_display(self.status, progress)
+            self.set_progress_normal()
+            self.stop_timer()
 
     def _handle_test_start(self, data):
-        """處理測試開始 - 重置所有關鍵字狀態"""
-        self.status = 'running'
-        self._update_status_display(self.status, self.progress)
+        """處理測試開始"""
+        self.reset_status()
 
     def _handle_test_end(self, data):
         """處理測試結束"""
-        print(f"[BaseKeywordProgressCard] test end")
-        # 通常不需要特別處理，因為個別關鍵字已經處理完畢
-        # 但可以在這裡做一些清理工作或最終狀態確認
-        test_status = data.get('status', '')
-        error_message = data.get('message', '')
-        # 將 Robot Framework 狀態映射到我們的狀態
-        if test_status == 'PASS':
-            self.status = 'passed'
-            progress = 100
-            self.update_error("")  # 清除錯誤訊息
-        elif test_status == 'FAIL':
-            self.status = 'failed'
-            progress = 100
-            self.update_error(error_message)  # 顯示錯誤訊息
-        elif test_status == 'NOT RUN':
-            self.status = 'waiting'
-            progress = 0
-            self.update_error("")
-        else:
-            # 處理其他未知狀態
-            self.status = 'waiting'
-            progress = 0
-            print(f"[BaseKeywordProgressCard] Unknown robot status: {test_status}")
-
-        self._update_status_display(self.status, progress)
+        # 如果關鍵字還沒有明確的結束狀態，根據測試結果設置
+        if self.status == 'running':
+            test_status = data.get('status', '')
+            if test_status == 'FAIL':
+                self.status = 'failed'
+                self._update_status_display(self.status, 100)
 
     def _handle_log(self, data):
         """處理日誌訊息"""
         level = data.get('level', '')
         message = data.get('message', '')
 
-        # 只處理與當前關鍵字相關的錯誤日誌
-        if level in ['ERROR', 'FAIL'] :
+        if level in ['ERROR', 'FAIL']:
             self.update_error(message)
+
+    def _is_current_keyword(self, robot_keyword_name):
+        """檢查是否是當前卡片的關鍵字"""
+        current_keyword = self.keyword_config.get('name', '')
+
+        # 直接匹配
+        if robot_keyword_name == current_keyword:
+            return True
+
+        # 模糊匹配 (處理 Robot Framework 的命名格式)
+        if (robot_keyword_name.lower().endswith(current_keyword.lower()) or
+                current_keyword.lower() in robot_keyword_name.lower()):
+            return True
+
+        return False
 
     def _update_status_display(self, status, progress=None):
         """更新狀態顯示的內部方法"""
-        # 更新狀態標籤
-        self.status_label.setText(status.upper())
+        self.status_label.setText(status.upper().replace('_', ' '))
         self.status_label.setStyleSheet(f"""
             background-color: {self.STATUS_COLORS[status]};
             color: white;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
         """)
 
-        # 更新進度條
         if progress is not None:
             self.progress = progress
             self.progress_bar.setValue(progress)
             self.progress_bar.setStyleSheet(f"""
                 QProgressBar {{
-                    background-color: #F5F5F5;
+                    background-color: #F0F0F0;
                     border: none;
                     border-radius: 4px;
                 }}
@@ -519,11 +538,8 @@ class BaseKeywordProgressCard(QFrame):
             """)
 
     def update_error(self, error_msg: str):
-        """更新錯誤訊息
-        Args:
-            error_msg (str): 錯誤訊息文字，如果是空字串則隱藏錯誤訊息區塊
-        """
-        if self.error_label:  # 添加檢查
+        """更新錯誤訊息"""
+        if hasattr(self, 'error_label') and self.error_label:
             if error_msg:
                 self.error_label.setText(error_msg)
                 self.error_label.show()
@@ -531,20 +547,16 @@ class BaseKeywordProgressCard(QFrame):
                 self.error_label.clear()
                 self.error_label.hide()
 
-    # endregion
-
-    # region PROGRESS BAR
     def set_progress_start(self):
+        """設置進度條為無限進度模式"""
         self.progress_bar.setMinimum(0)
         self.progress_bar.setMaximum(0)
 
     def set_progress_normal(self):
+        """設置進度條為正常模式"""
         self.progress_bar.setMinimum(0)
         self.progress_bar.setMaximum(100)
 
-    # endregion
-
-    # region RUNNING TIMER
     def _update_running_time(self):
         """更新運行時間"""
         if self.start_time is not None:
@@ -560,19 +572,14 @@ class BaseKeywordProgressCard(QFrame):
         """停止計時"""
         self.timer.stop()
 
-    # endregion
-
-    # region CONTEXT MENU
     def show_context_menu(self, position):
         """顯示右鍵選單"""
         context_menu = QMenu(self)
 
-        # 新增選單項目
         delete_action = context_menu.addAction("刪除")
         move_up_action = context_menu.addAction("向上移動")
         move_down_action = context_menu.addAction("向下移動")
 
-        # 設置圖標（可從 src/assets/Icons 獲取）
         try:
             from src.utils import get_icon_path
             delete_icon = QIcon(get_icon_path("delete.svg"))
@@ -583,19 +590,14 @@ class BaseKeywordProgressCard(QFrame):
 
             downward_icon = QIcon(get_icon_path("arrow_drop_down.svg"))
             move_down_action.setIcon(Utils.change_icon_color(downward_icon, "#000000"))
-
         except ImportError:
-            # 如果無法導入圖標，繼續而不設置圖標
             pass
 
-        # 獲取所選操作
         action = context_menu.exec_(self.mapToGlobal(position))
 
-        # 處理所選操作
         if action == delete_action:
             self.delete_requested.emit(self)
         elif action == move_up_action:
             self.move_up_requested.emit(self)
         elif action == move_down_action:
             self.move_down_requested.emit(self)
-    # endregion
