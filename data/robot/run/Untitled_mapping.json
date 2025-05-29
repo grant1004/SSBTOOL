@@ -1,36 +1,47 @@
 {
-    "testcase_to_keyword": {},
-    "keyword_to_testcase": {},
+    "testcase_to_keyword": {
+        "1989436079680": "Execute_Testcase_TESTONE_1989436079680"
+    },
+    "keyword_to_testcase": {
+        "Execute_Testcase_TESTONE_1989436079680": {
+            "testcase_id": 1989436079680,
+            "testcase_name": "[Testcase] TESTONE",
+            "description": "測試"
+        }
+    },
     "nested_structure": {
-        "2272579374336": [
+        "2116028062336": [
             {
-                "type": "keyword",
-                "keyword_name": "start_listening",
-                "keyword_category": "common"
-            },
-            {
-                "type": "keyword",
-                "keyword_name": "start_listening",
-                "keyword_category": "common"
+                "type": "nested_testcase",
+                "original_testcase_id": 1989436079680,
+                "generated_keyword_name": "Execute_Testcase_TESTONE_1989436079680",
+                "testcase_name": "[Testcase] TESTONE",
+                "inner_steps": [
+                    {
+                        "type": "keyword",
+                        "keyword_name": "start_listening",
+                        "keyword_category": "common"
+                    },
+                    {
+                        "type": "keyword",
+                        "keyword_name": "send_can_message",
+                        "keyword_category": "common"
+                    },
+                    {
+                        "type": "keyword",
+                        "keyword_name": "delay",
+                        "keyword_category": "common"
+                    },
+                    {
+                        "type": "keyword",
+                        "keyword_name": "stop_listening",
+                        "keyword_category": "common"
+                    }
+                ]
             },
             {
                 "type": "keyword",
                 "keyword_name": "delay",
-                "keyword_category": "common"
-            },
-            {
-                "type": "keyword",
-                "keyword_name": "delay",
-                "keyword_category": "common"
-            },
-            {
-                "type": "keyword",
-                "keyword_name": "stop_listening",
-                "keyword_category": "common"
-            },
-            {
-                "type": "keyword",
-                "keyword_name": "stop_listening",
                 "keyword_category": "common"
             }
         ]

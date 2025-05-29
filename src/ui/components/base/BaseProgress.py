@@ -269,8 +269,7 @@ class CollapsibleProgressPanel(QFrame):
 
                 # 建立可能的 Robot Framework keyword 名稱
                 possible_names = [
-                    keyword_name,
-                    f"Lib.{keyword_category.title()}Library.{self._convert_to_robot_name(keyword_name)}"
+                    keyword_name
                 ]
 
                 # 為每個可能的名稱創建映射項目
@@ -323,8 +322,6 @@ class CollapsibleProgressPanel(QFrame):
         # 將名稱轉換為小寫並用下劃線連接單詞
         mapped_name = re.sub(r'[^\w\u4e00-\u9fff]+', '_', base_name).lower()
         return mapped_name
-        
-        
 
     def _convert_steps_format(self, steps):
         """直接使用新格式，不進行格式轉換，為每個 step 添加唯一標識"""
@@ -690,20 +687,15 @@ class CollapsibleProgressPanel(QFrame):
         # 1. 精確匹配：完整的 robot keyword 名稱
         for mapping_item in self.keyword_mapping:
             if mapping_item['robot_keyword'] == robot_keyword_name:
+                if mapping_item['completed']:
+                    continue
                 index = mapping_item['index']
                 unique_id = mapping_item['unique_id']
 
                 # 只在 keyword_end 時標記為已完成
                 if mark_completed:
                     mapping_item['completed'] = True
-                    print(f"[CollapsibleProgressPanel] Marked as completed: index {index}")
-                    print(f"[CollapsibleProgressPanel] Available mappings:")
-                    for i, item in enumerate(self.keyword_mapping):
-                        print(
-                            f"  [{i}] '{item['robot_keyword']}' -> index {item['index']} (ID: {item['unique_id']}, completed: {item['completed']})")
-
-                print(
-                    f"[CollapsibleProgressPanel] Found by exact match: {robot_keyword_name} -> index {index} (ID: {unique_id})")
+                print( f"[CollapsibleProgressPanel] Found by exact match: {robot_keyword_name} -> index {index} (ID: {unique_id})")
                 return index
 
         # 2. ID 精確匹配：從 Robot keyword 名稱提取 ID
@@ -729,7 +721,7 @@ class CollapsibleProgressPanel(QFrame):
         # 3. 模糊匹配：顯示名稱相似的項目
         for mapping_item in self.keyword_mapping:
             # 如果已完成且不是要標記完成，跳過
-            if mapping_item['completed'] and not mark_completed:
+            if mapping_item['completed']:
                 continue
 
             display_name = mapping_item['display_name']
