@@ -38,12 +38,12 @@ class RunWidget_Model(QObject):
             return
 
         # 第二階段：從 JSON 生成 robot file
-        robot_success, robot_msg, robot_path = self.generate_robot_from_json(user_json_path)
+        robot_success, robot_msg, robot_result = self.generate_robot_from_json(user_json_path)
         if not robot_success:
             print(f"Failed to generate robot file: {robot_msg}")
             return
 
-        # print(f"Generated robot file: {robot_path}")
+        robot_path, mapping_path = robot_result  # **解包映射路徑**
 
         # 第三階段：執行 robot file
         if robot_success:
@@ -52,7 +52,7 @@ class RunWidget_Model(QObject):
             output_dir = os.path.join(project_root, "report")
 
             # 創建並設置新的 worker thread 用來執行 .robot
-            self.worker = RobotTestWorker(robot_path, project_root, lib_path, output_dir)
+            self.worker = RobotTestWorker(robot_path, project_root, lib_path, output_dir, mapping_path)
 
             # 連接信號
             self.worker.progress.connect(self.handle_progress, Qt.ConnectionType.DirectConnection)
@@ -270,6 +270,12 @@ class RunWidget_Model(QObject):
             with open(json_path, 'r', encoding='utf-8') as f:
                 composition = json.load(f)
 
+            # 收集嵌套 testcases
+            nested_testcases = self._collect_nested_testcases(composition)
+
+            # **新增：生成映射關係**
+            keyword_mapping = self._build_keyword_mapping(nested_testcases, composition)
+
             # 生成 robot 內容
             robot_content = self._generate_robot_content_from_composition(composition)
 
@@ -282,17 +288,75 @@ class RunWidget_Model(QObject):
             output_filename = composition.get('runtime_config', {}).get('output_filename', 'generated_test.robot')
             robot_file_path = os.path.join(robot_dir, output_filename)
 
+            # **新增：保存映射關係**
+            mapping_file_path = robot_file_path.replace('.robot', '_mapping.json')
+            with open(mapping_file_path, 'w', encoding='utf-8') as f:
+                json.dump(keyword_mapping, f, indent=4, ensure_ascii=False)
+
             # 寫入檔案
             with open(robot_file_path, 'w', encoding='utf-8') as f:
                 f.write(robot_content)
 
-            return True, f"Robot file generated from JSON: {robot_file_path}", robot_file_path
+            return True, f"Robot file generated: {robot_file_path}", (robot_file_path, mapping_file_path)
 
         except Exception as e:
             return False, f"Error generating robot file from JSON: {e}", ""
 
+    def _build_keyword_mapping(self, nested_testcases, composition):
+        """建立 keyword 映射關係"""
+        mapping = {
+            'testcase_to_keyword': {},  # testcase_id -> keyword_name
+            'keyword_to_testcase': {},  # keyword_name -> testcase_info
+            'nested_structure': {}  # 完整的嵌套結構
+        }
+
+        # 處理嵌套的 testcases
+        for testcase_id, testcase_data in nested_testcases.items():
+            keyword_name = testcase_data['keyword_name']
+
+            mapping['testcase_to_keyword'][testcase_id] = keyword_name
+            mapping['keyword_to_testcase'][keyword_name] = {
+                'testcase_id': testcase_id,
+                'testcase_name': f"[Testcase] {testcase_data['testcase_name']}",
+                'description': testcase_data['description']
+            }
+
+        # 建立嵌套結構映射
+        for testcase in composition.get('individual_testcases', []):
+            if testcase.get('type') == 'testcase':
+                test_id = testcase.get('test_id')
+                mapping['nested_structure'][test_id] = self._map_testcase_structure(
+                    testcase.get('steps', []), nested_testcases
+                )
+
+        return mapping
+
+    def _map_testcase_structure(self, steps, nested_testcases):
+        """遞迴映射 testcase 結構"""
+        mapped_steps = []
+
+        for step in steps:
+            if step.get('step_type') == 'testcase':
+                testcase_id = step.get('testcase_id')
+                if testcase_id in nested_testcases:
+                    mapped_steps.append({
+                        'type': 'nested_testcase',
+                        'original_testcase_id': testcase_id,
+                        'generated_keyword_name': nested_testcases[testcase_id]['keyword_name'],
+                        'testcase_name': f"[Testcase] {step.get('testcase_name')}",
+                        'inner_steps': self._map_testcase_structure(step.get('steps', []), nested_testcases)
+                    })
+            elif step.get('step_type') == 'keyword':
+                mapped_steps.append({
+                    'type': 'keyword',
+                    'keyword_name': step.get('keyword_name'),
+                    'keyword_category': step.get('keyword_category')
+                })
+
+        return mapped_steps
+
     def _generate_robot_content_from_composition(self, composition):
-        """從 composition 生成 Robot Framework 內容"""
+        """從 composition 生成 Robot Framework 內容 - 支援嵌套 testcase 轉 keyword"""
         robot_content = []
 
         # 生成 Settings 區段
@@ -303,11 +367,120 @@ class RunWidget_Model(QObject):
         robot_content.extend(self._generate_variables_from_composition(composition))
         robot_content.append("")
 
+        # 收集所有嵌套的 testcases 並生成 keywords
+        nested_testcases = self._collect_nested_testcases(composition)
+
         # 生成 Test Cases 區段
         robot_content.append("*** Test Cases ***")
-        robot_content.extend(self._generate_testcase_from_composition(composition))
+        robot_content.extend(self._generate_testcase_from_composition(composition, nested_testcases))
+
+        # 如果有嵌套的 testcases，生成 Keywords 區段
+        if nested_testcases:
+            robot_content.append("")
+            robot_content.append("*** Keywords ***")
+            robot_content.extend(self._generate_keywords_from_nested_testcases(nested_testcases))
 
         return '\n'.join(robot_content)
+
+    def _collect_nested_testcases(self, composition):
+        """收集所有嵌套的 testcases，準備轉換為 keywords"""
+        nested_testcases = {}
+
+        def collect_from_steps(steps, collected_testcases):
+            """遞迴收集步驟中的 testcase"""
+            for step in steps:
+                if step.get('step_type') == 'testcase':
+                    testcase_id = step.get('testcase_id')
+                    testcase_name = step.get('testcase_name', 'Unknown')
+
+                    # 生成唯一的 keyword 名稱
+                    keyword_name = self._generate_keyword_name(testcase_name, testcase_id)
+
+                    collected_testcases[testcase_id] = {
+                        'keyword_name': keyword_name,
+                        'testcase_name': testcase_name,
+                        'testcase_id': testcase_id,
+                        'description': step.get('description', ''),
+                        'steps': step.get('steps', [])
+                    }
+
+                    # 遞迴收集內部的 testcase
+                    collect_from_steps(step.get('steps', []), collected_testcases)
+
+        # 從所有 individual_testcases 開始收集
+        for testcase in composition.get('individual_testcases', []):
+            if testcase.get('type') == 'testcase':
+                collect_from_steps(testcase.get('steps', []), nested_testcases)
+
+        return nested_testcases
+
+    def _generate_keyword_name(self, testcase_name, testcase_id):
+        """生成唯一的 keyword 名稱"""
+        # 清理 testcase_name，移除特殊字符
+        import re
+        safe_name = re.sub(r'[^a-zA-Z0-9_\u4e00-\u9fff]', '_', testcase_name)  # 支援中文
+        return f"Execute_Testcase_{safe_name}_{testcase_id}"
+
+    def _generate_keywords_from_nested_testcases(self, nested_testcases):
+        """從嵌套的 testcases 生成 Keywords 區段"""
+        content = []
+
+        for testcase_data in nested_testcases.values():
+            keyword_name = testcase_data['keyword_name']
+            description = testcase_data['description']
+            steps = testcase_data['steps']
+
+            # Keyword 名稱
+            content.append(keyword_name)
+
+            # Documentation
+            if description:
+                content.append(f"    [Documentation]    {description}")
+
+            # 處理步驟
+            for step in steps:
+                step_content = self._process_step_for_keyword(step, nested_testcases)
+                content.extend(step_content)
+
+            content.append("")  # 添加空行分隔
+
+        return content
+
+    def _process_step_for_keyword(self, step, nested_testcases):
+        """處理 keyword 內的步驟，支援嵌套 testcase 調用"""
+        content = []
+        indent = "    "  # 固定使用 4 個空格縮排
+
+        step_type = step.get('step_type', 'keyword')
+
+        if step_type == 'keyword':
+            # 處理 keyword 類型
+            action = step.get('keyword_name', '')
+            params = step.get('parameters', {})
+
+            if params:
+                param_str = '    '.join(f"{k}={{{v}}}" for k, v in params.items())
+                content.append(f"{indent}{action}    {param_str}")
+            else:
+                content.append(f"{indent}{action}")
+
+        elif step_type == 'testcase':
+            # 處理嵌套的 testcase - 調用對應的 keyword
+            testcase_id = step.get('testcase_id')
+            if testcase_id in nested_testcases:
+                keyword_name = nested_testcases[testcase_id]['keyword_name']
+                content.append(f"{indent}{keyword_name}")
+            else:
+                # 備用方案：如果找不到對應的 keyword，使用註解
+                testcase_name = step.get('testcase_name', 'Unknown Testcase')
+                content.append(f"{indent}# ERROR: Missing keyword for testcase: {testcase_name}")
+
+        else:
+            # 處理其他類型或向下兼容舊格式
+            step_name = step.get('step_name', step.get('action', step.get('name', 'Unknown Step')))
+            content.append(f"{indent}{step_name}")
+
+        return content
 
     def _generate_settings_from_composition(self, composition):
         """從 composition 生成 Settings 區段"""
@@ -331,18 +504,39 @@ class RunWidget_Model(QObject):
 
         return content
 
-    def _generate_testcase_from_composition(self, composition):
-        """從 composition 生成 Test Cases 內容"""
+    def _generate_testcase_from_composition(self, composition, nested_testcases):
+        """從 composition 生成 Test Cases 內容 - 支援 testcase 轉 keyword"""
         content = []
 
         # 處理每個獨立的 test case
         for testcase in composition.get('individual_testcases', []):
-            # print( testcase )
             if testcase['type'] == 'keyword':
                 content.extend(self._generate_keyword_testcase(testcase))
             elif testcase['type'] == 'testcase':
-                content.extend(self._generate_testcase_testcase(testcase))
+                content.extend(self._generate_testcase_testcase_with_keywords(testcase, nested_testcases))
 
+        return content
+
+    def _generate_testcase_testcase_with_keywords(self, testcase, nested_testcases):
+        """生成 testcase 類型的 test case - 支援 keyword 調用"""
+        content = []
+
+        # Test case 名稱
+        content.append(testcase['test_name'])
+
+        # Tags
+        content.append(f"    [Tags]    auto-generated    {testcase['priority']}")
+
+        # Documentation
+        if testcase['description']:
+            content.append(f"    [Documentation]    {testcase['description']}")
+
+        # 處理步驟 - 使用新的處理方法
+        for step in testcase.get('steps', []):
+            step_content = self._process_step_for_keyword(step, nested_testcases)
+            content.extend(step_content)
+
+        content.append("")  # 添加空行分隔
         return content
 
     def _generate_keyword_testcase(self, testcase):
@@ -370,28 +564,6 @@ class RunWidget_Model(QObject):
             content.append(f"    {keyword_name}    {'    '.join(param_list)}")
         else:
             content.append(f"    {keyword_name}")
-
-        content.append("")  # 添加空行分隔
-        return content
-
-    def _generate_testcase_testcase(self, testcase):
-        """生成 testcase 類型的 test case - 修正版本"""
-        content = []
-
-        # Test case 名稱
-        content.append(testcase['test_name'])
-
-        # Tags
-        content.append(f"    [Tags]    auto-generated    {testcase['priority']}")
-
-        # Documentation
-        if testcase['description']:
-            content.append(f"    [Documentation]    {testcase['description']}")
-
-        # 處理步驟 - 所有步驟都使用相同縮排
-        for step in testcase.get('steps', []):
-            step_content = self._process_step_flat(step)
-            content.extend(step_content)
 
         content.append("")  # 添加空行分隔
         return content
