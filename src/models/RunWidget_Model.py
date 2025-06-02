@@ -459,7 +459,7 @@ class RunWidget_Model(QObject):
             params = step.get('parameters', {})
 
             if params:
-                param_str = '    '.join(f"{k}={{{v}}}" for k, v in params.items())
+                param_str = '    '.join(f"{k}={v}" for k, v in params.items())
                 content.append(f"{indent}{action}    {param_str}")
             else:
                 content.append(f"{indent}{action}")

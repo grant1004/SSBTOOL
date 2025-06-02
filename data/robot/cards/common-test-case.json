@@ -862,5 +862,96 @@
                 }
             }
         }
+    },
+    "user_testcase_1748849027": {
+        "data": {
+            "config": {
+                "type": "testcase",
+                "name": "Untitled2",
+                "description": "",
+                "category": "common",
+                "priority": "normal",
+                "estimated_time": "4min",
+                "created_by": "robot_app",
+                "created_at": "2025-06-02T15:23:47.667041",
+                "steps": [
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 1867086849088,
+                        "keyword_name": "delay",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "seconds": "5",
+                            "reason": "None"
+                        },
+                        "description": "暫停執行指定的秒數（非阻塞實現） 參數: seconds: 暫停的秒數，可以是整數或浮點數 reason: 可選參數，記錄暫停原因"
+                    },
+                    {
+                        "step_type": "testcase",
+                        "testcase_id": 1866999564224,
+                        "testcase_name": "TESTONE",
+                        "description": "測試",
+                        "priority": "required",
+                        "steps": [
+                            {
+                                "step_type": "keyword",
+                                "keyword_id": 1989532173184,
+                                "keyword_name": "start_listening",
+                                "keyword_category": "common",
+                                "parameters": {},
+                                "description": "開始監聽設備訊息"
+                            },
+                            {
+                                "step_type": "keyword",
+                                "keyword_id": 1989532179136,
+                                "keyword_name": "send_can_message",
+                                "keyword_category": "common",
+                                "parameters": {
+                                    "can_id": "\"300\"",
+                                    "payload": "\"30303030\"",
+                                    "node": "1",
+                                    "can_type": "0"
+                                },
+                                "description": "Sends a CAN message using the specified CAN ID, payload, and other parameters."
+                            },
+                            {
+                                "step_type": "keyword",
+                                "keyword_id": 1989532187968,
+                                "keyword_name": "delay",
+                                "keyword_category": "common",
+                                "parameters": {
+                                    "seconds": "10",
+                                    "reason": "None"
+                                },
+                                "description": "暫停執行指定的秒數（非阻塞實現） 參數: seconds: 暫停的秒數，可以是整數或浮點數 reason: 可選參數，記錄暫停原因"
+                            },
+                            {
+                                "step_type": "keyword",
+                                "keyword_id": 1989532275904,
+                                "keyword_name": "stop_listening",
+                                "keyword_category": "common",
+                                "parameters": {},
+                                "description": "停止監聽設備訊息"
+                            }
+                        ]
+                    }
+                ],
+                "dependencies": {
+                    "libraries": [
+                        "common"
+                    ],
+                    "keywords": [
+                        "send_can_message",
+                        "stop_listening",
+                        "start_listening",
+                        "delay"
+                    ]
+                },
+                "metadata": {
+                    "source_composition": "user_Untitled2.json",
+                    "total_steps": 2
+                }
+            }
+        }
     }
 }
