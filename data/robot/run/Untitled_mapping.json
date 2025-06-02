@@ -1,25 +1,20 @@
 {
     "testcase_to_keyword": {
-        "1866999564224": "Execute_Testcase_TESTONE_1866999564224"
+        "1989436079680": "Execute_Testcase_TESTONE_1989436079680"
     },
     "keyword_to_testcase": {
-        "Execute_Testcase_TESTONE_1866999564224": {
-            "testcase_id": 1866999564224,
+        "Execute_Testcase_TESTONE_1989436079680": {
+            "testcase_id": 1989436079680,
             "testcase_name": "[Testcase] TESTONE",
             "description": "測試"
         }
     },
     "nested_structure": {
-        "1841739172352": [
-            {
-                "type": "keyword",
-                "keyword_name": "delay",
-                "keyword_category": "common"
-            },
+        "1849328867392": [
             {
                 "type": "nested_testcase",
-                "original_testcase_id": 1866999564224,
-                "generated_keyword_name": "Execute_Testcase_TESTONE_1866999564224",
+                "original_testcase_id": 1989436079680,
+                "generated_keyword_name": "Execute_Testcase_TESTONE_1989436079680",
                 "testcase_name": "[Testcase] TESTONE",
                 "inner_steps": [
                     {
@@ -43,6 +38,11 @@
                         "keyword_category": "common"
                     }
                 ]
+            },
+            {
+                "type": "keyword",
+                "keyword_name": "delay",
+                "keyword_category": "common"
             }
         ]
     }
