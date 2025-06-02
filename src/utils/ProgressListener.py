@@ -101,6 +101,43 @@ class ProgressListener:
                 }
                 self._emit_message(message_data)
 
+    def format_DisplayName(self, name):
+        """
+        統一格式化顯示名稱
+
+        Args:
+            name (str): 原始名稱
+
+        Returns:
+            str: 格式化後的顯示名稱
+
+        Examples:
+            Lib.CommonLibrary.Delay => delay
+            send_can_message => send_can_message
+            BatteryLibrary.Check_Battery_Status => check_battery_status
+        """
+        if not name:
+            return name
+
+        # 如果包含點號，取最後一部分
+        if '.' in name:
+            name = name.split('.')[-1]
+
+        # 轉為小寫
+        name = name.lower()
+
+        # 處理常見的命名格式轉換
+        # 將 CamelCase 轉為 snake_case（如果需要）
+        import re
+
+        # 在大寫字母前插入下劃線（但不在開頭）
+        name = re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
+
+        # 清理多餘的下劃線
+        name = re.sub(r'_+', '_', name).strip('_')
+
+        return name
+
     def _resolve_keyword_name(self, robot_keyword_name):
         """解析 keyword 名稱，轉換生成的 testcase keyword"""
         # 檢查是否為生成的 testcase keyword
@@ -110,14 +147,14 @@ class ProgressListener:
             # 這是一個生成的 testcase keyword
             testcase_info = keyword_to_testcase[robot_keyword_name]
             return {
-                'display_name': testcase_info['testcase_name'],  # 使用原始 testcase 名稱
+                'display_name': self.format_DisplayName(testcase_info['testcase_name']),  # 使用格式化函數
                 'is_nested_testcase': True,
                 'testcase_id': testcase_info['testcase_id']
             }
         else:
             # 這是一個普通的 keyword
             return {
-                'display_name': robot_keyword_name,
+                'display_name': self.format_DisplayName(robot_keyword_name),  # 使用格式化函數
                 'is_nested_testcase': False,
                 'testcase_id': None
             }

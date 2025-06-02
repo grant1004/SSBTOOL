@@ -164,7 +164,7 @@ class CollapsibleProgressPanel(QFrame):
     def __init__(self, config: dict, parent=None):
         super().__init__(parent)
 
-        self.setObjectName("EnhancedCollapsibleProgressPanel")
+        self.setObjectName("CollapsibleProgressPanel")
         self.config = config
         self.is_expanded = False
 
@@ -174,7 +174,6 @@ class CollapsibleProgressPanel(QFrame):
 
         # UI元件列表
         self.ui_widgets = []
-
         self._setup_ui()
 
         # 允許右鍵選單
@@ -340,7 +339,7 @@ class CollapsibleProgressPanel(QFrame):
 
     def _handle_keyword_start(self, data):
         """處理關鍵字開始"""
-        robot_keyword_name = data.get('original_keyword_name', data.get('keyword_name', ''))
+        robot_keyword_name = data.get('keyword_name', data.get('keyword_name', ''))
         print(f"[EnhancedCollapsibleProgressPanel] Keyword started: {robot_keyword_name}")
 
         step = self.step_manager.handle_keyword_start(robot_keyword_name)
@@ -352,7 +351,7 @@ class CollapsibleProgressPanel(QFrame):
 
     def _handle_keyword_end(self, data):
         """處理關鍵字結束"""
-        robot_keyword_name = data.get('original_keyword_name', data.get('keyword_name', ''))
+        robot_keyword_name = data.get('keyword_name', data.get('keyword_name', ''))
         robot_status = data.get('status', 'UNKNOWN')
         error_message = data.get('message', '')
 
