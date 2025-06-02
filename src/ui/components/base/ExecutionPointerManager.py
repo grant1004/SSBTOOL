@@ -1,10 +1,11 @@
-# src/ui/components/base/BaseProgress.py - 整合ExecutionPointerManager版本
+# src/ui/components/base/ExecutionPointerManager.py - Level-based 版本
 
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 from enum import Enum
 from collections import deque
 import time
+import re
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
@@ -68,24 +69,108 @@ class ExecutionStep:
             return time.time() - self.start_time
         return self.end_time - self.start_time
 
+    def matches_robot_keyword(self, robot_keyword_name: str) -> bool:
+        """檢查是否匹配 Robot Framework 關鍵字名稱"""
+        # 正規化關鍵字名稱進行比較
+        normalized_robot = self._normalize_keyword_name(robot_keyword_name)
+        normalized_self = self._normalize_keyword_name(self.name)
+
+        # 直接匹配
+        if normalized_robot == normalized_self:
+            return True
+
+        # 處理 testcase 格式的特殊匹配
+        if self.step_type == StepType.TESTCASE:
+            # 移除 [Testcase] 前綴進行匹配
+            testcase_name = self.name.replace('[Testcase] ', '').strip()
+            normalized_testcase = self._normalize_keyword_name(testcase_name)
+            if normalized_robot == normalized_testcase:
+                return True
+
+        # 處理 Robot Framework 可能將下劃線轉為空格的情況
+        robot_with_underscores = robot_keyword_name.lower().replace(' ', '_')
+        self_with_underscores = self.name.lower().replace(' ', '_')
+        if robot_with_underscores == self_with_underscores:
+            return True
+
+        return False
+
+    def _normalize_keyword_name(self, name: str) -> str:
+        """正規化關鍵字名稱"""
+        if not name:
+            return ""
+
+        # 轉為小寫
+        normalized = name.lower().strip()
+
+        # 處理特殊的 testcase 格式：[testcase] name -> testcase_name
+        if normalized.startswith('[testcase]'):
+            normalized = normalized.replace('[testcase]', '').strip()
+        elif normalized.startswith('[testcase'):
+            normalized = normalized.replace('[testcase', '').strip()
+            if normalized.endswith(']'):
+                normalized = normalized[:-1].strip()
+
+        # 統一空格和下劃線
+        normalized = normalized.replace(' ', '_')
+
+        # 移除特殊字符，只保留字母、數字、下劃線和中文
+        normalized = re.sub(r'[^a-zA-Z0-9_\u4e00-\u9fff]', '_', normalized)
+
+        # 清理多餘的下劃線
+        normalized = re.sub(r'_+', '_', normalized).strip('_')
+
+        return normalized
+
     def __str__(self):
         indent = "  " * self.level
         return f"{indent}[{self.index}] {self.name} ({self.status.value})"
 
 
+@dataclass
+class LevelContext:
+    """層級執行上下文"""
+    parent_index: Optional[int]  # 父步驟索引，None 表示頂層
+    children_indices: List[int]  # 子步驟索引列表
+    current_pointer: int = 0  # 當前子步驟指針
+
+    def get_current_child_index(self) -> Optional[int]:
+        """獲取當前應該執行的子步驟索引"""
+        if 0 <= self.current_pointer < len(self.children_indices):
+            return self.children_indices[self.current_pointer]
+        return None
+
+    def advance_pointer(self) -> bool:
+        """推進指針到下一個子步驟"""
+        if self.current_pointer < len(self.children_indices) - 1:
+            self.current_pointer += 1
+            return True
+        return False
+
+
 class ExecutionPointerManager:
-    """執行指針式步驟管理器"""
+    """基於 Level 的多層執行指針管理器"""
 
     def __init__(self, steps_data: List[dict]):
         self.execution_sequence: List[ExecutionStep] = []  # 扁平化的執行序列
-        self.execution_pointer: int = 0  # 當前執行指針
-        self.execution_stack: List[int] = []  # 執行堆疊（處理嵌套）
+        self.level_contexts: Dict[Optional[int], LevelContext] = {}  # 每個層級的執行上下文
+        self.execution_stack: List[int] = []  # 當前執行路徑（父步驟索引堆疊）
         self.completed_steps: set = set()  # 已完成的步驟索引
 
         # 建立扁平化執行序列
         self._build_execution_sequence(steps_data)
 
+        # 建立層級上下文
+        self._build_level_contexts()
+
         print(f"[ExecutionPointerManager] Built execution sequence with {len(self.execution_sequence)} steps")
+        for step in self.execution_sequence:
+            print(f"  {step}")
+
+        print(f"[ExecutionPointerManager] Built level contexts:")
+        for parent_index, context in self.level_contexts.items():
+            parent_name = f"Step {parent_index}" if parent_index is not None else "ROOT"
+            print(f"  {parent_name}: children={context.children_indices}")
 
     def _build_execution_sequence(self, steps_data: List[dict], parent_index: Optional[int] = None, level: int = 0):
         """將嵌套步驟結構扁平化為線性執行序列"""
@@ -120,44 +205,104 @@ class ExecutionPointerManager:
                 if child_steps:
                     self._build_execution_sequence(child_steps, current_index, level + 1)
 
-    def get_current_step(self) -> Optional[ExecutionStep]:
-        """獲取當前執行指針指向的步驟"""
-        if 0 <= self.execution_pointer < len(self.execution_sequence):
-            return self.execution_sequence[self.execution_pointer]
+    def _build_level_contexts(self):
+        """建立層級執行上下文"""
+        # 為每個父步驟（包括 None 表示根層級）建立上下文
+        parent_children_map = {}
+
+        for step in self.execution_sequence:
+            parent_index = step.parent_index
+            if parent_index not in parent_children_map:
+                parent_children_map[parent_index] = []
+            parent_children_map[parent_index].append(step.index)
+
+        # 建立層級上下文
+        for parent_index, children_indices in parent_children_map.items():
+            self.level_contexts[parent_index] = LevelContext(
+                parent_index=parent_index,
+                children_indices=children_indices
+            )
+
+    def get_current_expected_step(self) -> Optional[ExecutionStep]:
+        """獲取當前應該執行的步驟（基於層級上下文）"""
+        # 獲取當前層級的上下文
+        current_parent = self.execution_stack[-1] if self.execution_stack else None
+        context = self.level_contexts.get(current_parent)
+
+        if context is None:
+            return None
+
+        # 獲取當前應該執行的子步驟
+        current_child_index = context.get_current_child_index()
+        if current_child_index is not None:
+            return self.execution_sequence[current_child_index]
+
         return None
 
-    def advance_pointer(self) -> bool:
-        """推進執行指針到下一個步驟"""
-        if self.execution_pointer < len(self.execution_sequence) - 1:
-            self.execution_pointer += 1
-            return True
-        return False
+    def find_step_by_robot_keyword(self, robot_keyword_name: str) -> Optional[ExecutionStep]:
+        """根據 Robot Framework 關鍵字名稱查找對應的步驟"""
+
+        print(f"[ExecutionPointerManager] 🔍 Searching for keyword: '{robot_keyword_name}'")
+        print(f"[ExecutionPointerManager] Current execution stack: {self.execution_stack}")
+
+        # 首先檢查當前層級的預期步驟
+        expected_step = self.get_current_expected_step()
+        if expected_step and expected_step.matches_robot_keyword(robot_keyword_name):
+            print(f"[ExecutionPointerManager] ✅ Found expected step: Step {expected_step.index} - {expected_step.name}")
+            return expected_step
+
+        # 如果預期步驟不匹配，檢查是否是新的 testcase 開始（可能在不同層級）
+        for step in self.execution_sequence:
+            if (step.status == ExecutionStatus.WAITING and
+                    step.matches_robot_keyword(robot_keyword_name)):
+                print(f"[ExecutionPointerManager] ✅ Found matching step: Step {step.index} - {step.name}")
+                return step
+
+        print(f"[ExecutionPointerManager] ❌ No matching step found for: '{robot_keyword_name}'")
+        return None
 
     def handle_keyword_start(self, robot_keyword_name: str) -> Optional[ExecutionStep]:
         """處理關鍵字開始"""
-        current_step = self.get_current_step()
+        # 根據關鍵字名稱查找對應的步驟
+        step = self.find_step_by_robot_keyword(robot_keyword_name)
 
-        if current_step is None:
-            print(f"[ExecutionPointerManager] No current step available for: {robot_keyword_name}")
+        if step is None:
+            print(f"[ExecutionPointerManager] ❌ Could not find step for keyword: '{robot_keyword_name}'")
             return None
 
-        # 更新步驟狀態
-        current_step.update_status(ExecutionStatus.RUNNING)
-        self.execution_stack.append(current_step.index)
+        # 檢查步驟是否已經在運行
+        if step.status == ExecutionStatus.RUNNING:
+            print(f"[ExecutionPointerManager] ⚠️ Step {step.index} is already running: {step.name}")
+            return step
 
-        print(f"[ExecutionPointerManager] Step {current_step.index} started: {current_step.name}")
-        return current_step
+        # 更新步驟狀態
+        step.update_status(ExecutionStatus.RUNNING)
+
+        # 如果是 testcase，進入新的層級
+        if step.step_type == StepType.TESTCASE:
+            self.execution_stack.append(step.index)
+            print(f"[ExecutionPointerManager] 📥 Entered testcase level: Step {step.index}")
+            print(f"[ExecutionPointerManager] Execution stack: {self.execution_stack}")
+
+        print(f"[ExecutionPointerManager] ✅ Step {step.index} started: {step.name}")
+        return step
 
     def handle_keyword_end(self, robot_keyword_name: str, robot_status: str, error_message: str = "") -> Optional[
         ExecutionStep]:
         """處理關鍵字結束"""
-        if not self.execution_stack:
-            print(f"[ExecutionPointerManager] No step in execution stack for: {robot_keyword_name}")
-            return None
+        print(f"[ExecutionPointerManager] 🔍 Looking for running step matching: '{robot_keyword_name}'")
 
-        # 從執行堆疊獲取當前步驟
-        current_step_index = self.execution_stack.pop()
-        current_step = self.execution_sequence[current_step_index]
+        # 查找對應的運行中步驟
+        step = None
+        for s in self.execution_sequence:
+            if (s.status == ExecutionStatus.RUNNING and
+                    s.matches_robot_keyword(robot_keyword_name)):
+                step = s
+                break
+
+        if step is None:
+            print(f"[ExecutionPointerManager] ❌ Could not find running step for keyword: '{robot_keyword_name}'")
+            return None
 
         # 映射 Robot Framework 狀態
         if robot_status == 'PASS':
@@ -174,15 +319,44 @@ class ExecutionPointerManager:
             progress = 0
 
         # 更新步驟狀態
-        current_step.update_status(status, progress, error_message)
-        self.completed_steps.add(current_step_index)
+        step.update_status(status, progress, error_message)
+        self.completed_steps.add(step.index)
 
-        # 推進執行指針（如果當前步驟完成）
-        if current_step_index == self.execution_pointer:
-            self.advance_pointer()
+        # 處理層級邏輯
+        if step.step_type == StepType.TESTCASE:
+            # testcase 結束，退出該層級
+            if self.execution_stack and self.execution_stack[-1] == step.index:
+                self.execution_stack.pop()
+                print(f"[ExecutionPointerManager] 📤 Exited testcase level: Step {step.index}")
+                print(f"[ExecutionPointerManager] Execution stack: {self.execution_stack}")
 
-        print(f"[ExecutionPointerManager] Step {current_step.index} ended: {current_step.name} ({robot_status})")
-        return current_step
+                # 推進父層級的指針
+                self._advance_parent_pointer(step.parent_index)
+        else:
+            # keyword 結束，推進當前層級的指針
+            self._advance_current_level_pointer()
+
+        print(f"[ExecutionPointerManager] ✅ Step {step.index} ended: {step.name} ({robot_status})")
+        return step
+
+    def _advance_current_level_pointer(self):
+        """推進當前層級的指針"""
+        current_parent = self.execution_stack[-1] if self.execution_stack else None
+        context = self.level_contexts.get(current_parent)
+
+        if context:
+            advanced = context.advance_pointer()
+            print(
+                f"[ExecutionPointerManager] 📈 Advanced pointer in level {current_parent}: {context.current_pointer}/{len(context.children_indices)} (advanced={advanced})")
+
+    def _advance_parent_pointer(self, parent_index: Optional[int]):
+        """推進父層級的指針"""
+        context = self.level_contexts.get(parent_index)
+
+        if context:
+            advanced = context.advance_pointer()
+            print(
+                f"[ExecutionPointerManager] 📈 Advanced pointer in parent level {parent_index}: {context.current_pointer}/{len(context.children_indices)} (advanced={advanced})")
 
     def handle_test_start(self, test_name: str):
         """處理測試開始"""
@@ -195,13 +369,16 @@ class ExecutionPointerManager:
 
     def reset_execution(self):
         """重置執行狀態"""
-        self.execution_pointer = 0
         self.execution_stack.clear()
         self.completed_steps.clear()
 
         # 重置所有步驟狀態
         for step in self.execution_sequence:
             step.update_status(ExecutionStatus.WAITING, 0, "")
+
+        # 重置所有層級上下文的指針
+        for context in self.level_contexts.values():
+            context.current_pointer = 0
 
         print(f"[ExecutionPointerManager] Execution reset")
 
@@ -221,75 +398,44 @@ class ExecutionPointerManager:
         for step in self.execution_sequence:
             status_counts[step.status.value] += 1
 
+        # 計算當前指針位置（基於當前層級的預期步驟）
+        current_step = self.get_current_expected_step()
+        current_pointer = current_step.index if current_step else total
+
         return {
             'total': total,
             'completed': completed,
-            'current_pointer': self.execution_pointer,
+            'current_pointer': current_pointer,
             'progress_percent': int((completed / total) * 100) if total > 0 else 0,
             'status_counts': status_counts
         }
 
+    def get_current_step(self) -> Optional[ExecutionStep]:
+        """獲取當前步驟（為了兼容性保留）"""
+        return self.get_current_expected_step()
 
+    def debug_execution_state(self):
+        """調試方法：打印當前執行狀態"""
+        print(f"\n=== ExecutionPointerManager Debug ===")
+        print(f"Execution stack: {self.execution_stack}")
+        print(f"Completed steps: {self.completed_steps}")
 
+        print("Level contexts:")
+        for parent_index, context in self.level_contexts.items():
+            parent_name = f"Step {parent_index}" if parent_index is not None else "ROOT"
+            current_child = context.get_current_child_index()
+            current_child_name = f"Step {current_child}" if current_child is not None else "None"
+            print(
+                f"  {parent_name}: pointer={context.current_pointer}/{len(context.children_indices)}, current={current_child_name}")
 
-# # 測試用例
-# if __name__ == "__main__":
-#     import sys
-#     from PySide6.QtWidgets import QApplication, QVBoxLayout, QMainWindow
-#
-#     app = QApplication(sys.argv)
-#
-#     # 測試配置
-#     test_config = {
-#         'name': 'Test Execution Panel',
-#         'steps': [
-#             {"step_type": "keyword", "keyword_name": "start_listening"},
-#             {"step_type": "keyword", "keyword_name": "send_can_message"},
-#             {
-#                 "step_type": "testcase",
-#                 "testcase_name": "nested_test",
-#                 "steps": [
-#                     {"step_type": "keyword", "keyword_name": "process_data"},
-#                     {"step_type": "keyword", "keyword_name": "validate_result"}
-#                 ]
-#             },
-#             {"step_type": "keyword", "keyword_name": "stop_listening"}
-#         ]
-#     }
-#
-#     # 創建主窗口
-#     window = QMainWindow()
-#     central_widget = QWidget()
-#     layout = QVBoxLayout(central_widget)
-#
-#     # 創建進度面板
-#     panel = CollapsibleProgressPanel(test_config)
-#     layout.addWidget(panel)
-#
-#     window.setCentralWidget(central_widget)
-#     window.resize(600, 400)
-#     window.show()
-#
-#
-#     # 模擬測試執行
-#     def simulate_execution():
-#         import time
-#         QTimer.singleShot(1000, lambda: panel.update_status({
-#             "type": "test_start",
-#             "data": {"test_name": "Test Execution"}
-#         }))
-#
-#         QTimer.singleShot(2000, lambda: panel.update_status({
-#             "type": "keyword_start",
-#             "data": {"keyword_name": "start_listening"}
-#         }))
-#
-#         QTimer.singleShot(3000, lambda: panel.update_status({
-#             "type": "keyword_end",
-#             "data": {"keyword_name": "start_listening", "status": "PASS"}
-#         }))
-#
-#
-#     simulate_execution()
-#
-#     sys.exit(app.exec())
+        print("All steps:")
+        for step in self.execution_sequence:
+            status_symbol = {
+                ExecutionStatus.WAITING: "⏳",
+                ExecutionStatus.RUNNING: "🔄",
+                ExecutionStatus.PASSED: "✅",
+                ExecutionStatus.FAILED: "❌",
+                ExecutionStatus.NOT_RUN: "⏸️"
+            }.get(step.status, "❓")
+            print(f"  {status_symbol} {step}")
+        print("=" * 40)

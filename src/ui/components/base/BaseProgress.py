@@ -218,6 +218,7 @@ class CollapsibleProgressPanel(QFrame):
 
         # 建立執行指針管理器
         steps_data = config.get('steps', [])
+        print(f"[CollapsibleProgressPanel] Steps data: {steps_data}")
         self.execution_manager = ExecutionPointerManager(steps_data)
 
         # UI元件列表
@@ -394,7 +395,7 @@ class CollapsibleProgressPanel(QFrame):
             msg_type = message.get('type', '')
             data = message.get('data', {})
 
-            print(f"[CollapsibleProgressPanel] Processing {msg_type}")
+            print( "="*100 + f"\n[CollapsibleProgressPanel] Processing {msg_type}")
 
             if msg_type == 'test_start':
                 self._handle_test_start(data)

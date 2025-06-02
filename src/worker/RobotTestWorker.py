@@ -21,7 +21,7 @@ class RobotTestWorker(QObject):
     @Slot()
     def start_work(self):
         """開始執行工作的槽函數"""
-        print(f"[WORKER] Starting Robot test execution in thread: {QThread.currentThread()}")
+        # print(f"[WORKER] Starting Robot test execution in thread: {QThread.currentThread()}")
 
         try:
             # **載入映射關係**
@@ -59,5 +59,5 @@ class RobotTestWorker(QObject):
     # 保留原來的 run 方法作為備用（如果需要）
     def run(self):
         """備用方法 - 建議使用 start_work() 槽函數"""
-        print("[WORKER] Warning: run() called directly. Consider using start_work() slot instead.")
+        # print("[WORKER] Warning: run() called directly. Consider using start_work() slot instead.")
         self.start_work()

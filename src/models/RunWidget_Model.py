@@ -69,7 +69,7 @@ class RunWidget_Model(QObject):
 
             # 添加線程完成處理
             def on_thread_finished():
-                print(f"[THREAD] Robot test execution thread finished\n")
+                # print(f"[THREAD] Robot test execution thread finished\n")
                 self.isRunning = False
 
             self.thread.finished.connect(on_thread_finished)
@@ -82,7 +82,7 @@ class RunWidget_Model(QObject):
             self.thread.finished.connect(self.thread.deleteLater)
 
             # 啟動線程
-            print(f"[MAIN] Starting Robot test execution...")
+            # print(f"[MAIN] Starting Robot test execution...")
             self.thread.start()
 
     def generate_user_composition(self, test_cases, name_text):
@@ -619,36 +619,19 @@ class RunWidget_Model(QObject):
 
         return content
 
-    # @Slot(dict)
-    # def handle_progress(self, message):
-    #     """處理測試進度更新 - 改進版本"""
-    #     try:
-    #         print(f"[PROGRESS] Received message: {message}")  # 新增：調試信息
-    #
-    #         test_name = message.get('data', {}).get('test_name', '')
-    #         if test_name:
-    #             self.test_id = int(self._get_id_from_testName(test_name))
-    #             print(f"[PROGRESS] Extracted test_id: {self.test_id}")  # 新增：調試信息
-    #         else:
-    #             print(f"[PROGRESS] Warning: No test_name in message")
-    #
-    #         self.test_progress.emit(message, self.test_id)
-    #     except Exception as e:
-    #         print(f"[PROGRESS] Error handling progress: {e}")
-
     @Slot(dict)
     def handle_progress(self, message):
-        print(f"[MODEL] 🔥 Received: {message['type']}")
+        # print(f"[MODEL] 🔥 Received: {message['type']}")
         try:
             test_name = message.get('data', {}).get('test_name', '')
-            print(f"[MODEL] 🔍 Extracting ID from: {test_name}")
+            # print(f"[MODEL] 🔍 Extracting ID from: {test_name}")
 
             self.test_id = int(self._get_id_from_testName(test_name))
-            print(f"[MODEL] ✅ Extracted test_id: {self.test_id}")
+            # print(f"[MODEL] ✅ Extracted test_id: {self.test_id}")
 
-            print(f"[MODEL] 📤 Emitting to UI...")
+            # print(f"[MODEL] 📤 Emitting to UI...")
             self.test_progress.emit(message, self.test_id)
-            print(f"[MODEL] ✅ Emitted to UI successfully")
+            # print(f"[MODEL] ✅ Emitted to UI successfully")
 
         except Exception as e:
             print(f"[MODEL] ❌ Error: {e}")
@@ -659,7 +642,7 @@ class RunWidget_Model(QObject):
     def handle_finished(self, success):
         """處理測試完成 - 改進版本"""
         try:
-            print(f"[FINISHED] Test completed with success: {success}")  # 新增：調試信息
+            # print(f"[FINISHED] Test completed with success: {success}")  # 新增：調試信息
             if self.test_id is not None:
                 self.test_finished.emit(success)
             else:
@@ -674,12 +657,12 @@ class RunWidget_Model(QObject):
 
     def generate_command(self, testcase, name_text, category, priority, description):
         """生成測試指令並保存為 JSON 檔案 (保留原有功能)"""
-        print("Click Generate Command")
+        # print("Click Generate Command")
         # 使用新的 generate_user_composition 方法
         success, msg, path = self.generate_user_composition(testcase, name_text)
 
         if success:
-            print(f"Successfully generated user composition: {path}")
+            # print(f"Successfully generated user composition: {path}")
             success2, msg2, path2 = self.generate_cards_from_json(path,category, priority, description)
 
         else:
