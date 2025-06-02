@@ -182,7 +182,7 @@ class CollapsibleProgressPanel(QFrame):
 
         # 設置樣式
         self.setStyleSheet("""
-            #EnhancedCollapsibleProgressPanel {
+            #CollapsibleProgressPanel {
                 background-color: #FFFFFF;
                 border: 1px solid #D0D0D0;
                 border-radius: 6px;
