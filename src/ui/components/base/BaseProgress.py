@@ -219,10 +219,8 @@ class CollapsibleProgressPanel(QFrame):
         self.config = config
         self.is_expanded = False
 
-        # 直接使用新格式，不進行格式轉換
         self.keywords = self._convert_steps_format(config.get('steps', []))
 
-        # 建立順序映射機制 (list 結構)
         self.keyword_mapping = self._build_keyword_mapping()
 
         self.keyword_items = []
@@ -251,116 +249,7 @@ class CollapsibleProgressPanel(QFrame):
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
 
-    def _build_keyword_mapping(self):
-        """建立 Robot keyword 名稱到 UI index 的順序映射 - 使用 list 結構"""
-        mapping = []
-
-        for index, step in enumerate(self.keywords):
-            step_type = step.get('step_type', 'unknown')
-            unique_id = step.get('unique_id')
-
-            if not unique_id:
-                continue
-
-            if step_type == 'keyword':
-                # keyword 類型的映射
-                keyword_name = step.get('keyword_name', '')
-                keyword_category = step.get('keyword_category', 'common')
-
-                # 建立可能的 Robot Framework keyword 名稱
-                possible_names = [
-                    keyword_name
-                ]
-
-                # 為每個可能的名稱創建映射項目
-                for robot_name in possible_names:
-                    mapping.append({
-                        'robot_keyword': robot_name,
-                        'index': index,
-                        'unique_id': unique_id,
-                        'type': 'keyword',
-                        'display_name': keyword_name,
-                        'completed': False  # 執行狀態標記
-                    })
-
-            elif step_type == 'testcase':
-                # testcase 類型的映射
-                testcase_name = step.get('testcase_name', '')
-
-                # Robot Framework 生成的 keyword 名稱格式
-                safe_name = self._convert_to_robot_name(testcase_name)
-                generated_keyword = f"Execute_Testcase_{safe_name}_{unique_id}"
-
-                mapping.append({
-                    'robot_keyword': generated_keyword,
-                    'index': index,
-                    'unique_id': unique_id,
-                    'type': 'testcase',
-                    'display_name': f"[Testcase] {testcase_name}",
-                    'completed': False  # 執行狀態標記
-                })
-
-        print(f"[CollapsibleProgressPanel] Built keyword mapping (list structure):")
-        for i, item in enumerate(mapping):
-            print(
-                f"  [{i}] '{item['robot_keyword']}' -> index {item['index']} (ID: {item['unique_id']}, completed: {item['completed']})")
-
-        return mapping
-
-    def _convert_to_robot_name(self, keyword_name):
-        """將 keyword 名稱轉換為 Robot Framework 安全格式"""
-        import re
-        # 清理名稱，移除特殊字符，保留中文
-        safe_name = re.sub(r'[^a-zA-Z0-9_. \u4e00-\u9fff]', '_', str(keyword_name))
-        return safe_name if safe_name else 'Unknown'
-
-    def _convert_from_robot_name(self, robot_keyword):
-        """將 Robot Framework 名稱格式轉換為 keyword mapping 中的名稱"""
-        import re
-        # 移除前綴，例如 'Lib.CommonLibrary.' 或其他庫名稱
-        base_name = re.sub(r'^Lib\.[a-zA-Z]+Library\.', '', robot_keyword)
-        # 將名稱轉換為小寫並用下劃線連接單詞
-        mapped_name = re.sub(r'[^\w\u4e00-\u9fff]+', '_', base_name).lower()
-        return mapped_name
-
-    def _convert_steps_format(self, steps):
-        """直接使用新格式，不進行格式轉換，為每個 step 添加唯一標識"""
-        converted_steps = []
-
-        for i, step in enumerate(steps):
-            if isinstance(step, dict):
-                # 直接使用新格式，只添加必要的 UI 顯示欄位
-                step_copy = step.copy()
-
-                step_type = step.get('step_type', 'unknown')
-
-                if step_type == 'keyword':
-                    # keyword 類型
-                    step_copy['name'] = step.get('keyword_name', 'Unknown Keyword')
-                    step_copy['unique_id'] = step.get('keyword_id')
-                    step_copy['params'] = step.get('parameters', {})
-
-                elif step_type == 'testcase':
-                    # testcase 類型 - 這裡是關鍵，保持為獨立項目
-                    testcase_name = step.get('testcase_name', 'Unknown Testcase')
-                    step_copy['name'] = f"[Testcase] {testcase_name}"
-                    step_copy['unique_id'] = step.get('testcase_id')
-                    step_copy['params'] = {}  # testcase 通常沒有 params
-
-                else:
-                    # 其他類型
-                    step_copy['name'] = step.get('name', f'Step {i + 1}')
-                    step_copy['unique_id'] = step.get('step_id', f'step_{i}')
-                    step_copy['params'] = step.get('params', {})
-
-                # 添加用於顯示的 action 欄位（向下兼容）
-                if 'action' not in step_copy:
-                    step_copy['action'] = step_copy['name']
-
-                converted_steps.append(step_copy)
-
-        return converted_steps
-
+    # region ==================== UI ====================
     def _setup_ui(self):
         """設置 UI"""
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
@@ -488,67 +377,121 @@ class CollapsibleProgressPanel(QFrame):
 
         return header
 
-    def toggle_expand(self):
-        """切換展開/收起狀態"""
-        self.is_expanded = not self.is_expanded
+    #endregion
 
-        # 更新前先確保所有的尺寸更新已經完成
-        QApplication.processEvents()
+    # region ==================== 資料映射建立、初始化 ====================
+    def _build_keyword_mapping(self):
+        """建立 Robot keyword 名稱到 UI index 的順序映射 - 使用 list 結構"""
+        mapping = []
 
-        if self.is_expanded:
-            self.keywords_container.show()
-        else:
-            self.keywords_container.hide()
+        for index, step in enumerate(self.keywords):
+            step_type = step.get('step_type', 'unknown')
+            unique_id = step.get('unique_id')
 
-        # 更新布局
-        self.updateGeometry()
-        self.adjustSize()
+            if not unique_id:
+                continue
 
-        # 找到 ScrollArea 父組件
-        scroll_area = None
-        parent = self.parent()
-        while parent:
-            if isinstance(parent, QScrollArea):
-                scroll_area = parent
-                break
-            parent = parent.parent()
+            if step_type == 'keyword':
+                # keyword 類型的映射
+                keyword_name = step.get('keyword_name', '')
 
-        # 如果找到了 ScrollArea，更新它
-        if scroll_area:
-            scroll_area.viewport().update()
+                # 建立可能的 Robot Framework keyword 名稱
+                possible_names = [
+                    keyword_name
+                ]
 
-        self._update_expand_icon()
+                # 為每個可能的名稱創建映射項目
+                for robot_name in possible_names:
+                    mapping.append({
+                        'robot_keyword': robot_name,
+                        'index': index,
+                        'unique_id': unique_id,
+                        'type': 'keyword',
+                        'display_name': keyword_name,
+                        'completed': False  # 執行狀態標記
+                    })
 
-    def _update_expand_icon(self):
-        """更新展開/收起圖標"""
-        icon_name = "navigate_up.svg" if self.is_expanded else "navigate_down.svg"
-        icon = QIcon(get_icon_path(icon_name))
-        colored_icon = Utils.change_icon_color(icon, "#666666")
-        self.expand_button.setIcon(colored_icon)
-        self.expand_button.setIconSize(QSize(12, 12))
+            elif step_type == 'testcase':
+                # testcase 類型的映射
+                testcase_name = step.get('testcase_name', '')
 
-    def _update_progress_info(self):
-        """更新進度信息顯示"""
-        if hasattr(self, 'progress_info_label'):
-            # 顯示總進度 (已完成/總數)
-            base_info = f"{self.completed_count}/{self.total_count}"
+                # Robot Framework 生成的 keyword 名稱格式
+                safe_name = self._convert_to_robot_name(testcase_name)
+                generated_keyword = f"Execute_Testcase_{safe_name}_{unique_id}"
 
-            # 添加詳細狀態計數（如果有的話）
-            details = []
-            if self.passed_count > 0:
-                details.append(f"✓{self.passed_count}")
-            if self.failed_count > 0:
-                details.append(f"✗{self.failed_count}")
-            if self.not_run_count > 0:
-                details.append(f"◦{self.not_run_count}")
+                mapping.append({
+                    'robot_keyword': generated_keyword,
+                    'index': index,
+                    'unique_id': unique_id,
+                    'type': 'testcase',
+                    'display_name': f"[Testcase] {testcase_name}",
+                    'completed': False  # 執行狀態標記
+                })
 
-            if details:
-                detail_info = " (" + " ".join(details) + ")"
-                self.progress_info_label.setText(base_info + detail_info)
-            else:
-                self.progress_info_label.setText(base_info)
+        print(f"[CollapsibleProgressPanel] Built keyword mapping (list structure):")
+        for i, item in enumerate(mapping):
+            print(
+                f"  [{i}] '{item['robot_keyword']}' -> index {item['index']} (ID: {item['unique_id']}, completed: {item['completed']})")
 
-    # ==================== 狀態更新方法 ====================
+        return mapping
+
+    def _convert_to_robot_name(self, keyword_name):
+        """將 keyword 名稱轉換為 Robot Framework 安全格式"""
+        import re
+        # 清理名稱，移除特殊字符，保留中文
+        safe_name = re.sub(r'[^a-zA-Z0-9_. \u4e00-\u9fff]', '_', str(keyword_name))
+        return safe_name if safe_name else 'Unknown'
+
+    def _convert_from_robot_name(self, robot_keyword):
+        """將 Robot Framework 名稱格式轉換為 keyword mapping 中的名稱"""
+        import re
+        # 移除前綴，例如 'Lib.CommonLibrary.' 或其他庫名稱
+        base_name = re.sub(r'^Lib\.[a-zA-Z]+Library\.', '', robot_keyword)
+        # 將名稱轉換為小寫並用下劃線連接單詞
+        mapped_name = re.sub(r'[^\w\u4e00-\u9fff]+', '_', base_name).lower()
+        return mapped_name
+
+    def _convert_steps_format(self, steps):
+        """直接使用新格式，不進行格式轉換，為每個 step 添加唯一標識"""
+        converted_steps = []
+
+        for i, step in enumerate(steps):
+            if isinstance(step, dict):
+                # 直接使用新格式，只添加必要的 UI 顯示欄位
+                step_copy = step.copy()
+
+                step_type = step.get('step_type', 'unknown')
+
+                if step_type == 'keyword':
+                    # keyword 類型
+                    step_copy['name'] = step.get('keyword_name', 'Unknown Keyword')
+                    step_copy['unique_id'] = step.get('keyword_id')
+                    step_copy['params'] = step.get('parameters', {})
+
+                elif step_type == 'testcase':
+                    # testcase 類型 - 這裡是關鍵，保持為獨立項目
+                    testcase_name = step.get('testcase_name', 'Unknown Testcase')
+                    step_copy['name'] = f"[Testcase] {testcase_name}"
+                    step_copy['unique_id'] = step.get('testcase_id')
+                    step_copy['params'] = {}  # testcase 通常沒有 params
+
+                else:
+                    # 其他類型
+                    step_copy['name'] = step.get('name', f'Step {i + 1}')
+                    step_copy['unique_id'] = step.get('step_id', f'step_{i}')
+                    step_copy['params'] = step.get('params', {})
+
+                # 添加用於顯示的 action 欄位（向下兼容）
+                if 'action' not in step_copy:
+                    step_copy['action'] = step_copy['name']
+
+                converted_steps.append(step_copy)
+
+        return converted_steps
+
+    #endregion
+
+    #region ==================== 狀態更新方法 ====================
 
     def update_status(self, message: dict):
         """更新執行狀態 - 基於完整 message"""
@@ -883,6 +826,30 @@ class CollapsibleProgressPanel(QFrame):
         self.update_overall_status(TestStatus.WAITING)
         self._update_progress_info()
 
+    def _update_progress_info(self):
+        """更新進度信息顯示"""
+        if hasattr(self, 'progress_info_label'):
+            # 顯示總進度 (已完成/總數)
+            base_info = f"{self.completed_count}/{self.total_count}"
+
+            # 添加詳細狀態計數（如果有的話）
+            details = []
+            if self.passed_count > 0:
+                details.append(f"✓{self.passed_count}")
+            if self.failed_count > 0:
+                details.append(f"✗{self.failed_count}")
+            if self.not_run_count > 0:
+                details.append(f"◦{self.not_run_count}")
+
+            if details:
+                detail_info = " (" + " ".join(details) + ")"
+                self.progress_info_label.setText(base_info + detail_info)
+            else:
+                self.progress_info_label.setText(base_info)
+
+    #endregion
+
+    # region ==================== 滑鼠事件 ====================
     def mousePressEvent(self, event):
         """處理整個面板的點擊事件"""
         super().mousePressEvent(event)
@@ -923,15 +890,43 @@ class CollapsibleProgressPanel(QFrame):
         elif action == move_down_action:
             self.move_down_requested.emit(self)
 
+    def toggle_expand(self):
+        """切換展開/收起狀態"""
+        self.is_expanded = not self.is_expanded
 
+        # 更新前先確保所有的尺寸更新已經完成
+        QApplication.processEvents()
 
+        if self.is_expanded:
+            self.keywords_container.show()
+        else:
+            self.keywords_container.hide()
 
+        # 更新布局
+        self.updateGeometry()
+        self.adjustSize()
 
+        # 找到 ScrollArea 父組件
+        scroll_area = None
+        parent = self.parent()
+        while parent:
+            if isinstance(parent, QScrollArea):
+                scroll_area = parent
+                break
+            parent = parent.parent()
 
+        # 如果找到了 ScrollArea，更新它
+        if scroll_area:
+            scroll_area.viewport().update()
 
+        self._update_expand_icon()
 
-
-
-
-
+    def _update_expand_icon(self):
+        """更新展開/收起圖標"""
+        icon_name = "navigate_up.svg" if self.is_expanded else "navigate_down.svg"
+        icon = QIcon(get_icon_path(icon_name))
+        colored_icon = Utils.change_icon_color(icon, "#666666")
+        self.expand_button.setIcon(colored_icon)
+        self.expand_button.setIconSize(QSize(12, 12))
+    #endregion
 
