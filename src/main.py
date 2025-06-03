@@ -1,6 +1,7 @@
 import sys
 from PySide6.QtWidgets import QApplication
 import asyncio
+from ui import MainWindow
 from qasync import QEventLoop, QApplication
 
 
@@ -10,7 +11,6 @@ def main():
     asyncio.set_event_loop(loop)
 
     # 創建主視窗
-    from ui import MainWindow
     window = MainWindow()
     window.show()
 
