@@ -39,7 +39,6 @@ class BaseKeywordProgressCard(QFrame):
         self._setup_ui()
         self.setObjectName("keyword-progress-card")
 
-        # 重構後的樣式 - 與 CollapsibleProgressPanel 風格統一但有區別
         self.setStyleSheet("""
             #keyword-progress-card {
                 background-color: #FFFFFF;
@@ -63,10 +62,10 @@ class BaseKeywordProgressCard(QFrame):
         self.customContextMenuRequested.connect(self.show_context_menu)
 
     def _calculate_height(self):
-        """動態計算高度"""
-        base_height = 140  # 基礎高度
+        """動態計算高度 - 確保按鈕顯示正確"""
+        base_height = 160  # 【調整】增加基礎高度以容納按鈕
         param_count = len(self.keyword_config.get('arguments', []))
-        param_height = param_count * 36 if param_count > 0 else 0  # 增加行高以配合更大字體
+        param_height = param_count * 36 if param_count > 0 else 0
         total_height = base_height + param_height
         self.setMinimumHeight(total_height)
 
@@ -117,6 +116,7 @@ class BaseKeywordProgressCard(QFrame):
             color: #2C3E50;
             background: transparent;
         """)
+        header_layout.addWidget(name_label, 1)  # 讓名稱占據剩餘空間
 
         # 類別標籤 - 重新設計
         category = self.keyword_config.get('category', '')
@@ -129,9 +129,94 @@ class BaseKeywordProgressCard(QFrame):
             font-size: 12px;
             font-weight: 600;
         """)
+        header_layout.addWidget(category_label)
 
-        header_layout.addWidget(name_label, 1)
-        header_layout.addWidget(category_label, 0)
+        # 【新增】功能按鈕群組
+        buttons_container = QWidget()
+        buttons_layout = QHBoxLayout(buttons_container)
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+        buttons_layout.setSpacing(2)
+
+        # 向上移動按鈕
+        self.move_up_button = QPushButton()
+        self.move_up_button.setFixedSize(18, 18)
+        self.move_up_button.setToolTip("向上移動")
+        self.move_up_button.clicked.connect(lambda: self.move_up_requested.emit(self))
+        try:
+            from src.utils import get_icon_path, Utils
+            upward_icon = QIcon(get_icon_path("arrow_drop_up.svg"))
+            self.move_up_button.setIcon(Utils.change_icon_color(upward_icon, "#666666"))
+            self.move_up_button.setIconSize(QSize(12, 12))
+        except ImportError:
+            self.move_up_button.setText("↑")
+
+        # 向下移動按鈕
+        self.move_down_button = QPushButton()
+        self.move_down_button.setFixedSize(18, 18)
+        self.move_down_button.setToolTip("向下移動")
+        self.move_down_button.clicked.connect(lambda: self.move_down_requested.emit(self))
+        try:
+            downward_icon = QIcon(get_icon_path("arrow_drop_down.svg"))
+            self.move_down_button.setIcon(Utils.change_icon_color(downward_icon, "#666666"))
+            self.move_down_button.setIconSize(QSize(12, 12))
+        except ImportError:
+            self.move_down_button.setText("↓")
+
+        # 刪除按鈕
+        self.delete_button = QPushButton()
+        self.delete_button.setFixedSize(18, 18)
+        self.delete_button.setToolTip("刪除")
+        self.delete_button.clicked.connect(lambda: self.delete_requested.emit(self))
+        try:
+            delete_icon = QIcon(get_icon_path("delete.svg"))
+            self.delete_button.setIcon(Utils.change_icon_color(delete_icon, "#F44336"))
+            self.delete_button.setIconSize(QSize(12, 12))
+        except ImportError:
+            self.delete_button.setText("×")
+
+        # 設置按鈕統一樣式
+        button_style = """
+            QPushButton {
+                border: none;
+                border-radius: 2px;
+                background: transparent;
+                padding: 1px;
+            }
+            QPushButton:hover {
+                background-color: #E0E0E0;
+            }
+            QPushButton:pressed {
+                background-color: #D0D0D0;
+            }
+        """
+
+        # 為刪除按鈕設置特殊樣式（懸停時紅色背景）
+        delete_button_style = """
+            QPushButton {
+                border: none;
+                border-radius: 2px;
+                background: transparent;
+                padding: 1px;
+            }
+            QPushButton:hover {
+                background-color: #FFEBEE;
+            }
+            QPushButton:pressed {
+                background-color: #FFCDD2;
+            }
+        """
+
+        self.move_up_button.setStyleSheet(button_style)
+        self.move_down_button.setStyleSheet(button_style)
+        self.delete_button.setStyleSheet(delete_button_style)
+
+        # 添加按鈕到容器
+        buttons_layout.addWidget(self.move_up_button)
+        buttons_layout.addWidget(self.move_down_button)
+        buttons_layout.addWidget(self.delete_button)
+
+        # 添加按鈕群組到 header
+        header_layout.addWidget(buttons_container)
 
         return header_widget
 
@@ -400,8 +485,7 @@ class BaseKeywordProgressCard(QFrame):
             self.stop_timer()
             self.start_time = None
 
-            self._update_status_display('waiting', 0)
-            self.set_progress_normal()
+            self._update_status_display('waiting', 0)  # 【修改】傳遞初始進度
             self.update_error("")
             self.update_execution_time(0.0)
 
@@ -441,8 +525,7 @@ class BaseKeywordProgressCard(QFrame):
         # 檢查是否是當前關鍵字（支援關鍵字名稱映射）
         if self._is_current_keyword(keyword_name):
             self.status = 'running'
-            self._update_status_display('running')
-            self.set_progress_start()
+            self._update_status_display('running')  # 【修改】不傳遞 progress 參數
             self.start_timer()
             self.update_error("")
 
@@ -454,6 +537,7 @@ class BaseKeywordProgressCard(QFrame):
 
         # 檢查是否是當前關鍵字
         if self._is_current_keyword(keyword_name):
+
             if robot_status == 'PASS':
                 self.status = 'passed'
                 progress = 100
@@ -470,8 +554,7 @@ class BaseKeywordProgressCard(QFrame):
                 self.status = 'waiting'
                 progress = 0
 
-            self._update_status_display(self.status, progress)
-            self.set_progress_normal()
+            self._update_status_display(self.status, progress)  # 【修改】傳遞 progress 參數
             self.stop_timer()
 
     def _handle_test_start(self, data):
@@ -511,7 +594,7 @@ class BaseKeywordProgressCard(QFrame):
         return False
 
     def _update_status_display(self, status, progress=None):
-        """更新狀態顯示的內部方法"""
+        """更新狀態顯示的內部方法 - 支援進度條跑動"""
         self.status_label.setText(status.upper().replace('_', ' '))
         self.status_label.setStyleSheet(f"""
             background-color: {self.STATUS_COLORS[status]};
@@ -522,9 +605,35 @@ class BaseKeywordProgressCard(QFrame):
             font-weight: 600;
         """)
 
-        if progress is not None:
-            self.progress = progress
-            self.progress_bar.setValue(progress)
+        # 【修改】根據狀態設置進度條模式
+        if status == 'running':
+            # 設置為無限進度條（持續跑動）
+            self.progress_bar.setMinimum(0)
+            self.progress_bar.setMaximum(0)  # 無限進度條
+
+            # 設置跑動時的顏色
+            self.progress_bar.setStyleSheet(f"""
+                QProgressBar {{
+                    background-color: #F0F0F0;
+                    border: none;
+                    border-radius: 4px;
+                }}
+                QProgressBar::chunk {{
+                    background-color: {self.STATUS_COLORS[status]};
+                    border-radius: 4px;
+                }}
+            """)
+        else:
+            # 恢復正常進度條模式
+            self.progress_bar.setMinimum(0)
+            self.progress_bar.setMaximum(100)
+
+            # 設置進度值
+            if progress is not None:
+                self.progress = progress
+                self.progress_bar.setValue(progress)
+
+            # 設置完成狀態的顏色
             self.progress_bar.setStyleSheet(f"""
                 QProgressBar {{
                     background-color: #F0F0F0;
@@ -601,3 +710,7 @@ class BaseKeywordProgressCard(QFrame):
             self.move_up_requested.emit(self)
         elif action == move_down_action:
             self.move_down_requested.emit(self)
+
+
+
+

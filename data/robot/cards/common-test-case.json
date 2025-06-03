@@ -729,5 +729,66 @@
                 }
             }
         }
+    },
+    "user_testcase_1748857978": {
+        "data": {
+            "config": {
+                "type": "testcase",
+                "name": "delay 6",
+                "description": "",
+                "category": "common",
+                "priority": "normal",
+                "estimated_time": "6min",
+                "created_by": "robot_app",
+                "created_at": "2025-06-02T17:52:58.263112",
+                "steps": [
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 2093483373504,
+                        "keyword_name": "delay",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "seconds": "3",
+                            "reason": "None"
+                        },
+                        "description": "暫停執行指定的秒數（非阻塞實現） 參數: seconds: 暫停的秒數，可以是整數或浮點數 reason: 可選參數，記錄暫停原因"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 2093483371200,
+                        "keyword_name": "delay",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "seconds": "2",
+                            "reason": "None"
+                        },
+                        "description": "暫停執行指定的秒數（非阻塞實現） 參數: seconds: 暫停的秒數，可以是整數或浮點數 reason: 可選參數，記錄暫停原因"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 2093012711552,
+                        "keyword_name": "delay",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "seconds": "1",
+                            "reason": "None"
+                        },
+                        "description": "暫停執行指定的秒數（非阻塞實現） 參數: seconds: 暫停的秒數，可以是整數或浮點數 reason: 可選參數，記錄暫停原因"
+                    }
+                ],
+                "dependencies": {
+                    "libraries": [
+                        "common"
+                    ],
+                    "keywords": [
+                        "delay"
+                    ]
+                },
+                "metadata": {
+                    "source_composition": "user_delay 6.json",
+                    "total_steps": 3
+                }
+            }
+        }
     }
 }

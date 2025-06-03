@@ -7,12 +7,6 @@ from collections import deque
 import time
 import re
 
-from PySide6.QtWidgets import *
-from PySide6.QtCore import *
-from PySide6.QtGui import *
-from src.utils import get_icon_path, Utils
-
-
 class StepType(Enum):
     KEYWORD = "keyword"
     TESTCASE = "testcase"
@@ -156,6 +150,9 @@ class ExecutionPointerManager:
         self.level_contexts: Dict[Optional[int], LevelContext] = {}  # 每個層級的執行上下文
         self.execution_stack: List[int] = []  # 當前執行路徑（父步驟索引堆疊）
         self.completed_steps: set = set()  # 已完成的步驟索引
+        # 添加時間追蹤變數
+        self.test_start_time: Optional[float] = None
+        self.test_end_time: Optional[float] = None
 
         # 建立扁平化執行序列
         self._build_execution_sequence(steps_data)
@@ -361,11 +358,14 @@ class ExecutionPointerManager:
     def handle_test_start(self, test_name: str):
         """處理測試開始"""
         print(f"[ExecutionPointerManager] Test started: {test_name}")
+        self.test_start_time = time.time()  # 記錄測試開始時間
+        self.test_end_time = None
         self.reset_execution()
 
     def handle_test_end(self, test_name: str, test_status: str):
         """處理測試結束"""
         print(f"[ExecutionPointerManager] Test ended: {test_name} ({test_status})")
+        self.test_end_time = time.time()  # 記錄測試結束時間
 
     def reset_execution(self):
         """重置執行狀態"""
@@ -379,6 +379,10 @@ class ExecutionPointerManager:
         # 重置所有層級上下文的指針
         for context in self.level_contexts.values():
             context.current_pointer = 0
+
+        # 重置時間追蹤（但保留 test_start_time）
+        # self.test_start_time = None  # 不重置，因為測試正在進行
+        self.test_end_time = None
 
         print(f"[ExecutionPointerManager] Execution reset")
 
@@ -439,3 +443,102 @@ class ExecutionPointerManager:
             }.get(step.status, "❓")
             print(f"  {status_symbol} {step}")
         print("=" * 40)
+
+    def get_top_level_progress(self) -> dict:
+        """獲取只計算頂層步驟的執行進度統計"""
+        # 獲取頂層步驟（level = 0）
+        top_level_steps = [step for step in self.execution_sequence if step.level == 0]
+
+        total = len(top_level_steps)
+        completed = len([step for step in top_level_steps if step.index in self.completed_steps])
+
+        status_counts = {
+            'waiting': 0,
+            'running': 0,
+            'passed': 0,
+            'failed': 0,
+            'not_run': 0
+        }
+
+        for step in top_level_steps:
+            status_counts[step.status.value] += 1
+
+        # 計算當前頂層步驟的指針位置
+        current_top_level_step = None
+        for step in top_level_steps:
+            if step.status == ExecutionStatus.RUNNING:
+                current_top_level_step = step
+                break
+
+        if current_top_level_step is None:
+            # 找下一個待執行的頂層步驟
+            for step in top_level_steps:
+                if step.status == ExecutionStatus.WAITING:
+                    current_top_level_step = step
+                    break
+
+        # 計算在頂層步驟中的位置
+        current_pointer = 0
+        if current_top_level_step:
+            for i, step in enumerate(top_level_steps):
+                if step.index == current_top_level_step.index:
+                    current_pointer = i
+                    break
+        else:
+            current_pointer = total  # 全部完成
+
+        return {
+            'total': total,
+            'completed': completed,
+            'current_pointer': current_pointer,
+            'progress_percent': int((completed / total) * 100) if total > 0 else 0,
+            'status_counts': status_counts,
+            'top_level_steps': top_level_steps
+        }
+
+    def get_total_execution_time(self) -> float:
+        """獲取總執行時間（秒）"""
+        if self.test_start_time is None:
+            return 0.0
+
+        # 如果測試已結束，使用結束時間
+        if self.test_end_time is not None:
+            return self.test_end_time - self.test_start_time
+
+        # 如果測試還在進行中，使用當前時間
+        return time.time() - self.test_start_time
+
+    def get_estimated_remaining_time(self) -> float:
+        """估算剩餘執行時間（基於已完成步驟的平均時間）"""
+        top_level_progress = self.get_top_level_progress()
+        completed_count = top_level_progress['completed']
+        total_count = top_level_progress['total']
+
+        if completed_count == 0 or total_count == 0:
+            return 0.0
+
+        # 計算已完成頂層步驟的平均執行時間
+        completed_top_level_steps = [step for step in top_level_progress['top_level_steps']
+                                     if step.index in self.completed_steps]
+
+        if not completed_top_level_steps:
+            return 0.0
+
+        total_completed_time = sum(step.get_execution_time() for step in completed_top_level_steps)
+        average_time_per_step = total_completed_time / len(completed_top_level_steps)
+
+        remaining_steps = total_count - completed_count
+        return remaining_steps * average_time_per_step
+
+    def format_time(self, seconds: float) -> str:
+        """格式化時間顯示"""
+        if seconds < 60:
+            return f"{seconds:.1f}s"
+        elif seconds < 3600:
+            minutes = int(seconds // 60)
+            remaining_seconds = seconds % 60
+            return f"{minutes}m {remaining_seconds:.0f}s"
+        else:
+            hours = int(seconds // 3600)
+            minutes = int((seconds % 3600) // 60)
+            return f"{hours}h {minutes}m"
