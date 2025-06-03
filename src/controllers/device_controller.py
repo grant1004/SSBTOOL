@@ -97,17 +97,17 @@ class DeviceController(BaseController, IDeviceController):
 
         try:
             # 階段 1: 前置條件檢查
-            validation_errors = await self._validate_connect_prerequisites(device_type)
-            if validation_errors:
-                await self._handle_validation_errors(device_type, validation_errors)
-                return
+            # validation_errors = await self._validate_connect_prerequisites(device_type)
+            # if validation_errors:
+            #     await self._handle_validation_errors(device_type, validation_errors)
+            #     return
 
             # 階段 2: 用戶確認（如果需要）
-            if not await self._get_user_confirmation_if_needed(device_type, "connect"):
-                return
+            # if not await self._get_user_confirmation_if_needed(device_type, "connect"):
+            #     return
 
             # 階段 3: 協調 UI 狀態 - 開始連接
-            await self._coordinate_connection_start(device_type)
+            # await self._coordinate_connection_start(device_type)
 
             # 階段 4: 執行業務邏輯
             result = await self.execute_operation(
@@ -117,7 +117,7 @@ class DeviceController(BaseController, IDeviceController):
             )
 
             # 階段 5: 協調結果處理
-            await self._coordinate_connection_result(device_type, result)
+            # await self._coordinate_connection_result(device_type, result)
 
             # 階段 6: 跨組件事件發布
             event_bus.publish("device_connected", {

@@ -8,9 +8,10 @@ from abc import ABC, abstractmethod
 from typing import List, Callable, Any, Dict, Optional
 from PySide6.QtCore import QObject, Signal
 import logging
+from .metaclass_utils import QObjectABCMeta
 
 
-class BaseBusinessModel(QObject):
+class BaseBusinessModel(QObject, metaclass=QObjectABCMeta):
     """業務模型基類"""
 
     # 通用信號

@@ -1,28 +1,5 @@
 {
     "testcase_to_keyword": {},
     "keyword_to_testcase": {},
-    "nested_structure": {
-        "2064939660864": [
-            {
-                "type": "keyword",
-                "keyword_name": "start_listening",
-                "keyword_category": "common"
-            },
-            {
-                "type": "keyword",
-                "keyword_name": "send_can_message",
-                "keyword_category": "common"
-            },
-            {
-                "type": "keyword",
-                "keyword_name": "delay",
-                "keyword_category": "common"
-            },
-            {
-                "type": "keyword",
-                "keyword_name": "stop_listening",
-                "keyword_category": "common"
-            }
-        ]
-    }
+    "nested_structure": {}
 }

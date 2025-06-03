@@ -9,9 +9,10 @@ from typing import List, Dict, Any, Optional, Callable
 from PySide6.QtCore import QObject, Signal
 import logging
 import asyncio
+from .metaclass_utils import QObjectABCMeta
 
 
-class BaseController(QObject):
+class BaseController(QObject, metaclass=QObjectABCMeta):
     """控制器基類"""
 
     # 通用信號

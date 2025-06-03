@@ -9,9 +9,10 @@ from typing import Any, Optional, Callable
 from PySide6.QtWidgets import QWidget, QMessageBox
 from PySide6.QtCore import Signal, QTimer, QObject
 import logging
+from .metaclass_utils import QObjectABCMeta
 
 
-class BaseView(QWidget):
+class BaseView(QWidget, metaclass=QObjectABCMeta):
     """視圖基類"""
 
     # 通用信號

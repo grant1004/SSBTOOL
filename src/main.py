@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QApplication
 import asyncio
 from ui.main_window import MainWindow
 from qasync import QEventLoop, QApplication
+from app_coordinator import ApplicationFactory
 
 
 def main():
@@ -11,8 +12,12 @@ def main():
     asyncio.set_event_loop(loop)
 
     # 創建主視窗
-    window = MainWindow()
-    window.show()
+    coordinator = ApplicationFactory.create_production_app()
+    # 初始化應用程式
+    if not coordinator.initialize():
+        sys.exit(1)
+
+    coordinator.start()
 
     try:
         # 使用 loop.run_forever() 代替直接調用
@@ -23,14 +28,18 @@ def main():
     finally:
         print("Closing application...")
 
-        # 安全地關閉所有視窗
-        app.closeAllWindows()
+        # 運行事件循環
+        result = app.exec()
+
+        # 清理
+        coordinator.shutdown()
 
         # 確保事件迴圈正確關閉
         if not loop.is_closed():
             loop.close()
 
-    return 0
+
+        return result
 
 
 if __name__ == '__main__':

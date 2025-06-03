@@ -10,18 +10,17 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QObject, Signal
 import logging
 
+from src.business_models.device_business_model import DeviceBusinessModel
+from src.controllers.device_controller import DeviceController
 # 導入框架基礎類
 from src.mvc_framework.dependency_container import DependencyContainer
 from src.mvc_framework.event_bus import event_bus
 
-# 導入接口（待實現的介面）
-from src.interfaces import device_interface
-from src.interfaces import test_case_interface
-from src.interfaces import execution_interface
 
 # 導入現有組件（在重構過程中會逐步替換）
 from src.ui.main_window import MainWindow
 from src.ui.Theme import ThemeManager
+from src.ui.widgets import TopWidget
 
 
 class ApplicationCoordinator(QObject):
@@ -45,7 +44,6 @@ class ApplicationCoordinator(QObject):
         self.main_window: Optional[MainWindow] = None
         self.theme_manager: Optional[ThemeManager] = None
         self._logger = logging.getLogger(self.__class__.__name__)
-
         # 初始化標誌
         self._is_initialized = False
         self._is_running = False
@@ -59,7 +57,6 @@ class ApplicationCoordinator(QObject):
         """
         try:
             self._logger.info("Starting application initialization...")
-
             # 階段 1: 設置基礎設施
             self._setup_logging()
             self._setup_theme_system()
@@ -188,10 +185,10 @@ class ApplicationCoordinator(QObject):
         # 在重構過程中，這裡會逐步添加新的業務模型
 
         # 設備業務模型（將來實現）
-        # self.container.register_singleton(
-        #     "device_business_model",
-        #     lambda: DeviceBusinessModel()
-        # )
+        self.container.register_singleton(
+            "device_business_model",
+            lambda: DeviceBusinessModel()
+        )
 
         # 測試案例業務模型（將來實現）
         # self.container.register_singleton(
@@ -212,12 +209,12 @@ class ApplicationCoordinator(QObject):
         # 在重構過程中，這裡會逐步添加新的控制器
 
         # 設備控制器（將來實現）
-        # self.container.register_singleton(
-        #     "device_controller",
-        #     lambda: DeviceController(
-        #         self.container.get_required("device_business_model")
-        #     )
-        # )
+        self.container.register_singleton(
+            "device_controller",
+            lambda: DeviceController(
+                self.container.get_required("device_business_model")
+            )
+        )
 
         # 測試案例控制器（將來實現）
         # self.container.register_singleton(
@@ -248,6 +245,7 @@ class ApplicationCoordinator(QObject):
         self.container.register_instance("main_window", self.main_window)
 
         # 在重構過程中，這裡會逐步重構現有的 Widget
+        self.main_window.top_widget.set_device_controller(self.container.get("device_controller"))
         # 目前保持現有的 Widget 創建邏輯
 
         self._logger.info("Views created")
@@ -257,9 +255,9 @@ class ApplicationCoordinator(QObject):
         # 在重構過程中，這裡會逐步添加組件間的連接
 
         # 連接控制器和視圖
-        # device_controller = self.container.get("device_controller")
-        # if device_controller and hasattr(self.main_window, 'top_widget'):
-        #     device_controller.register_view(self.main_window.top_widget)
+        device_controller = self.container.get("device_controller")
+        if device_controller and hasattr(self.main_window, 'top_widget'):
+            device_controller.register_view(self.main_window.top_widget)
 
         self._logger.info("Components wired")
 

@@ -24,8 +24,6 @@ class MainWindow(QMainWindow):
         )
 
         self.theme_manager = ThemeManager()
-        # 設定初始主題
-
 
         # Windows 深色標題列設定
         if sys.platform == "win32":
@@ -60,21 +58,21 @@ class MainWindow(QMainWindow):
         grid.setSpacing(0)  # 移除間距
 
         # 創建四個主要部件
-        top_widget = widgets.TopWidget(self)
+        self.top_widget = widgets.TopWidget(self)
 
-        test_case_widget = widgets.TestCaseWidget(self)
+        self.test_case_widget = widgets.TestCaseWidget(self)
 
-        select_case_widget = widgets.RunCaseWidget(self)
+        self.select_case_widget = widgets.RunCaseWidget(self)
 
-        run_widget = widgets.RunWidget(self)
+        self.run_widget = widgets.RunWidget(self)
 
         # 添加到網格布局中
         # addWidget(widget, row, column, rowSpan, columnSpan)
         # Grid : 3 row * 2 column
-        grid.addWidget(top_widget, 0, 0, 1, 2)  # 頂部跨兩列
-        grid.addWidget(test_case_widget, 1, 0, 2, 1)  # 左側
-        grid.addWidget(select_case_widget, 1, 1, 1, 1)  # 右側
-        grid.addWidget(run_widget, 2, 1, 1, 1)  # 右下
+        grid.addWidget(self.top_widget, 0, 0, 1, 2)  # 頂部跨兩列
+        grid.addWidget(self.test_case_widget, 1, 0, 2, 1)  # 左側
+        grid.addWidget(self.select_case_widget, 1, 1, 1, 1)  # 右側
+        grid.addWidget(self.run_widget, 2, 1, 1, 1)  # 右下
 
         # 設置列（column）的比例
         grid.setColumnStretch(0, 3)  # 左側占 3
