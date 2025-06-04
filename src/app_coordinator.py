@@ -236,30 +236,33 @@ class ApplicationCoordinator(QObject):
         self._logger.info("Controllers created")
 
     def _create_views(self) -> None:
-        """創建視圖"""
-        # 創建主視窗（目前使用現有實現）
+        """創建視圖 - 純粹創建，不設置控制器依賴"""
+        # 創建主視窗（傳入基本依賴如主題管理器）
         self.main_window = MainWindow()
-        self.main_window.theme_manager = self.theme_manager
-
-        # 註冊主視窗到容器
         self.container.register_instance("main_window", self.main_window)
 
-        # 在重構過程中，這裡會逐步重構現有的 Widget
-        self.main_window.top_widget.set_device_controller(self.container.get("device_controller"))
-        # 目前保持現有的 Widget 創建邏輯
+        # 子組件在 MainWindow 的 init_ui 中創建，也是純粹創建
+        # 這裡可以直接獲取引用
+        self.container.register_instance("top_widget", self.main_window.top_widget)
+        self.container.register_instance("test_case_widget", self.main_window.test_case_widget)
+        self.container.register_instance("run_case_widget", self.main_window.run_case_widget)
+        self.container.register_instance("run_widget", self.main_window.run_widget)
 
-        self._logger.info("Views created")
+        self._logger.info("Views created (without controller dependencies)")
 
     def _wire_components(self) -> None:
-        """連接組件"""
-        # 在重構過程中，這裡會逐步添加組件間的連接
+        """連接組件 - 這裡是重點！設置所有的依賴關係"""
+        self._logger.info("Starting component wiring...")
 
-        # 連接控制器和視圖
-        device_controller = self.container.get("device_controller")
-        if device_controller and hasattr(self.main_window, 'top_widget'):
-            device_controller.register_view(self.main_window.top_widget)
+        #region  TopWidget 用來管理 device 連接
 
-        self._logger.info("Components wired")
+        device_controller = self.container.get_required("device_controller")
+        top_widget = self.container.get_required("top_widget")
+        top_widget.set_device_controller(device_controller)
+
+        #endregion
+
+        self._logger.info("Component wiring completed")
 
     def _setup_event_handlers(self) -> None:
         """設置事件處理器"""
