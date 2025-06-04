@@ -97,17 +97,17 @@ class DeviceController(BaseController, IDeviceController):
 
         try:
             # 階段 1: 前置條件檢查
-            # validation_errors = await self._validate_connect_prerequisites(device_type)
-            # if validation_errors:
-            #     await self._handle_validation_errors(device_type, validation_errors)
-            #     return
+            validation_errors = await self._validate_connect_prerequisites(device_type)
+            if validation_errors:
+                await self._handle_validation_errors(device_type, validation_errors)
+                return
 
             # 階段 2: 用戶確認（如果需要）
             # if not await self._get_user_confirmation_if_needed(device_type, "connect"):
             #     return
 
             # 階段 3: 協調 UI 狀態 - 開始連接
-            # await self._coordinate_connection_start(device_type)
+            await self._coordinate_connection_start(device_type)
 
             # 階段 4: 執行業務邏輯
             result = await self.execute_operation(
@@ -184,7 +184,6 @@ class DeviceController(BaseController, IDeviceController):
         """刷新所有設備狀態"""
         self._logger.info("Refreshing all device status")
         self.device_model.refresh_all_device_status()
-
         # 協調 UI 更新
         self._coordinate_status_refresh()
 
@@ -321,7 +320,7 @@ class DeviceController(BaseController, IDeviceController):
 
         # 發布跨組件事件
         event_bus.publish("device_status_changed", DeviceStatusChangedEvent(
-            device_type, self._connection_states.get(device_type, "unknown"), status.value
+            device_type, self._connection_states.get(device_type, DeviceStatus.ERROR), status.value
         ))
 
         # 更新整體狀態
@@ -358,7 +357,6 @@ class DeviceController(BaseController, IDeviceController):
         all_status = self.device_model.get_all_device_status()
         for device_type, status in all_status.items():
             view.update_device_status(device_type, status)
-
             # 同步設備信息
             device_info = self.device_model.get_device_info(device_type)
             if device_info:
@@ -399,22 +397,6 @@ class DeviceController(BaseController, IDeviceController):
             'all_devices_ready': stats['connected_devices'] == stats['total_devices'],
             'statistics': stats
         })
-
-    async def _get_user_confirmation_if_needed(self, device_type: DeviceType, operation: str) -> bool:
-        """如果需要則獲取用戶確認"""
-        # 檢查是否需要用戶確認
-        if operation == "connect" and device_type == DeviceType.USB:
-            # 假設 USB 連接需要確認
-            for view in self._device_views:
-                if hasattr(view, 'request_user_confirmation_async'):
-                    return await view.request_user_confirmation_async(
-                        f"確定要連接 {device_type.value} 設備嗎？"
-                    )
-                elif hasattr(view, 'request_user_confirmation'):
-                    return view.request_user_confirmation(
-                        f"確定要連接 {device_type.value} 設備嗎？"
-                    )
-        return True
 
     async def _handle_validation_errors(self, device_type: DeviceType, errors: List[str]) -> None:
         """處理驗證錯誤"""

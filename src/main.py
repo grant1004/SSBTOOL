@@ -23,13 +23,15 @@ def main():
         # 使用 loop.run_forever() 代替直接調用
         with loop:
             loop.run_forever()
+
+        # 運行事件循環
+        # result = app.exec()
+
+        # return result
     except Exception as e:
         print(f"Unexpected error: {e}")
     finally:
         print("Closing application...")
-
-        # 運行事件循環
-        result = app.exec()
 
         # 清理
         coordinator.shutdown()
@@ -38,8 +40,8 @@ def main():
         if not loop.is_closed():
             loop.close()
 
+        return 0
 
-        return result
 
 
 if __name__ == '__main__':

@@ -127,6 +127,7 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
 
     def update_device_status(self, device_type: DeviceType, status: DeviceStatus) -> None:
         """更新設備狀態顯示"""
+        print( "Call update_device_status() in TopWidget.py")
         try:
             if device_type in self.status_buttons:
                 button = self.status_buttons[device_type]
