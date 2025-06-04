@@ -41,9 +41,6 @@ class DeviceController(BaseController, IDeviceController):
         self.register_model("device_business", device_model)
         self.device_model = device_model
 
-        # View 管理
-        self._device_views: List[IDeviceView] = []
-
         # 協調狀態管理
         self._connection_states: Dict[DeviceType, str] = {}  # "idle", "connecting", "connected", "error"
         self._pending_operations: Dict[DeviceType, str] = {}
@@ -63,16 +60,12 @@ class DeviceController(BaseController, IDeviceController):
         self._logger.info("DeviceController initialized with coordination capabilities")
 
     # ==================== IDeviceController 接口實現 ====================
-
     def register_view(self, view: IDeviceView) -> None:
         """註冊設備視圖"""
         if view not in self._device_views:
             self._device_views.append(view)
             self._view_states[view] = {}
-
-            # 為新視圖同步當前狀態
             self._sync_view_with_current_state(view)
-
             self._logger.info(f"Registered device view: {type(view).__name__}")
 
     def unregister_view(self, view: IDeviceView) -> None:

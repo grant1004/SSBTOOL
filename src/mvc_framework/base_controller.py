@@ -23,7 +23,7 @@ class BaseController(QObject, metaclass=QObjectABCMeta):
     def __init__(self):
         super().__init__()
         self._models = {}
-        self._views = []
+        self._device_views = []
         self._state = {}
         self._logger = logging.getLogger(self.__class__.__name__)
         self._operation_queue = []
@@ -40,14 +40,14 @@ class BaseController(QObject, metaclass=QObjectABCMeta):
 
     def register_view(self, view: QObject) -> None:
         """註冊視圖"""
-        if view not in self._views:
-            self._views.append(view)
+        if view not in self._device_views:
+            self._device_views.append(view)
             self._connect_view_signals(view)
 
     def unregister_view(self, view: QObject) -> None:
         """取消註冊視圖"""
-        if view in self._views:
-            self._views.remove(view)
+        if view in self._device_views:
+            self._device_views.remove(view)
 
     def get_model(self, name: str) -> Optional[QObject]:
         """獲取模型"""
@@ -67,7 +67,7 @@ class BaseController(QObject, metaclass=QObjectABCMeta):
 
     def notify_views(self, method_name: str, *args, **kwargs) -> None:
         """通知所有視圖"""
-        for view in self._views:
+        for view in self._device_views:
             if hasattr(view, method_name):
                 try:
                     method = getattr(view, method_name)
