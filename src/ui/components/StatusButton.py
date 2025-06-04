@@ -423,4 +423,4 @@ class StatusIndicator(QWidget):
         """繪製斷開"""
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.setPen(QPen(QColor(colors['primary']), 2))
-        painter.drawEllipse(center, radius, radius)
+        painter.drawEllipse(center, radius-1, radius-1)

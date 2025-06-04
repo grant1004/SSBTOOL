@@ -1,7 +1,7 @@
-# src/ui/widgets/TopWidget.py - 直接更新版本
+# src/ui/widgets/TopWidget.py - 改良版本，添加背景和更好的排版
 """
-TopWidget 直接使用新的 ComponentStatusButton
-簡潔的 MVC 架構集成，移除所有向後兼容代碼
+TopWidget 改良版本
+添加漸層背景、更好的佈局和現代化設計
 """
 
 import asyncio
@@ -18,12 +18,13 @@ from src.controllers.device_controller import DeviceController
 
 # 導入新的狀態按鈕
 from src.ui.components.StatusButton import ComponentStatusButton
+from src.ui.components.SwitchThemeButton import SwitchThemeButton
 
 
 class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
     """
-    現代化的 TopWidget
-    直接使用新的 ComponentStatusButton，無向後兼容負擔
+    改良版 TopWidget
+    具有漸層背景、更好的佈局和現代化設計
     """
 
     def __init__(self, parent=None):
@@ -40,14 +41,16 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
 
         self.status_buttons: Dict[DeviceType, ComponentStatusButton] = {}
 
+        # 獲取主題管理器
+        self.theme_manager = self._get_theme_manager()
+
         self.setup_ui()
-        self._logger.info("TopWidget initialized with modern ComponentStatusButton")
+        self._logger.info("TopWidget initialized with improved design and background")
 
     def set_device_controller(self, controller: DeviceController) -> None:
         """設置設備控制器"""
         self._device_controller = controller
         if controller:
-            # 立即註冊到控制器
             controller.register_view(self)
         self._logger.info("Device controller set and view registered")
 
@@ -55,19 +58,69 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
 
     def setup_ui(self):
         """設置 UI"""
-        self.setFixedHeight(52)
+        self.setFixedHeight(72)  # 增加高度以容納更豐富的設計
         self.setContentsMargins(0, 0, 0, 0)
+
+        # 設置主布局
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # 創建內容容器
+        content_container = QWidget()
+        content_container.setObjectName("top-widget-container")
+        content_layout = QHBoxLayout(content_container)
+        content_layout.setContentsMargins(24, 16, 24, 16)  # 增加內邊距
+
+        # 左側：標題區域
+        title_section = self._create_title_section()
+        content_layout.addWidget(title_section, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        # 中間：設備狀態區域
+        device_section = self._create_device_section()
+        content_layout.addWidget(device_section, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        # 右側：控制區域
+        # control_section = self._create_control_section()
+        # content_layout.addWidget(control_section)
+
+        main_layout.addWidget(content_container)
+
+        # 設置樣式
+        self._setup_styles()
         self._setup_shadow()
 
-        # 主布局
-        main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(16, 4, 16, 4)
-        main_layout.setSpacing(8)
+    def _create_title_section(self):
+        """創建標題區域"""
+        title_widget = QWidget()
+        title_layout = QVBoxLayout(title_widget)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(2)
 
+        # 主標題
+        title_label = QLabel("SSB Tool")
+        title_label.setObjectName("main-title")
+        title_layout.addWidget(title_label)
+
+        # 副標題
+        subtitle_label = QLabel("Device Management")
+        subtitle_label.setObjectName("subtitle")
+        title_layout.addWidget(subtitle_label)
+
+        title_layout.addStretch()
+        return title_widget
+
+    def _create_device_section(self):
+        """創建設備狀態區域"""
+        device_widget = QWidget()
+        device_widget.setObjectName("device-section")
+        device_layout = QHBoxLayout(device_widget)
+        device_layout.setContentsMargins(16, 0, 16, 0)
 
         # 創建設備按鈕
         for device_type, config in self.devices.items():
             button = ComponentStatusButton(config['name'], config['icon'], self.main_window)
+            button.setFixedSize(200, 40)  # 統一按鈕大小
             self.status_buttons[device_type] = button
 
             # 連接事件
@@ -75,19 +128,283 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
             button.status_changed.connect(lambda old, new, dt=device_type:
                                           self._on_status_changed(dt, old, new))
 
-            main_layout.addWidget(button)
+            device_layout.addWidget(button, alignment=Qt.AlignmentFlag.AlignLeft)
 
-        # 添加彈性空間
-        main_layout.addStretch()
+        return device_widget
+
+    def _create_control_section(self):
+        """創建控制區域"""
+        control_widget = QWidget()
+        control_layout = QHBoxLayout(control_widget)
+        control_layout.setContentsMargins(0, 0, 0, 0)
+        control_layout.setSpacing(12)
+
+        # 刷新按鈕
+        refresh_button = QPushButton("刷新")
+        refresh_button.setObjectName("control-button")
+        refresh_button.setFixedSize(80, 36)
+        refresh_button.clicked.connect(self.on_refresh_requested)
+        control_layout.addWidget(refresh_button)
+
+        # 主題切換按鈕
+        if self.theme_manager:
+            theme_button = SwitchThemeButton(self.theme_manager, self)
+            control_layout.addWidget(theme_button)
+
+        # 設置按鈕（可選）
+        settings_button = QPushButton("設置")
+        settings_button.setObjectName("control-button")
+        settings_button.setFixedSize(80, 36)
+        settings_button.clicked.connect(self._open_settings)
+        control_layout.addWidget(settings_button)
+
+        control_layout.addStretch()
+        return control_widget
+
+    def _setup_styles(self):
+        """設置樣式"""
+        if self.theme_manager:
+            current_theme = self.theme_manager._themes[self.theme_manager._current_theme]
+
+            # 根據主題設置樣式
+            if self.theme_manager.current_theme.value == "industrial":
+                self._apply_dark_theme_styles(current_theme)
+            else:
+                self._apply_light_theme_styles(current_theme)
+        else:
+            self._apply_default_styles()
+
+    def _apply_light_theme_styles(self, theme):
+        """應用淺色主題樣式"""
+        self.setStyleSheet(f"""
+            TopWidget {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 {theme.PRIMARY}, 
+                    stop:0.3 {theme.PRIMARY_LIGHT}, 
+                    stop:1 {theme.BACKGROUND});
+                border-bottom: 2px solid {theme.BORDER};
+            }}
+            
+            #TitleSection {{
+                background: transparent;
+            }} 
+
+            #top-widget-container {{
+                background: #F5F5F5;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+            }}
+
+            #main-title {{
+                font-size: 24px;
+                font-weight: bold;
+                color: {theme.PRIMARY};
+                letter-spacing: 1px;
+            }}
+
+            #subtitle {{
+                font-size: 12px;
+                color: {theme.TEXT_SECONDARY};
+                font-weight: 500;
+            }}
+
+            #section-label {{
+                font-size: 14px;
+                font-weight: 600;
+                color: {theme.TEXT_PRIMARY};
+                padding: 0 8px;
+            }}
+
+            #device-section {{
+                background: transparent;
+            }}
+
+            #separator {{
+                color: {theme.BORDER};
+                background-color: {theme.BORDER};
+            }}
+
+            #control-button {{
+                background-color: {theme.SURFACE};
+                color: {theme.TEXT_PRIMARY};
+                border: 1px solid #000000;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 600;
+                padding: 8px 16px;
+            }}
+
+            #control-button:hover {{
+                background-color: {theme.PRIMARY};
+                color: {theme.TEXT_ON_PRIMARY};
+                border-color: {theme.PRIMARY};
+            }}
+
+            #control-button:pressed {{
+                background-color: {theme.PRIMARY_DARK};
+            }}
+        """)
+
+    def _apply_dark_theme_styles(self, theme):
+        """應用深色主題樣式"""
+        self.setStyleSheet(f"""
+            TopWidget {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #2C2C2C, 
+                    stop:0.3 #3D3D3D, 
+                    stop:1 {theme.BACKGROUND});
+                border-bottom: 2px solid {theme.BORDER};
+            }}
+            
+            #TitleSection {{
+                background: transparent;
+            }} 
+
+            #top-widget-container {{
+                background: rgba(45, 45, 45, 0.95);
+                border: 1px solid rgba(255, 167, 38, 0.3);
+            }}
+
+            #main-title {{
+                font-size: 24px;
+                font-weight: bold;
+                color: {theme.PRIMARY};
+                letter-spacing: 1px;
+            }}
+
+            #subtitle {{
+                font-size: 12px;
+                color: {theme.TEXT_SECONDARY};
+                font-weight: 500;
+            }}
+
+            #section-label {{
+                font-size: 14px;
+                font-weight: 600;
+                color: {theme.TEXT_PRIMARY};
+                padding: 0 8px;
+            }}
+
+            #device-section {{
+                background: rgba(50, 50, 50, 0.8);
+                border-radius: 8px;
+                border: 1px solid {theme.BORDER};
+            }}
+
+            #separator {{
+                color: {theme.BORDER};
+                background-color: {theme.BORDER};
+            }}
+
+            #control-button {{
+                background-color: {theme.SURFACE};
+                color: {theme.TEXT_PRIMARY};
+                border: 1px solid #000000;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 600;
+                padding: 8px 16px;
+            }}
+
+            #control-button:hover {{
+                background-color: {theme.PRIMARY};
+                color: {theme.TEXT_ON_PRIMARY};
+                border-color: {theme.PRIMARY};
+            }}
+
+            #control-button:pressed {{
+                background-color: {theme.PRIMARY_DARK};
+            }}
+        """)
+
+    def _apply_default_styles(self):
+        """應用預設樣式（無主題管理器時）"""
+        self.setStyleSheet("""
+            TopWidget {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #006C4D, 
+                    stop:0.3 #4CAF50, 
+                    stop:1 #DBE5DF);
+                border-bottom: 2px solid #DDDDDD;
+            }
+            
+            #TitleSection {{
+                background: transparent;
+            }} 
+            
+            #top-widget-container {
+                background: #F5F5F5;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+            }
+
+            #main-title {
+                font-size: 24px;
+                font-weight: bold;
+                color: #006C4D;
+                letter-spacing: 1px;
+            }
+
+            #subtitle {
+                font-size: 12px;
+                color: #666666;
+                font-weight: 500;
+            }
+
+            #section-label {
+                font-size: 14px;
+                font-weight: 600;
+                color: #333333;
+                padding: 0 8px;
+            }
+
+            #device-section {
+                background: rgba(248, 249, 250, 0.8);
+                border-radius: 8px;
+                border: 1px solid #EEEEEE;
+            }
+
+            #separator {
+                color: #DDDDDD;
+                background-color: #DDDDDD;
+            }
+
+            #control-button {
+                background-color: #F5F5F5;
+                color: #333333;
+                border: 1px solid #000000;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 600;
+                padding: 8px 16px;
+            }
+
+            #control-button:hover {
+                background-color: #006C4D;
+                color: #FFFFFF;
+                border-color: #006C4D;
+            }
+
+            #control-button:pressed {
+                background-color: #005C41;
+            }
+        """)
 
     def _setup_shadow(self):
         """設置陰影效果"""
         self.shadow = QGraphicsDropShadowEffect(self)
-        self.shadow.setColor(QColor(0, 0, 0, 30))
-        self.shadow.setBlurRadius(20)
-        self.shadow.setOffset(0, 3)
+        self.shadow.setColor(QColor(0, 0, 0, 40))
+        self.shadow.setBlurRadius(25)
+        self.shadow.setOffset(0, 4)
         self.setGraphicsEffect(self.shadow)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+    def _get_theme_manager(self):
+        """獲取主題管理器"""
+        parent = self.main_window
+        while parent:
+            if hasattr(parent, 'theme_manager'):
+                return parent.theme_manager
+            parent = parent.parent() if hasattr(parent, 'parent') else None
+        return None
 
     # ==================== 事件處理 ====================
 
@@ -99,17 +416,19 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
 
         current_status = self.status_buttons[device_type].current_status
         self._logger.info(f"Device {device_type.value} status: {current_status.value}")
+
         if current_status == DeviceStatus.DISCONNECTED or current_status == DeviceStatus.ERROR:
-            # 請求連接
             asyncio.create_task(self._device_controller.handle_connect_request(device_type))
         elif current_status == DeviceStatus.CONNECTED:
-            # 請求斷開
             asyncio.create_task(self._device_controller.handle_disconnect_request(device_type))
-        # 連接中或忙碌狀態不響應點擊
 
     def _on_status_changed(self, device_type: DeviceType, old_status: DeviceStatus, new_status: DeviceStatus):
         """狀態變更回調"""
         self._logger.debug(f"Device {device_type.value} status: {old_status.value} -> {new_status.value}")
+
+    def _open_settings(self):
+        """開啟設置對話框"""
+        self.emit_user_action("settings_requested", None)
 
     # ==================== IDeviceView 接口實現 ====================
 
@@ -209,6 +528,12 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
         """設備設置請求"""
         self.emit_user_action("device_settings_requested", device_type)
 
+    # ==================== 主題更新 ====================
+
+    def update_theme(self):
+        """更新主題（當主題變更時調用）"""
+        self._setup_styles()
+
     # ==================== 便利方法 ====================
 
     def get_all_device_status(self) -> Dict[DeviceType, DeviceStatus]:
@@ -236,21 +561,3 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
                 summary['connecting'] += 1
 
         return summary
-# ==================== 功能開關配置 ====================
-
-class TopWidgetConfig:
-
-    """TopWidget 配置類"""
-    USE_NEW_ARCHITECTURE = True
-    ENABLE_AUTO_FALLBACK = True
-    ENABLE_STATUS_LOGGING = True
-    REFRESH_INTERVAL = 30  # 秒
-
-    @classmethod
-    def enable_new_architecture(cls):
-        cls.USE_NEW_ARCHITECTURE = True
-
-    @classmethod
-    def disable_new_architecture(cls):
-        cls.USE_NEW_ARCHITECTURE = False
-

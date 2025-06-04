@@ -22,7 +22,7 @@ class Theme:
         SURFACE_VARIANT = "#FAFAFA"
 
         # Border Colors
-        BORDER = "#DDDDDD"
+        BORDER = "#000000"
         BORDER_LIGHT = "#EEEEEE"
 
         # Text Colors
@@ -54,7 +54,7 @@ class Theme:
         SURFACE_VARIANT = "#323232"
 
         # Border Colors
-        BORDER = "#404040"
+        BORDER = "#000000"
         BORDER_LIGHT = "#505050"
 
         # Text Colors
