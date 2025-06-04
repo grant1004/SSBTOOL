@@ -3,7 +3,7 @@ from PySide6.QtCore import *
 from PySide6.QtGui import *
 import json
 
-from src.utils import Utils
+from src.utils import Utils, get_icon_path
 
 
 class BaseKeywordProgressCard(QFrame):
@@ -143,7 +143,6 @@ class BaseKeywordProgressCard(QFrame):
         self.move_up_button.setToolTip("向上移動")
         self.move_up_button.clicked.connect(lambda: self.move_up_requested.emit(self))
         try:
-            from src.utils import get_icon_path, Utils
             upward_icon = QIcon(get_icon_path("arrow_drop_up.svg"))
             self.move_up_button.setIcon(Utils.change_icon_color(upward_icon, "#666666"))
             self.move_up_button.setIconSize(QSize(12, 12))
@@ -520,7 +519,6 @@ class BaseKeywordProgressCard(QFrame):
     def _handle_keyword_start(self, data):
         """處理關鍵字開始"""
         keyword_name = data.get('keyword_name', '')
-        current_keyword = self.keyword_config.get('name', '')
 
         # 檢查是否是當前關鍵字（支援關鍵字名稱映射）
         if self._is_current_keyword(keyword_name):
@@ -569,6 +567,9 @@ class BaseKeywordProgressCard(QFrame):
             if test_status == 'FAIL':
                 self.status = 'failed'
                 self._update_status_display(self.status, 100)
+            elif test_status == 'PASS':
+                self.status = 'passed'
+                self._update_status_display(self.status, 100)
 
     def _handle_log(self, data):
         """處理日誌訊息"""
@@ -580,7 +581,11 @@ class BaseKeywordProgressCard(QFrame):
 
     def _is_current_keyword(self, robot_keyword_name):
         """檢查是否是當前卡片的關鍵字"""
+
         current_keyword = self.keyword_config.get('name', '')
+        current_keyword = current_keyword.replace("_"," ")
+        print(
+            f"[BaseKeywordProgressCard] Checking if keyword is current keyword({current_keyword}): {robot_keyword_name}")
 
         # 直接匹配
         if robot_keyword_name == current_keyword:

@@ -431,7 +431,8 @@ class RunCaseWidget(QWidget):
             panel['panel'].reset_status()
 
     def test_finished(self, result: bool):
-        print(f"[UI] 📋 Received messages history ({ self._received_counter }): {[m['type'] for m in self._received_messages]}")
+        pass
+        # print(f"[UI] 📋 Received messages history ({ self._received_counter }): {[m['type'] for m in self._received_messages]}")
 
     # 新增處理右鍵選單動作的方法
     def handle_delete_item(self, panel):

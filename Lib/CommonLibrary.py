@@ -1,5 +1,6 @@
 import sys
 import os
+from typing import Union
 
 # 導入新的架構組件
 from src.interfaces.device_interface import DeviceType, DeviceStatus
@@ -34,7 +35,7 @@ class CommonLibrary(BaseRobotLibrary):
         self._log_info("CommonLibrary initialized with new MVC architecture")
 
     @keyword
-    def send_can_message(self, can_id: int, payload: str, node: int = 1, can_type: int = 0):
+    def send_can_message(self, can_id: Union[str, int], payload: str, node: int = 1, can_type: int = 0):
         """
         發送 CAN 訊息
 
@@ -53,6 +54,7 @@ class CommonLibrary(BaseRobotLibrary):
         """
         try:
             payload = payload.replace("\"", "").replace("'", "").strip()
+            can_id = can_id.replace( "\"", "").replace("'", "").strip()
             # 1. 驗證設備業務模型
             self._validate_device_model()
 
