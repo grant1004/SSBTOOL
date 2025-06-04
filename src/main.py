@@ -17,6 +17,13 @@ def main():
     if not coordinator.initialize():
         sys.exit(1)
 
+    # ⭐ 新增：設置全局訪問點，讓 Robot Framework Library 能夠訪問
+    import __main__
+    __main__.app_coordinator = coordinator
+
+    # 也可以設置更直接的訪問方式
+    __main__.device_business_model = coordinator.get_service("device_business_model")
+
     coordinator.start()
 
     try:
@@ -24,10 +31,6 @@ def main():
         with loop:
             loop.run_forever()
 
-        # 運行事件循環
-        # result = app.exec()
-
-        # return result
     except Exception as e:
         print(f"Unexpected error: {e}")
     finally:
@@ -35,6 +38,12 @@ def main():
 
         # 清理
         coordinator.shutdown()
+
+        # 清理全局變量
+        if hasattr(__main__, 'app_coordinator'):
+            delattr(__main__, 'app_coordinator')
+        if hasattr(__main__, 'device_business_model'):
+            delattr(__main__, 'device_business_model')
 
         # 確保事件迴圈正確關閉
         if not loop.is_closed():
