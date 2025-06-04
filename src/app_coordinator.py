@@ -257,10 +257,18 @@ class ApplicationCoordinator(QObject):
         self._logger.info("Starting component wiring...")
 
         #region  TopWidget 用來管理 device 連接
-
+        self._logger.info("----------------- Wiring TopWidget start ----------------------------------")
         device_controller = self.container.get_required("device_controller")
         top_widget = self.container.get_required("top_widget")
         top_widget.set_device_controller(device_controller)
+
+        #endregion
+
+        #region TestCase
+        self._logger.info("----------------- Wiring TestCase start ----------------------------------")
+        test_case_controller = self.container.get_required("test_case_controller")
+        test_case_widget = self.container.get_required("test_case_widget")
+        test_case_widget.set_test_case_controller(test_case_controller)
 
         #endregion
 

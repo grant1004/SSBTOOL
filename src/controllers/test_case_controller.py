@@ -130,8 +130,8 @@ class TestCaseController(BaseController, ITestCaseController):
         4. 視圖狀態同步
         5. 事件發布和歷史記錄
         """
-        if category == self._current_category:
-            return
+        # if category == self._current_category:
+        #     return
 
         operation_name = f"category_change_{self._current_category.value}_to_{category.value}"
 
@@ -156,8 +156,13 @@ class TestCaseController(BaseController, ITestCaseController):
             self._current_category = category
             self.category_changed.emit(old_category, category)
 
-            # 協調數據載入
-            asyncio.create_task(self._coordinate_category_data_loading(category))
+            # 協調數據載入 - 檢查事件循環是否存在
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self._coordinate_category_data_loading(category))
+            except RuntimeError:
+                # 如果沒有運行中的事件循環，使用 QTimer 延遲執行
+                QTimer.singleShot(10, lambda: asyncio.create_task(self._coordinate_category_data_loading(category)))
 
             # 發布跨組件事件
             event_bus.publish("test_case_category_changed", TestCaseCategoryChangedEvent(
