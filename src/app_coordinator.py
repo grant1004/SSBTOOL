@@ -11,7 +11,9 @@ from PySide6.QtCore import QObject, Signal
 import logging
 
 from src.business_models.device_business_model import DeviceBusinessModel
+from src.business_models.test_case_business_model import TestCaseBusinessModelFactory
 from src.controllers.device_controller import DeviceController
+from src.controllers.test_case_controller import TestCaseController
 # 導入框架基礎類
 from src.mvc_framework.dependency_container import DependencyContainer
 from src.mvc_framework.event_bus import event_bus
@@ -191,10 +193,10 @@ class ApplicationCoordinator(QObject):
         )
 
         # 測試案例業務模型（將來實現）
-        # self.container.register_singleton(
-        #     "test_case_business_model",
-        #     lambda: TestCaseBusinessModel()
-        # )
+        self.container.register_singleton(
+            "test_case_business_model",
+            lambda: TestCaseBusinessModelFactory.create_model()
+        )
 
         # 測試執行業務模型（將來實現）
         # self.container.register_singleton(
@@ -217,12 +219,12 @@ class ApplicationCoordinator(QObject):
         )
 
         # 測試案例控制器（將來實現）
-        # self.container.register_singleton(
-        #     "test_case_controller",
-        #     lambda: TestCaseController(
-        #         self.container.get_required("test_case_business_model")
-        #     )
-        # )
+        self.container.register_singleton(
+            "test_case_controller",
+            lambda: TestCaseController(
+                self.container.get_required("test_case_business_model")
+            )
+        )
 
         # 測試執行控制器（將來實現）
         # self.container.register_singleton(
