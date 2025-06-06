@@ -106,9 +106,10 @@ class TestCaseBusinessModel(BaseBusinessModel, ITestCaseBusinessModel, IKeywordP
 
             # 4. 轉換為業務對象
             test_case_infos = []
-            for case_data in test_cases:
+            for case_id, info in test_cases.items():
                 try:
-                    test_case_info = self._convert_to_test_case_info(case_data, category)
+                    case_data = info['data']['config']
+                    test_case_info = self._convert_to_test_case_info( case_id, case_data, category)
                     if self.validate_test_case(test_case_info):
                         test_case_infos.append(test_case_info)
                         self._test_case_by_id[test_case_info.id] = test_case_info
@@ -304,7 +305,9 @@ class TestCaseBusinessModel(BaseBusinessModel, ITestCaseBusinessModel, IKeywordP
             for i, step in enumerate(test_case.steps):
                 if not isinstance(step, dict):
                     errors.append(f"步驟 {i+1} 格式無效")
-                elif not step.get('name') and not step.get('keyword_name'):
+                elif ( step.get('step_type') == "keyword" and
+                       not step.get('name') and
+                       not step.get('keyword_name') ):
                     errors.append(f"步驟 {i+1} 缺少名稱或關鍵字名稱")
 
             # 依賴驗證
@@ -408,7 +411,7 @@ class TestCaseBusinessModel(BaseBusinessModel, ITestCaseBusinessModel, IKeywordP
         data_dir.mkdir(parents=True, exist_ok=True)
         return data_dir
 
-    def _load_test_cases_from_file(self, category: TestCaseCategory) -> List[dict]:
+    def _load_test_cases_from_file(self, category: TestCaseCategory) -> Union[List[dict], dict]:
         """從文件載入測試案例"""
         file_path = self._data_directory / f"{category.value}-test-case.json"
 
@@ -423,10 +426,6 @@ class TestCaseBusinessModel(BaseBusinessModel, ITestCaseBusinessModel, IKeywordP
                 # 處理不同的文件格式
                 if isinstance(data, dict):
                     # 新格式：{"testcase_id": {"data": {"config": {...}}}}
-                    return [item['data']['config'] for item in data.values()
-                           if isinstance(item, dict) and 'data' in item]
-                elif isinstance(data, list):
-                    # 舊格式：直接是測試案例列表
                     return data
                 else:
                     self._logger.error(f"Unsupported file format: {file_path}")
@@ -436,19 +435,67 @@ class TestCaseBusinessModel(BaseBusinessModel, ITestCaseBusinessModel, IKeywordP
             self._logger.error(f"Error loading test cases from {file_path}: {e}")
             return []
 
-    def _convert_to_test_case_info(self, case_data: dict, category: TestCaseCategory) -> TestCaseInfo:
+    def _convert_to_test_case_info(self, case_id: str, case_data: dict, category: TestCaseCategory) -> TestCaseInfo:
         """轉換字典數據為 TestCaseInfo 對象"""
         return TestCaseInfo(
-            id=case_data.get('id', ''),
+            id=case_id,
             name=case_data.get('name', ''),
             description=case_data.get('description', ''),
             category=category,
             priority=TestCasePriority(case_data.get('priority', 'normal')),
-            estimated_time=case_data.get('estimated_time', 0),
+            estimated_time=self._parse_estimated_time(case_data.get('estimated_time', 0)),  # 使用解析方法
             steps=case_data.get('steps', []),
             dependencies=case_data.get('dependencies', {}),
             metadata=case_data.get('metadata', {})
         )
+
+    def _parse_estimated_time(self, time_value) -> int:
+        """
+        解析預估時間，支持多種格式
+
+        Args:
+            time_value: 時間值，可以是字串（如 "4min", "1h"）或數字
+
+        Returns:
+            int: 時間（分鐘）
+        """
+        if isinstance(time_value, int):
+            return max(0, time_value)
+
+        if isinstance(time_value, (float)):
+            return max(0, int(time_value))
+
+        if isinstance(time_value, str):
+            time_str = time_value.strip().lower()
+
+            # 如果是純數字字串
+            if time_str.isdigit():
+                return max(0, int(time_str))
+
+            # 解析帶單位的時間
+            import re
+
+            # 匹配 "數字+單位" 格式
+            match = re.match(r'^(\d+(?:\.\d+)?)\s*(min|minute|minutes|h|hour|hours|s|sec|second|seconds)?$', time_str)
+            if match:
+                number = float(match.group(1))
+                unit = match.group(2) or 'min'  # 預設為分鐘
+
+                # 轉換為分鐘
+                if unit in ['min', 'minute', 'minutes']:
+                    return max(0, int(number))
+                elif unit in ['h', 'hour', 'hours']:
+                    return max(0, int(number * 60))
+                elif unit in ['s', 'sec', 'second', 'seconds']:
+                    return max(0, int(number / 60))
+
+            # 如果解析失敗，記錄警告並返回默認值
+            self._logger.warning(f"Unable to parse estimated_time: '{time_value}', using default 0")
+            return 0
+
+        # 其他類型返回默認值
+        self._logger.warning(f"Invalid estimated_time type: {type(time_value)}, using default 0")
+        return 0
 
     def _convert_to_keyword_info(self, parsed_kw, category: TestCaseCategory) -> KeywordInfo:
         """轉換解析的關鍵字為 KeywordInfo 對象"""
@@ -706,6 +753,7 @@ class TestCaseBusinessModel(BaseBusinessModel, ITestCaseBusinessModel, IKeywordP
 
         except Exception as e:
             self._logger.error(f"Error stopping test case business model: {e}")
+
 
 
 # ==================== 工廠方法 ====================

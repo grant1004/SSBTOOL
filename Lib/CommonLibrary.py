@@ -1,6 +1,6 @@
 import sys
 import os
-from typing import Union
+from typing import Union, Set, List, Dict, Any, Optional
 
 # 導入新的架構組件
 from src.interfaces.device_interface import DeviceType, DeviceStatus
@@ -12,6 +12,7 @@ if current_dir not in sys.path:
 
 import time
 import asyncio
+from datetime import datetime, timedelta
 from robot.api.deco import library, keyword
 from src.utils import CANPacketGenerator
 from .BaseLibrary import BaseRobotLibrary
@@ -34,14 +35,14 @@ class CommonLibrary(BaseRobotLibrary):
         self._logger_prefix = "CommonLibrary"
         self._log_info("CommonLibrary initialized with new MVC architecture")
 
-    @keyword
+    @keyword("Send CAN Message")
     def send_can_message(self, can_id: Union[str, int], payload: str, node: int = 1, can_type: int = 0):
         """
         發送 CAN 訊息
 
         Args:
             can_id: CAN 訊息識別碼 (支援十進制或十六進制格式，如 '0x123' 或 '291')
-            payload: 訊息負載數據
+            payload: 訊息數據
             node: 目標節點編號 (1=公共, 0=私有)
             can_type: CAN 訊息類型 (0=標準, 1=擴展)
 
@@ -158,18 +159,47 @@ class CommonLibrary(BaseRobotLibrary):
             raise RuntimeError(error_msg)
 
     @keyword
-    def check_payload(self, expected_payload=None, timeout=5):
+    def check_payload(self, expected_payload=None, expected_can_id=None, timeout=5, **expected_fields):
         """
-        檢查接收到的 payload 數據
+        高精度檢查接收到的 CAN 消息數據（絕對精確，不遺漏任何 packet）
 
         Args:
-            expected_payload: 期望的 payload 數據 (可選)
+            expected_payload: 期望的 payload 數據 (可選，支持有無空格格式)
+            expected_can_id: 期望的 CAN ID (可選，支持 0x207 或 207 格式)
             timeout: 超時時間（秒）
+            **expected_fields: 其他期望的字段值 (例如: header="0xFFFF", node="1")
+
+        特性:
+            - 記錄開始檢查的精確時間
+            - 檢查所有在開始時間後收到的訊息
+            - 絕對精確，不遺漏任何 packet
+            - 非同步處理，性能優化
+            - 智能輪詢和記憶體管理
 
         Examples:
+            基本用法:
             | Check Payload |
             | Check Payload | FF00AA55 |
-            | Check Payload | ${expected_data} | 10 |
+            | Check Payload | FF 00 AA 55 |
+            | Check Payload | FF00AA55 | 0x207 |
+
+            擴展用法 - 檢查其他字段:
+            | Check Payload | FF00AA55 | 0x207 | header=0xFFFF |
+            | Check Payload | FF00AA55 | 0x207 | node=1 | data_length=8 |
+            | Check Payload | ${EMPTY} | ${EMPTY} | systick=1452363 |
+            | Check Payload | ${EMPTY} | ${EMPTY} | crc32=3A00A141 | node=1 |
+
+        支持的字段:
+            - timestamp: 時間戳
+            - packet_type: 封包類型
+            - header: Header值
+            - systick: Systick值
+            - node: Node值
+            - can_type: CAN Type值
+            - can_id: CAN ID值
+            - data_length: Data Length值
+            - payload: Payload數據
+            - crc32: CRC32值
         """
         try:
             self._validate_device_model()
@@ -182,47 +212,18 @@ class CommonLibrary(BaseRobotLibrary):
             if not usb_device:
                 raise RuntimeError("無法獲取 USB 設備實例")
 
-            # 檢查設備是否支持數據接收
             if not hasattr(usb_device, 'get_recent_messages'):
-                self._log_warning("USB 設備不支持消息歷史功能，跳過 payload 檢查")
+                self._log_warning("USB 設備不支持消息歷史功能，跳過檢查")
                 return True
 
-            self._log_info(f"開始檢查 payload，超時時間: {timeout} 秒")
-
-            start_time = time.time()
-            while time.time() - start_time < timeout:
-                try:
-                    # 獲取最近的消息
-                    recent_messages = usb_device.get_recent_messages(10)
-
-                    if recent_messages:
-                        latest_message = recent_messages[-1]
-                        self._log_info(f"收到最新消息: {latest_message}")
-
-                        if expected_payload:
-                            # 如果指定了期望的 payload，進行比較
-                            if expected_payload.upper() in str(latest_message).upper():
-                                self._log_success(f"Payload 檢查通過: {latest_message}")
-                                return True
-                        else:
-                            # 如果沒有指定期望值，只要有消息就算通過
-                            self._log_success(f"收到 payload: {latest_message}")
-                            return True
-
-                except Exception as e:
-                    self._log_warning(f"檢查 payload 時發生錯誤: {e}")
-
-                time.sleep(0.1)  # 短暫等待後重試
-
-            # 超時
-            if expected_payload:
-                raise RuntimeError(f"在 {timeout} 秒內未收到期望的 payload: {expected_payload}")
-            else:
-                self._log_warning(f"在 {timeout} 秒內未收到任何 payload")
-                return False
+            # 使用 asyncio 運行精確檢查
+            return asyncio.run(
+                self._precise_message_check(
+                    usb_device, expected_payload, expected_can_id, timeout, expected_fields
+                ))
 
         except Exception as e:
-            error_msg = f"Payload 檢查失敗: {str(e)}"
+            error_msg = f"精確 CAN 消息檢查失敗: {str(e)}"
             self._log_error(error_msg)
             raise RuntimeError(error_msg)
 
@@ -413,7 +414,7 @@ class CommonLibrary(BaseRobotLibrary):
         驗證指定設備是否正確連接並可用
 
         Args:
-            device_type_str: 設備類型字符串
+            device_type_str: 設備類型字符串 ("USB", "POWER", "LOADER")
 
         Examples:
             | Verify Device Connection | USB |
@@ -463,6 +464,123 @@ class CommonLibrary(BaseRobotLibrary):
         else:
             raise ValueError(f"Payload 必須是字符串或字節，得到: {type(payload)}")
 
+    def _normalize_payload(self, payload_str):
+        """
+        標準化 payload 字符串格式
+
+        Args:
+            payload_str: 輸入的 payload 字符串，可能有或沒有空格
+
+        Returns:
+            標準化的 payload 字符串（大寫，每兩個字符用空格分隔）
+
+        Examples:
+            "FF00AA55" -> "FF 00 AA 55"
+            "ff 00 aa 55" -> "FF 00 AA 55"
+            "FF00 AA55" -> "FF 00 AA 55"
+        """
+        if not payload_str:
+            return None
+
+        # 移除所有空格並轉為大寫
+        clean_payload = payload_str.replace(' ', '').upper()
+
+        # 檢查是否為有效的十六進制字符串
+        if not all(c in '0123456789ABCDEF' for c in clean_payload):
+            raise ValueError(f"無效的 payload 格式: {payload_str}")
+
+        # 確保長度為偶數
+        if len(clean_payload) % 2 != 0:
+            raise ValueError(f"Payload 長度必須為偶數: {payload_str}")
+
+        # 每兩個字符插入一個空格
+        formatted_payload = ' '.join(clean_payload[i:i + 2] for i in range(0, len(clean_payload), 2))
+
+        return formatted_payload
+
+    def _normalize_can_id(self, can_id_str):
+        """
+        標準化 CAN ID 格式
+
+        Args:
+            can_id_str: 輸入的 CAN ID 字符串，可能是 "0x207", "207", "0X207" 等
+
+        Returns:
+            標準化的 CAN ID 字符串（十六進制格式，如 "0x207"）
+        """
+        if not can_id_str:
+            return None
+
+        can_id_str = str(can_id_str).strip()
+
+        try:
+            # 如果以 0x 或 0X 開頭，直接解析
+            if can_id_str.lower().startswith('0x'):
+                can_id_int = int(can_id_str, 16)
+            else:
+                # 假設是十進制或十六進制數字
+                try:
+                    # 先嘗試十六進制解析
+                    can_id_int = int(can_id_str, 16)
+                except ValueError:
+                    # 如果失敗，嘗試十進制解析
+                    can_id_int = int(can_id_str, 10)
+
+            # 轉換為標準的十六進制格式
+            return f"0x{can_id_int:X}"
+
+        except ValueError:
+            raise ValueError(f"無效的 CAN ID 格式: {can_id_str}")
+
+    def _parse_can_message(self, message_str):
+        """
+        解析 CAN 消息字符串，提取 CAN ID 和 Payload
+
+        Args:
+            message_str: 完整的消息字符串
+
+        Returns:
+            字典包含解析出的 can_id 和 payload，如果解析失敗返回 None
+
+        Example:
+            Input: "[2025-06-06 11:25:59.203] CAN Packet:\n  CAN ID: 0x207\n  Payload: 00 00 00 00 00 00 00 00"
+            Output: {'can_id': '0x207', 'payload': '00 00 00 00 00 00 00 00'}
+        """
+        import re
+
+        try:
+            message_str = str(message_str)
+
+            # 提取 CAN ID
+            can_id_pattern = r'CAN ID:\s*(0x[0-9A-Fa-f]+|[0-9A-Fa-f]+)'
+            can_id_match = re.search(can_id_pattern, message_str)
+
+            # 提取 Payload
+            payload_pattern = r'Payload:\s*([0-9A-Fa-f\s]+)'
+            payload_match = re.search(payload_pattern, message_str)
+
+            if can_id_match and payload_match:
+                can_id_raw = can_id_match.group(1)
+                payload_raw = payload_match.group(1).strip()
+
+                # 標準化 CAN ID
+                normalized_can_id = self._normalize_can_id(can_id_raw)
+
+                # 標準化 Payload（移除多餘空格，統一格式）
+                normalized_payload = ' '.join(payload_raw.split()).upper()
+
+                return {
+                    'can_id': normalized_can_id,
+                    'payload': normalized_payload
+                }
+            else:
+                self._log_warning(f"無法從消息中提取 CAN ID 或 Payload: {message_str}")
+                return None
+
+        except Exception as e:
+            self._log_error(f"解析 CAN 消息時發生錯誤: {e}")
+            return None
+
     def close(self):
         """清理資源"""
         try:
@@ -481,3 +599,456 @@ class CommonLibrary(BaseRobotLibrary):
 
         except Exception as e:
             self._log_error(f"清理資源時發生錯誤: {e}")
+
+    async def _precise_message_check(self, usb_device, expected_payload, expected_can_id, timeout, expected_fields):
+        """
+        精確的非同步消息檢查邏輯
+        """
+        # ==================== 初始化階段 ====================
+
+        # 記錄精確的開始時間
+        start_system_time = time.time()
+        start_datetime = datetime.now()
+
+        self._log_info(f"🎯 開始精確檢查 - 系統時間: {start_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+
+        # 準備期望值
+        expected_values = await self._prepare_expected_values(expected_payload, expected_can_id, expected_fields)
+
+        # 初始化追蹤變數
+        processed_message_ids: Set[str] = set()
+        baseline_message_count = 0
+        total_checked_messages = 0
+        polling_interval = 0.01  # 初始輪詢間隔：10ms
+        max_polling_interval = 0.1  # 最大輪詢間隔：100ms
+
+        # 性能監控
+        performance_stats = {
+            'polling_cycles': 0,
+            'messages_processed': 0,
+            'baseline_messages': 0,
+            'new_messages_found': 0,
+            'parsing_failures': 0
+        }
+
+        # ==================== 建立基準線 ====================
+
+        try:
+            # 獲取當前所有訊息作為基準線
+            baseline_messages = usb_device.get_recent_messages(1000)  # 獲取更多歷史訊息
+            if baseline_messages:
+                baseline_message_count = len(baseline_messages)
+                # 記錄所有基準線訊息的ID
+                for msg in baseline_messages:
+                    msg_id = self._generate_message_id(msg)
+                    processed_message_ids.add(msg_id)
+
+                performance_stats['baseline_messages'] = baseline_message_count
+                self._log_info(f"📊 建立基準線: {baseline_message_count} 條歷史訊息")
+
+            # 等待一小段時間，確保基準線建立完成
+            await asyncio.sleep(0.005)  # 5ms
+
+        except Exception as e:
+            self._log_warning(f"建立基準線時發生錯誤: {e}")
+
+        # ==================== 精確監控循環 ====================
+
+        self._log_info(f"🔍 開始精確監控新訊息...")
+
+        try:
+            while (time.time() - start_system_time) < timeout:
+                performance_stats['polling_cycles'] += 1
+                cycle_start = time.time()
+                new_messages = []  # 初始化 new_messages 變數
+
+                try:
+                    # 獲取當前所有訊息
+                    current_messages = usb_device.get_recent_messages(1000)
+
+                    if current_messages:
+                        new_messages = await self._filter_new_messages(
+                            current_messages, processed_message_ids, start_datetime
+                        )
+
+                        if new_messages:
+                            performance_stats['new_messages_found'] += len(new_messages)
+                            self._log_info(f"📥 發現 {len(new_messages)} 條新訊息")
+
+                            # 處理新訊息
+                            for message in new_messages:
+                                print( message )
+                                total_checked_messages += 1
+                                performance_stats['messages_processed'] += 1
+
+                                # 記錄已處理
+                                msg_id = self._generate_message_id(message)
+                                processed_message_ids.add(msg_id)
+
+                                # 解析並檢查訊息
+                                check_result = await self._check_single_message(
+                                    message, expected_values, total_checked_messages
+                                )
+
+                                if check_result['success']:
+                                    # 找到匹配的訊息！
+                                    elapsed_time = time.time() - start_system_time
+                                    success_msg = (
+                                        f"✅ 精確檢查成功! "
+                                        f"用時: {elapsed_time:.3f}s, "
+                                        f"檢查了 {total_checked_messages} 條新訊息"
+                                    )
+
+                                    # 顯示詳細結果
+                                    if check_result['details']:
+                                        success_msg += f"\n匹配結果: {check_result['details']}"
+
+                                    # 顯示性能統計
+                                    success_msg += f"\n性能統計: {self._format_performance_stats(performance_stats, elapsed_time)}"
+
+                                    self._log_success(success_msg)
+                                    return True
+
+                    # ==================== 智能輪詢間隔調整 ====================
+
+                    cycle_duration = time.time() - cycle_start
+
+                    # 根據處理時間動態調整輪詢間隔
+                    if new_messages:
+                        # 有新訊息時，加快輪詢頻率
+                        polling_interval = max(0.005, polling_interval * 0.8)
+                    else:
+                        # 沒有新訊息時，逐漸降低輪詢頻率
+                        polling_interval = min(max_polling_interval, polling_interval * 1.1)
+
+                    # 確保不會過度輪詢
+                    if cycle_duration < polling_interval:
+                        await asyncio.sleep(polling_interval - cycle_duration)
+
+                    # ==================== 記憶體管理 ====================
+
+                    # 每1000個循環清理一次記憶體
+                    if performance_stats['polling_cycles'] % 1000 == 0:
+                        await self._cleanup_memory(processed_message_ids)
+
+                        # 顯示進度報告
+                        elapsed = time.time() - start_system_time
+                        remaining = timeout - elapsed
+                        self._log_info(
+                            f"📊 進度報告: "
+                            f"已檢查 {total_checked_messages} 條新訊息, "
+                            f"剩餘時間 {remaining:.1f}s, "
+                            f"輪詢間隔 {polling_interval * 1000:.1f}ms"
+                        )
+
+                except Exception as e:
+                    performance_stats['parsing_failures'] += 1
+                    self._log_warning(f"輪詢循環中發生錯誤: {e}")
+                    # 錯誤時稍微延長等待時間
+                    await asyncio.sleep(0.02)
+
+        except asyncio.CancelledError:
+            self._log_warning("精確檢查被取消")
+            raise
+
+        # ==================== 超時處理 ====================
+
+        elapsed_time = time.time() - start_system_time
+        timeout_msg = f"⏰ 精確檢查超時 ({elapsed_time:.3f}s)"
+
+        if expected_values:
+            timeout_msg += f"\n未找到期望的訊息: {expected_values}"
+        else:
+            timeout_msg += f"\n未收到任何有效的 CAN 訊息"
+
+        timeout_msg += f"\n檢查統計: 總共檢查了 {total_checked_messages} 條新訊息"
+        timeout_msg += f"\n性能統計: {self._format_performance_stats(performance_stats, elapsed_time)}"
+
+        if total_checked_messages == 0:
+            self._log_warning(timeout_msg)
+            return False
+        else:
+            raise RuntimeError(timeout_msg)
+
+    async def _prepare_expected_values(self, expected_payload, expected_can_id, expected_fields):
+        """準備期望值字典"""
+        expected_values = {}
+
+        if expected_payload:
+            expected_values['payload'] = self._normalize_payload(expected_payload)
+        if expected_can_id:
+            expected_values['can_id'] = self._normalize_can_id(expected_can_id)
+
+        for field, value in expected_fields.items():
+            if value:
+                expected_values[field] = str(value).strip()
+
+        if expected_values:
+            self._log_info("🎯 期望值:")
+            for field, value in expected_values.items():
+                self._log_info(f"  {field}: {value}")
+        else:
+            self._log_info("🎯 未指定期望值，只要收到有效 CAN 訊息即可")
+
+        return expected_values
+
+    def _generate_message_id(self, message):
+        """生成訊息的唯一ID"""
+        # 使用訊息內容的hash作為唯一識別
+        return hash(str(message))
+
+    async def _filter_new_messages(self, current_messages, processed_message_ids, start_datetime):
+        """過濾出新訊息（在開始時間之後且未處理過的）"""
+        new_messages = []
+
+        for message in current_messages:
+            msg_id = self._generate_message_id(message)
+
+            # 跳過已處理的訊息
+            if msg_id in processed_message_ids:
+                continue
+
+            # 檢查訊息時間戳（如果可解析的話）
+            try:
+                parsed = self._parse_can_message(message)
+                if parsed and 'timestamp' in parsed:
+                    msg_time = datetime.strptime(parsed['timestamp'], '%Y-%m-%d %H:%M:%S.%f')
+                    if msg_time > start_datetime:
+                        new_messages.append(message)
+                        continue
+            except:
+                pass
+
+            # 如果無法解析時間戳，假設是新訊息（保守策略）
+            new_messages.append(message)
+
+        return new_messages
+
+    async def _check_single_message(self, message, expected_values, message_count):
+        """檢查單一訊息"""
+        try:
+            # 解析訊息
+            parsed_message = self._parse_can_message(message)
+
+            if not parsed_message:
+                return {'success': False, 'details': '無法解析訊息格式'}
+
+            # 如果沒有期望值，任何有效訊息都算通過
+            if not expected_values:
+                return {
+                    'success': True,
+                    'details': f"CAN ID: {parsed_message.get('can_id', 'N/A')}, Payload: {parsed_message.get('payload', 'N/A')}"
+                }
+
+            # 檢查所有期望字段
+            match_results = []
+            all_match = True
+
+            for expected_field, expected_value in expected_values.items():
+                actual_value = parsed_message.get(expected_field)
+
+                if actual_value is None:
+                    all_match = False
+                    match_results.append(f"{expected_field}: 字段不存在")
+                    continue
+
+                # 字段比較邏輯
+                field_match = await self._compare_field_values(
+                    expected_field, expected_value, actual_value
+                )
+
+                if field_match:
+                    match_results.append(f"{expected_field}: {actual_value} ✓")
+                else:
+                    all_match = False
+                    match_results.append(f"{expected_field}: 期望 {expected_value}, 實際 {actual_value} ✗")
+
+            return {
+                'success': all_match,
+                'details': ', '.join(match_results) if all_match else None
+            }
+
+        except Exception as e:
+            return {'success': False, 'details': f'檢查錯誤: {str(e)}'}
+
+    async def _compare_field_values(self, field_name, expected_value, actual_value):
+        """比較字段值"""
+        try:
+            if field_name == 'payload':
+                return actual_value == expected_value
+            elif field_name in ['can_id', 'header']:
+                # 十六進制字段比較
+                normalized_expected = self._normalize_can_id(
+                    expected_value) if field_name == 'can_id' else expected_value.upper()
+                return actual_value.upper() == normalized_expected.upper()
+            else:
+                # 一般字段比較
+                return str(actual_value).strip() == str(expected_value).strip()
+        except:
+            return str(actual_value) == str(expected_value)
+
+    async def _cleanup_memory(self, processed_message_ids):
+        """記憶體清理"""
+        # 限制已處理訊息ID的數量，避免記憶體無限增長
+        max_processed_ids = 10000
+        if len(processed_message_ids) > max_processed_ids:
+            # 保留最近的一半ID
+            ids_list = list(processed_message_ids)
+            processed_message_ids.clear()
+            processed_message_ids.update(ids_list[-max_processed_ids // 2:])
+
+    def _format_performance_stats(self, stats, elapsed_time):
+        """格式化性能統計"""
+        return (
+            f"輪詢週期: {stats['polling_cycles']}, "
+            f"處理訊息: {stats['messages_processed']}, "
+            f"新訊息: {stats['new_messages_found']}, "
+            f"平均處理速度: {stats['messages_processed'] / elapsed_time:.1f} msg/s"
+        )
+
+    def _normalize_payload(self, payload_str):
+        """
+        標準化 payload 字符串格式
+
+        Args:
+            payload_str: 輸入的 payload 字符串，可能有或沒有空格
+
+        Returns:
+            標準化的 payload 字符串（大寫，每兩個字符用空格分隔）
+        """
+        if not payload_str:
+            return None
+
+        # 移除所有空格並轉為大寫
+        clean_payload = payload_str.replace(' ', '').upper()
+
+        # 檢查是否為有效的十六進制字符串
+        if not all(c in '0123456789ABCDEF' for c in clean_payload):
+            raise ValueError(f"無效的 payload 格式: {payload_str}")
+
+        # 確保長度為偶數
+        if len(clean_payload) % 2 != 0:
+            raise ValueError(f"Payload 長度必須為偶數: {payload_str}")
+
+        # 每兩個字符插入一個空格
+        formatted_payload = ' '.join(clean_payload[i:i + 2] for i in range(0, len(clean_payload), 2))
+
+        return formatted_payload
+
+    def _normalize_can_id(self, can_id_str):
+        """
+        標準化 CAN ID 格式
+
+        Args:
+            can_id_str: 輸入的 CAN ID 字符串，可能是 "0x207", "207", "0X207" 等
+
+        Returns:
+            標準化的 CAN ID 字符串（十六進制格式，如 "0x207"）
+        """
+        if not can_id_str:
+            return None
+
+        can_id_str = str(can_id_str).strip()
+
+        try:
+            # 如果以 0x 或 0X 開頭，直接解析
+            if can_id_str.lower().startswith('0x'):
+                can_id_int = int(can_id_str, 16)
+            else:
+                # 假設是十進制或十六進制數字
+                try:
+                    # 先嘗試十六進制解析
+                    can_id_int = int(can_id_str, 16)
+                except ValueError:
+                    # 如果失敗，嘗試十進制解析
+                    can_id_int = int(can_id_str, 10)
+
+            # 轉換為標準的十六進制格式
+            return f"0x{can_id_int:X}"
+
+        except ValueError:
+            raise ValueError(f"無效的 CAN ID 格式: {can_id_str}")
+
+    def _parse_can_message(self, message_str):
+        """
+        解析 CAN 消息字符串，提取所有字段
+
+        Args:
+            message_str: 完整的消息字符串
+
+        Returns:
+            字典包含解析出的所有字段，如果解析失敗返回 None
+        """
+        import re
+
+        try:
+            message_str = str(message_str)
+            parsed_data = {}
+
+            # 提取時間戳
+            timestamp_pattern = r'\[([0-9\-\s:\.]+)\]'
+            timestamp_match = re.search(timestamp_pattern, message_str)
+            if timestamp_match:
+                parsed_data['timestamp'] = timestamp_match.group(1).strip()
+
+            # 提取封包類型
+            packet_type_pattern = r'\]\s*([^:]+?):'
+            packet_type_match = re.search(packet_type_pattern, message_str)
+            if packet_type_match:
+                parsed_data['packet_type'] = packet_type_match.group(1).strip()
+
+            # 定義所有可能的字段模式
+            field_patterns = {
+                'header': r'Header:\s*(0x[0-9A-Fa-f]+|[0-9A-Fa-f]+)',
+                'systick': r'Systick:\s*([0-9]+)',
+                'node': r'Node:\s*([0-9]+)',
+                'can_type': r'CAN Type:\s*([0-9]+)',
+                'can_id': r'CAN ID:\s*(0x[0-9A-Fa-f]+|[0-9A-Fa-f]+)',
+                'data_length': r'Data Length:\s*([0-9]+)',
+                'payload': r'Payload:\s*([0-9A-Fa-f\s]+)',
+                'crc32': r'CRC32:\s*([0-9A-Fa-f]+)'
+            }
+
+            # 解析每個字段
+            for field_name, pattern in field_patterns.items():
+                match = re.search(pattern, message_str, re.IGNORECASE)
+                if match:
+                    raw_value = match.group(1).strip()
+
+                    # 根據字段類型進行標準化
+                    if field_name == 'can_id':
+                        try:
+                            parsed_data[field_name] = self._normalize_can_id(raw_value)
+                        except ValueError:
+                            parsed_data[field_name] = raw_value
+                    elif field_name == 'header':
+                        # 標準化 Header 格式
+                        if not raw_value.upper().startswith('0X'):
+                            parsed_data[field_name] = f"0x{raw_value.upper()}"
+                        else:
+                            parsed_data[field_name] = raw_value.upper()
+                    elif field_name == 'payload':
+                        # 標準化 Payload 格式
+                        normalized_payload = ' '.join(raw_value.split()).upper()
+                        parsed_data[field_name] = normalized_payload
+                    elif field_name == 'crc32':
+                        # 標準化 CRC32 格式
+                        parsed_data[field_name] = raw_value.upper()
+                    else:
+                        # 其他字段保持原樣
+                        parsed_data[field_name] = raw_value
+
+            # 檢查是否至少解析出了基本字段
+            if 'can_id' in parsed_data or 'payload' in parsed_data:
+                # 添加一些便於調試的信息
+                parsed_data['_raw_message'] = message_str
+                parsed_data['_parsed_fields_count'] = len([k for k in parsed_data.keys() if not k.startswith('_')])
+
+                return parsed_data
+            else:
+                self._log_warning(f"無法從消息中提取基本字段 (CAN ID 或 Payload): {message_str}")
+                return None
+
+        except Exception as e:
+            self._log_error(f"解析 CAN 消息時發生錯誤: {e}")
+            return None

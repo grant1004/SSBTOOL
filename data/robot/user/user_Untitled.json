@@ -4,7 +4,7 @@
         "type": "user_composition",
         "test_name": "Untitled",
         "created_by": "robot_app",
-        "created_at": "2025-06-04T15:22:40.718109",
+        "created_at": "2025-06-06T13:31:56.367878",
         "description": "Generated test composition: Untitled"
     },
     "selected_settings": {
@@ -28,279 +28,39 @@
     ],
     "individual_testcases": [
         {
-            "test_id": 2749114971008,
-            "test_name": "Execute TestCase - TESTFIVE [id]2749114971008",
-            "type": "testcase",
-            "testcase_name": "TESTFIVE",
-            "priority": "required",
-            "description": "",
-            "steps": [
-                {
-                    "step_type": "testcase",
-                    "testcase_id": 1719498208320,
-                    "testcase_name": "TESTTWO",
-                    "description": "TESTONE + 10 delay",
-                    "priority": "optional",
-                    "steps": [
-                        {
-                            "step_type": "testcase",
-                            "testcase_id": 1989436079680,
-                            "testcase_name": "TESTONE",
-                            "description": "測試",
-                            "priority": "required",
-                            "steps": [
-                                {
-                                    "step_type": "keyword",
-                                    "keyword_id": 1989532173184,
-                                    "keyword_name": "start_listening",
-                                    "keyword_category": "common",
-                                    "parameters": {},
-                                    "description": "開始監聽設備訊息"
-                                },
-                                {
-                                    "step_type": "keyword",
-                                    "keyword_id": 1989532179136,
-                                    "keyword_name": "send_can_message",
-                                    "keyword_category": "common",
-                                    "parameters": {
-                                        "can_id": "\"300\"",
-                                        "payload": "\"30303030\"",
-                                        "node": "1",
-                                        "can_type": "0"
-                                    },
-                                    "description": "Sends a CAN message using the specified CAN ID, payload, and other parameters."
-                                },
-                                {
-                                    "step_type": "keyword",
-                                    "keyword_id": 1989532187968,
-                                    "keyword_name": "delay",
-                                    "keyword_category": "common",
-                                    "parameters": {
-                                        "seconds": "10",
-                                        "reason": "None"
-                                    },
-                                    "description": "暫停執行指定的秒數（非阻塞實現） 參數: seconds: 暫停的秒數，可以是整數或浮點數 reason: 可選參數，記錄暫停原因"
-                                },
-                                {
-                                    "step_type": "keyword",
-                                    "keyword_id": 1989532275904,
-                                    "keyword_name": "stop_listening",
-                                    "keyword_category": "common",
-                                    "parameters": {},
-                                    "description": "停止監聽設備訊息"
-                                }
-                            ]
-                        },
-                        {
-                            "step_type": "keyword",
-                            "keyword_id": 1989436895168,
-                            "keyword_name": "delay",
-                            "keyword_category": "common",
-                            "parameters": {
-                                "seconds": "10",
-                                "reason": "None"
-                            },
-                            "description": "暫停執行指定的秒數（非阻塞實現） 參數: seconds: 暫停的秒數，可以是整數或浮點數 reason: 可選參數，記錄暫停原因"
-                        }
-                    ]
-                },
-                {
-                    "step_type": "testcase",
-                    "testcase_id": 1719498465024,
-                    "testcase_name": "TESTONE",
-                    "description": "測試",
-                    "priority": "required",
-                    "steps": [
-                        {
-                            "step_type": "keyword",
-                            "keyword_id": 1989532173184,
-                            "keyword_name": "start_listening",
-                            "keyword_category": "common",
-                            "parameters": {},
-                            "description": "開始監聽設備訊息"
-                        },
-                        {
-                            "step_type": "keyword",
-                            "keyword_id": 1989532179136,
-                            "keyword_name": "send_can_message",
-                            "keyword_category": "common",
-                            "parameters": {
-                                "can_id": "\"300\"",
-                                "payload": "\"30303030\"",
-                                "node": "1",
-                                "can_type": "0"
-                            },
-                            "description": "Sends a CAN message using the specified CAN ID, payload, and other parameters."
-                        },
-                        {
-                            "step_type": "keyword",
-                            "keyword_id": 1989532187968,
-                            "keyword_name": "delay",
-                            "keyword_category": "common",
-                            "parameters": {
-                                "seconds": "10",
-                                "reason": "None"
-                            },
-                            "description": "暫停執行指定的秒數（非阻塞實現） 參數: seconds: 暫停的秒數，可以是整數或浮點數 reason: 可選參數，記錄暫停原因"
-                        },
-                        {
-                            "step_type": "keyword",
-                            "keyword_id": 1989532275904,
-                            "keyword_name": "stop_listening",
-                            "keyword_category": "common",
-                            "parameters": {},
-                            "description": "停止監聽設備訊息"
-                        }
-                    ]
-                },
-                {
-                    "step_type": "testcase",
-                    "testcase_id": 1719498524096,
-                    "testcase_name": "TESTFOUR",
-                    "description": "Double TESTTWO",
-                    "priority": "normal",
-                    "steps": [
-                        {
-                            "step_type": "testcase",
-                            "testcase_id": 1876268912960,
-                            "testcase_name": "TESTTWO",
-                            "description": "TESTONE + 10 delay",
-                            "priority": "optional",
-                            "steps": [
-                                {
-                                    "step_type": "testcase",
-                                    "testcase_id": 1989436079680,
-                                    "testcase_name": "TESTONE",
-                                    "description": "測試",
-                                    "priority": "required",
-                                    "steps": [
-                                        {
-                                            "step_type": "keyword",
-                                            "keyword_id": 1989532173184,
-                                            "keyword_name": "start_listening",
-                                            "keyword_category": "common",
-                                            "parameters": {},
-                                            "description": "開始監聽設備訊息"
-                                        },
-                                        {
-                                            "step_type": "keyword",
-                                            "keyword_id": 1989532179136,
-                                            "keyword_name": "send_can_message",
-                                            "keyword_category": "common",
-                                            "parameters": {
-                                                "can_id": "\"300\"",
-                                                "payload": "\"30303030\"",
-                                                "node": "1",
-                                                "can_type": "0"
-                                            },
-                                            "description": "Sends a CAN message using the specified CAN ID, payload, and other parameters."
-                                        },
-                                        {
-                                            "step_type": "keyword",
-                                            "keyword_id": 1989532187968,
-                                            "keyword_name": "delay",
-                                            "keyword_category": "common",
-                                            "parameters": {
-                                                "seconds": "10",
-                                                "reason": "None"
-                                            },
-                                            "description": "暫停執行指定的秒數（非阻塞實現） 參數: seconds: 暫停的秒數，可以是整數或浮點數 reason: 可選參數，記錄暫停原因"
-                                        },
-                                        {
-                                            "step_type": "keyword",
-                                            "keyword_id": 1989532275904,
-                                            "keyword_name": "stop_listening",
-                                            "keyword_category": "common",
-                                            "parameters": {},
-                                            "description": "停止監聽設備訊息"
-                                        }
-                                    ]
-                                },
-                                {
-                                    "step_type": "keyword",
-                                    "keyword_id": 1989436895168,
-                                    "keyword_name": "delay",
-                                    "keyword_category": "common",
-                                    "parameters": {
-                                        "seconds": "10",
-                                        "reason": "None"
-                                    },
-                                    "description": "暫停執行指定的秒數（非阻塞實現） 參數: seconds: 暫停的秒數，可以是整數或浮點數 reason: 可選參數，記錄暫停原因"
-                                }
-                            ]
-                        },
-                        {
-                            "step_type": "testcase",
-                            "testcase_id": 1876366192640,
-                            "testcase_name": "TESTTWO",
-                            "description": "TESTONE + 10 delay",
-                            "priority": "optional",
-                            "steps": [
-                                {
-                                    "step_type": "testcase",
-                                    "testcase_id": 1989436079680,
-                                    "testcase_name": "TESTONE",
-                                    "description": "測試",
-                                    "priority": "required",
-                                    "steps": [
-                                        {
-                                            "step_type": "keyword",
-                                            "keyword_id": 1989532173184,
-                                            "keyword_name": "start_listening",
-                                            "keyword_category": "common",
-                                            "parameters": {},
-                                            "description": "開始監聽設備訊息"
-                                        },
-                                        {
-                                            "step_type": "keyword",
-                                            "keyword_id": 1989532179136,
-                                            "keyword_name": "send_can_message",
-                                            "keyword_category": "common",
-                                            "parameters": {
-                                                "can_id": "\"300\"",
-                                                "payload": "\"30303030\"",
-                                                "node": "1",
-                                                "can_type": "0"
-                                            },
-                                            "description": "Sends a CAN message using the specified CAN ID, payload, and other parameters."
-                                        },
-                                        {
-                                            "step_type": "keyword",
-                                            "keyword_id": 1989532187968,
-                                            "keyword_name": "delay",
-                                            "keyword_category": "common",
-                                            "parameters": {
-                                                "seconds": "10",
-                                                "reason": "None"
-                                            },
-                                            "description": "暫停執行指定的秒數（非阻塞實現） 參數: seconds: 暫停的秒數，可以是整數或浮點數 reason: 可選參數，記錄暫停原因"
-                                        },
-                                        {
-                                            "step_type": "keyword",
-                                            "keyword_id": 1989532275904,
-                                            "keyword_name": "stop_listening",
-                                            "keyword_category": "common",
-                                            "parameters": {},
-                                            "description": "停止監聽設備訊息"
-                                        }
-                                    ]
-                                },
-                                {
-                                    "step_type": "keyword",
-                                    "keyword_id": 1989436895168,
-                                    "keyword_name": "delay",
-                                    "keyword_category": "common",
-                                    "parameters": {
-                                        "seconds": "10",
-                                        "reason": "None"
-                                    },
-                                    "description": "暫停執行指定的秒數（非阻塞實現） 參數: seconds: 暫停的秒數，可以是整數或浮點數 reason: 可選參數，記錄暫停原因"
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ]
+            "test_id": 2555918902976,
+            "test_name": "Execute Keyword - start_listening [id]2555918902976",
+            "type": "keyword",
+            "keyword_name": "start_listening",
+            "keyword_category": "common",
+            "priority": "optional",
+            "description": "開始監聽設備訊息 啟動 USB 設備的消息監聽功能，開始記錄接收到的數據 Examples: | Start Listening |",
+            "parameters": {}
+        },
+        {
+            "test_id": 2555916304832,
+            "test_name": "Execute Keyword - check_payload [id]2555916304832",
+            "type": "keyword",
+            "keyword_name": "check_payload",
+            "keyword_category": "common",
+            "priority": "normal",
+            "description": "高精度檢查接收到的 CAN 消息數據（絕對精確，不遺漏任何 packet）",
+            "parameters": {
+                "expected_payload": "FFFFFFFFFFFF1234",
+                "expected_can_id": "0x123",
+                "timeout": "5",
+                "expected_fields": "None"
+            }
+        },
+        {
+            "test_id": 2555918873728,
+            "test_name": "Execute Keyword - stop_listening [id]2555918873728",
+            "type": "keyword",
+            "keyword_name": "stop_listening",
+            "keyword_category": "common",
+            "priority": "optional",
+            "description": "停止監聽設備訊息 停止 USB 設備的消息監聽功能 Examples: | Stop Listening |",
+            "parameters": {}
         }
     ],
     "keyword_dependencies": [

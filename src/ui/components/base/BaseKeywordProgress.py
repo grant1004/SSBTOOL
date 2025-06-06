@@ -488,7 +488,7 @@ class BaseKeywordProgressCard(QFrame):
             self.update_error("")
             self.update_execution_time(0.0)
 
-            print(f"[BaseKeywordProgressCard] Status reset for keyword: {self.keyword_config.get('name', 'Unknown')}")
+            # print(f"[BaseKeywordProgressCard] Status reset for keyword: {self.keyword_config.get('name', 'Unknown')}")
 
         except Exception as e:
             print(f"[BaseKeywordProgressCard] Error resetting status: {e}")
@@ -584,8 +584,8 @@ class BaseKeywordProgressCard(QFrame):
 
         current_keyword = self.keyword_config.get('name', '')
         current_keyword = current_keyword.replace("_"," ")
-        print(
-            f"[BaseKeywordProgressCard] Checking if keyword is current keyword({current_keyword}): {robot_keyword_name}")
+        # print(
+        #     f"[BaseKeywordProgressCard] Checking if keyword is current keyword({current_keyword}): {robot_keyword_name}")
 
         # 直接匹配
         if robot_keyword_name == current_keyword:

@@ -1,25 +1,2 @@
 {
-    "user_testcase_1748489788": {
-        "data": {
-            "config": {
-                "type": "testcase",
-                "name": "First_Test_case",
-                "description": "使用者創建的測試：First_Test_case",
-                "category": "battery",
-                "priority": "normal",
-                "estimated_time": "1min",
-                "created_by": "robot_app",
-                "created_at": "2025-05-29T11:36:28.699798",
-                "steps": [],
-                "dependencies": {
-                    "libraries": [],
-                    "keywords": []
-                },
-                "metadata": {
-                    "source_composition": "user_First_Test_case.json",
-                    "total_steps": 0
-                }
-            }
-        }
-    }
 }
