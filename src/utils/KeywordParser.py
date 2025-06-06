@@ -1,3 +1,4 @@
+# src/utils/KeywordParser.py - 修正版本
 import inspect
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Any
@@ -12,70 +13,55 @@ class ArgumentInfo:
     description: str
     value: str
     default: Optional[str] = None
-    options: Optional[List[str]] = None  # 新增：參數選項列表
-    example: Optional[str] = None  # 新增：參數示例
+    options: Optional[List[str]] = None
+    example: Optional[str] = None
 
 
 @dataclass
 class KeywordInfo:
     """關鍵字數據結構"""
-    name: str  # 關鍵字名稱
-    description: str  # 關鍵字描述
-    category: str  # 所屬類別
-    arguments: List[ArgumentInfo]  # 參數列表
-    returns: str  # 返回值描述
-    library_name: str  # 所屬庫名稱
-    priority: str = 'normal'  # 優先級
+    name: str
+    description: str
+    category: str
+    arguments: List[ArgumentInfo]
+    returns: str
+    library_name: str
+    priority: str = 'normal'
 
 
 class KeywordParser:
-    """Robot Framework 關鍵字解析器"""
+    """Robot Framework 關鍵字解析器 - 修正版本"""
 
     def __init__(self):
         self.keywords_by_category: Dict[str, Dict[str, KeywordInfo]] = {}
 
     def parse_library(self, library_instance: Any, category: str) -> List[KeywordInfo]:
-        """解析庫實例中的所有關鍵字
-
-        Args:
-            library_instance: 要解析的 Library 實例
-            category: 關鍵字類別（例如：'battery', 'common' 等）
-
-        Returns:
-            List[KeywordInfo]: 解析出的關鍵字資訊列表
-        """
+        """解析庫實例中的所有關鍵字"""
         if category not in self.keywords_by_category:
             self.keywords_by_category[category] = {}
 
         keywords = []
 
         for name, member in inspect.getmembers(library_instance):
-            # 跳過私有方法
             if name.startswith('_'):
                 continue
 
-            # 只檢查有 @keyword 裝飾器的方法
             if hasattr(member, 'robot_name'):
                 try:
-                    # 解析文檔字符串
                     doc = inspect.getdoc(member) or ''
                     description, args_doc, returns_doc = self._parse_docstring(doc)
 
-                    # 獲取方法簽名
                     signature = inspect.signature(member)
 
-                    # 解析參數
                     arguments = []
                     for param_name, param in signature.parameters.items():
                         if param_name == 'self':
                             continue
 
-                        # 獲取參數類型
                         param_type = (param.annotation.__name__
                                       if param.annotation != inspect.Parameter.empty
                                       else 'any')
 
-                        # 獲取默認值
                         default = None
                         if param.default != inspect.Parameter.empty:
                             default = str(param.default)
@@ -86,17 +72,19 @@ class KeywordParser:
                         param_options = param_info.get('options', [])
                         param_example = param_info.get('example', '')
 
+                        # 🔧 修正：確保有選項時不會被設為 None
+                        final_options = param_options if param_options else None
+
                         arguments.append(ArgumentInfo(
                             name=param_name,
                             type=param_type,
                             description=param_desc,
                             default=default,
-                            value=default,
-                            options=param_options if param_options else None,
+                            value=default or "",
+                            options=final_options,
                             example=param_example if param_example else None
                         ))
 
-                    # 創建關鍵字信息
                     keyword_info = KeywordInfo(
                         name=name,
                         description=description,
@@ -112,11 +100,13 @@ class KeywordParser:
 
                 except Exception as e:
                     print(f"Error parsing keyword {name}: {e}")
+                    import traceback
+                    traceback.print_exc()  # 📝 添加詳細錯誤信息
 
         return keywords
 
     def _parse_docstring(self, docstring: str) -> tuple[str, dict, str]:
-        """解析文檔字符串，提取描述、參數文檔和返回值文檔"""
+        """解析文檔字符串 - 改進版本"""
         lines = docstring.split('\n')
         description = []
         args_doc = {}
@@ -126,32 +116,48 @@ class KeywordParser:
         current_arg = None
         current_arg_info = {}
 
-        for line in lines:
-            line = line.strip()
-            if not line:
+        # print(f"🔍 開始解析文檔字串：")  # 📝 調試信息
+
+        for i, line in enumerate(lines):
+            original_line = line
+            line_stripped = line.strip()
+
+            # print(f"Line {i}: '{original_line}' -> 模式: {mode}")  # 📝 調試信息
+
+            if not line_stripped:
                 continue
 
-            if line.lower().startswith('args:') or line.lower().startswith('arguments:'):
+            # 檢測區段切換
+            if line_stripped.lower().startswith('args:') or line_stripped.lower().startswith('arguments:'):
                 mode = 'args'
+                # print(f"切換到 args 模式")  # 📝 調試信息
                 continue
-            elif line.lower().startswith('returns:'):
+            elif line_stripped.lower().startswith('returns:'):
                 mode = 'returns'
+                # 保存最後一個參數
+                if current_arg and current_arg_info:
+                    args_doc[current_arg] = current_arg_info.copy()
+                    # print(f"保存參數: {current_arg} -> {current_arg_info}")  # 📝 調試信息
                 continue
 
             if mode == 'description':
-                description.append(line)
+                description.append(line_stripped)
+
             elif mode == 'args':
-                if line.startswith('    '):  # 縮排行，是參數的詳細信息
-                    if current_arg and line.strip():
-                        # 解析參數的詳細屬性
-                        self._parse_arg_detail_line(line.strip(), current_arg_info)
-                else:  # 新參數
+                # 🔧 改進的縮排檢測
+                indent_level = len(original_line) - len(original_line.lstrip())
+
+                # 如果是參數行（通常縮排 4 個空格，且包含冒號）
+                if indent_level <= 4 and ':' in line_stripped and not line_stripped.startswith(
+                        'options:') and not line_stripped.startswith('default:') and not line_stripped.startswith(
+                        'description:') and not line_stripped.startswith('example:'):
                     # 保存前一個參數的信息
                     if current_arg and current_arg_info:
                         args_doc[current_arg] = current_arg_info.copy()
+                        # print(f"保存參數: {current_arg} -> {current_arg_info}")  # 📝 調試信息
 
                     # 開始新參數
-                    parts = line.split(':')
+                    parts = line_stripped.split(':', 1)
                     if len(parts) > 0:
                         current_arg = parts[0].strip()
                         current_arg_info = {
@@ -160,12 +166,21 @@ class KeywordParser:
                             'example': '',
                             'default': ''
                         }
-            elif mode == 'returns':
-                returns_doc = line.strip()
+                        # print(f"開始新參數: {current_arg}")  # 📝 調試信息
 
-        # 保存最後一個參數的信息
+                elif indent_level > 4 and current_arg:  # 參數的詳細信息（縮排更多）
+                    self._parse_arg_detail_line(line_stripped, current_arg_info)
+                    # print(f"解析參數詳情: {line_stripped} -> {current_arg_info}")  # 📝 調試信息
+
+            elif mode == 'returns':
+                returns_doc = line_stripped
+
+        # 🔧 確保保存最後一個參數
         if current_arg and current_arg_info:
-            args_doc[current_arg] = current_arg_info
+            args_doc[current_arg] = current_arg_info.copy()
+            # print(f"保存最後參數: {current_arg} -> {current_arg_info}")  # 📝 調試信息
+
+        # print(f"🎯 最終解析結果: args_doc = {args_doc}")  # 📝 調試信息
 
         return (
             ' '.join(description),
@@ -174,39 +189,43 @@ class KeywordParser:
         )
 
     def _parse_arg_detail_line(self, line: str, arg_info: dict):
-        """解析參數詳細信息行"""
+        """解析參數詳細信息行 - 改進版本"""
         line = line.strip()
 
         if line.startswith('options:'):
-            # 解析選項，支持用 | 或 , 分隔
             options_str = line.replace('options:', '').strip()
+            # print(f"🔧 解析選項: '{options_str}'")  # 📝 調試信息
+
             if '|' in options_str:
                 options = [opt.strip() for opt in options_str.split('|') if opt.strip()]
             else:
                 options = [opt.strip() for opt in options_str.split(',') if opt.strip()]
+
             arg_info['options'] = options
+            # print(f"✅ 設置選項: {options}")  # 📝 調試信息
 
         elif line.startswith('default:'):
-            # 解析默認值
             default_value = line.replace('default:', '').strip()
             arg_info['default'] = default_value
+            # print(f"✅ 設置默認值: {default_value}")  # 📝 調試信息
 
         elif line.startswith('example:'):
-            # 解析示例
             example_value = line.replace('example:', '').strip()
             arg_info['example'] = example_value
+            # print(f"✅ 設置示例: {example_value}")  # 📝 調試信息
 
         elif line.startswith('description:'):
-            # 解析描述
             desc_value = line.replace('description:', '').strip()
             arg_info['description'] = desc_value
+            # print(f"✅ 設置描述: {desc_value}")  # 📝 調試信息
 
-        elif not any(line.startswith(prefix) for prefix in ['options:', 'default:', 'example:', 'description:']):
+        else:
             # 如果沒有明確的前綴，假設是描述的一部分
             if arg_info['description']:
                 arg_info['description'] += ' ' + line
             else:
                 arg_info['description'] = line
+            # print(f"📝 追加描述: {line}")  # 📝 調試信息
 
     def get_keywords_for_category(self, category: str) -> List[Dict[str, Any]]:
         """獲取特定類別的所有關鍵字的卡片配置"""
@@ -218,7 +237,6 @@ class KeywordParser:
 
     def convert_to_card_config(self, keyword_info: KeywordInfo) -> Dict[str, Any]:
         """將關鍵字數據轉換為 KeywordCard 配置格式"""
-        # 轉換參數信息，包含選項
         arguments_config = []
         for arg in keyword_info.arguments:
             arg_config = {
@@ -226,20 +244,20 @@ class KeywordParser:
                 'type': arg.type,
                 'description': arg.description,
                 'default': arg.default,
-                'value': arg.value
+                'value': arg.value or arg.default or ""
             }
 
-            # 添加選項信息
-            if arg.options:
+            # 🔧 確保選項信息正確添加
+            if arg.options and len(arg.options) > 0:
                 arg_config['options'] = arg.options
+                # print(f"📦 添加選項到配置: {arg.name} -> {arg.options}")  # 📝 調試信息
 
-            # 添加示例信息
             if arg.example:
                 arg_config['example'] = arg.example
 
             arguments_config.append(arg_config)
 
-        return {
+        config = {
             'id': keyword_info.name,
             'name': keyword_info.name,
             'category': keyword_info.category,
@@ -249,20 +267,17 @@ class KeywordParser:
             'priority': keyword_info.priority
         }
 
+        # print(f"🎯 最終卡片配置: {config}")  # 📝 調試信息
+        return config
+
     def _determine_priority(self, name: str, description: str) -> str:
         """決定關鍵字優先級"""
         name_lower = name.lower()
-        desc_lower = description.lower()
 
-        # 必要的系統操作關鍵字
         if any(word in name_lower for word in ['connect', 'init', 'setup', 'reset']):
             return 'required'
-
-        # 一般測試關鍵字
         elif any(word in name_lower for word in ['check', 'verify', 'test', 'measure']):
             return 'normal'
-
-        # 其他輔助關鍵字
         else:
             return 'optional'
 
@@ -270,3 +285,74 @@ class KeywordParser:
         """清除特定類別的所有關鍵字"""
         if category in self.keywords_by_category:
             self.keywords_by_category[category].clear()
+
+# # test_keyword_parser.py - 測試腳本
+# import sys
+# import os
+#
+# # 添加項目路徑
+# project_root = os.path.dirname(os.path.abspath(__file__))
+# if project_root not in sys.path:
+#     sys.path.append(project_root)
+#
+# from Lib.HMILibrary import HMILibrary
+#
+#
+# def test_keyword_parsing():
+#     """測試關鍵字解析"""
+#     print("🚀 開始測試 KeywordParser...")
+#
+#     # 創建解析器和庫實例
+#     parser = KeywordParser()
+#     hmi_lib = HMILibrary()
+#
+#     print("\n📊 解析 HMI Library...")
+#     keywords = parser.parse_library(hmi_lib, "hmi")
+#
+#     print(f"\n✅ 解析完成，找到 {len(keywords)} 個關鍵字")
+#
+#     # 查找 button_click 關鍵字
+#     button_click_kw = None
+#     for kw in keywords:
+#         if kw.name == "button_click":
+#             button_click_kw = kw
+#             break
+#
+#     if button_click_kw:
+#         print(f"\n🎯 找到 button_click 關鍵字:")
+#         print(f"  名稱: {button_click_kw.name}")
+#         print(f"  描述: {button_click_kw.description}")
+#         print(f"  參數數量: {len(button_click_kw.arguments)}")
+#
+#         for i, arg in enumerate(button_click_kw.arguments):
+#             print(f"\n  參數 {i + 1}: {arg.name}")
+#             print(f"    類型: {arg.type}")
+#             print(f"    描述: {arg.description}")
+#             print(f"    默認值: {arg.default}")
+#             print(f"    選項: {arg.options}")  # 🔍 重點檢查這裡
+#             print(f"    示例: {arg.example}")
+#
+#     # 轉換為卡片配置格式
+#     print(f"\n🔄 轉換為卡片配置格式...")
+#     if button_click_kw:
+#         card_config = parser.convert_to_card_config(button_click_kw)
+#         print(f"\n📦 卡片配置:")
+#         print(f"  ID: {card_config['id']}")
+#         print(f"  名稱: {card_config['name']}")
+#         print(f"  類別: {card_config['category']}")
+#         print(f"  描述: {card_config['description']}")
+#
+#         print(f"\n  參數配置:")
+#         for i, arg_config in enumerate(card_config['arguments']):
+#             print(f"    參數 {i + 1}: {arg_config['name']}")
+#             print(f"      類型: {arg_config['type']}")
+#             print(f"      描述: {arg_config['description']}")
+#             print(f"      默認值: {arg_config['default']}")
+#             print(f"      選項: {arg_config.get('options', 'None')}")  # 🔍 重點檢查這裡
+#             print(f"      示例: {arg_config.get('example', 'None')}")
+#
+#     print(f"\n🎉 測試完成！")
+#
+#
+# if __name__ == "__main__":
+#     test_keyword_parsing()

@@ -597,7 +597,7 @@ class BaseKeywordProgressCard(QFrame):
             self.start_time = None
 
             self._update_status_display('waiting', 0)
-            # self.update_error("")
+            self.clear_error()
             self.update_execution_time(0.0)
 
         except Exception as e:
@@ -648,7 +648,7 @@ class BaseKeywordProgressCard(QFrame):
             elif robot_status == 'FAIL':
                 self.status = 'failed'
                 progress = 100
-                self.update_error(error_message)
+                # self.update_error(error_message)
             elif robot_status == 'NOT RUN':
                 self.status = 'not_run'
                 progress = 100
@@ -748,15 +748,16 @@ class BaseKeywordProgressCard(QFrame):
                 }}
             """)
 
+    def clear_error(self):
+        if hasattr(self, 'error_label') and self.error_label:
+            self.error_label.clear()
+            self.error_label.hide()
+
     def update_error(self, error_msg: str):
         """更新錯誤訊息"""
         if hasattr(self, 'error_label') and self.error_label:
-            if error_msg:
-                self.error_label.setText(error_msg)
-                self.error_label.show()
-            else:
-                self.error_label.clear()
-                self.error_label.hide()
+            self.error_label.setText(error_msg)
+            self.error_label.show()
 
     def _update_running_time(self):
         """更新運行時間"""

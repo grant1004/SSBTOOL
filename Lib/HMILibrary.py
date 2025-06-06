@@ -31,6 +31,7 @@ class ButtonType(Enum):
     def from_string(cls, button_str: str):
         """從字符串獲取按鈕類型"""
         button_str = button_str.lower().strip()
+        button_str = button_str.replace("\"", "")
         for button in cls:
             if button.button_name == button_str:
                 return button
@@ -53,6 +54,7 @@ class ActionType(Enum):
     def from_string(cls, action_str: str):
         """從字符串獲取動作類型"""
         action_str = action_str.lower().strip()
+        action_str = action_str.replace("\"", "")
         for action in cls:
             if action.action_name == action_str:
                 return action
@@ -336,7 +338,7 @@ class HMILibrary(BaseRobotLibrary):
         payload = self._generate_button_payload(button_type, True)
         self._send_button_can_message(payload)
         self._button_states[button_type] = True
-        self._log_debug(f"按下 {button_type.button_name} 按鈕")
+        self._log_info(f"按下 {button_type.button_name} 按鈕")
 
     def _perform_button_up(self, button_type: ButtonType):
         """釋放按鈕"""
@@ -346,7 +348,7 @@ class HMILibrary(BaseRobotLibrary):
         for bt in self._button_states:
             self._button_states[bt] = False
 
-        self._log_debug(f"釋放 {button_type.button_name} 按鈕")
+        self._log_info(f"釋放 {button_type.button_name} 按鈕")
 
     def _generate_button_payload(self, button_type: ButtonType, is_pressed: bool) -> str:
         """生成按鈕 CAN payload"""
@@ -399,7 +401,7 @@ class HMILibrary(BaseRobotLibrary):
             if not result:
                 raise RuntimeError(f"CAN 訊息發送失敗")
 
-            self._log_debug(f"發送 HMI CAN 訊息: ID={self.HMI_CAN_ID}, Payload={payload}")
+            self._log_info(f"發送 HMI CAN 訊息: ID={self.HMI_CAN_ID}, Payload={payload}")
 
         except Exception as e:
             raise RuntimeError(f"發送按鈕 CAN 訊息失敗: {str(e)}")

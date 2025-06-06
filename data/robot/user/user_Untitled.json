@@ -4,12 +4,17 @@
         "type": "user_composition",
         "test_name": "Untitled",
         "created_by": "robot_app",
-        "created_at": "2025-06-06T15:32:26.598244",
+        "created_at": "2025-06-06T16:31:52.557122",
         "description": "Generated test composition: Untitled"
     },
     "selected_settings": {
         "documentation": "Untitled",
         "libraries": [
+            {
+                "library_name": "Lib.CommonLibrary",
+                "category": "common",
+                "config": {}
+            },
             {
                 "library_name": "Lib.HMILibrary",
                 "category": "hmi",
@@ -28,20 +33,117 @@
     ],
     "individual_testcases": [
         {
-            "test_id": 2649490909056,
-            "test_name": "Execute Keyword - get_all_button_states [id]2649490909056",
+            "test_id": 1711757382656,
+            "test_name": "Execute Keyword - button_short_press [id]1711757382656",
             "type": "keyword",
-            "keyword_name": "get_all_button_states",
+            "keyword_name": "button_short_press",
             "keyword_category": "hmi",
             "priority": "optional",
-            "description": "獲取所有按鈕狀態",
-            "parameters": {}
+            "description": "按鈕短按操作",
+            "parameters": {
+                "button": "\"up\""
+            }
+        },
+        {
+            "test_id": 1711831169472,
+            "test_name": "Execute Keyword - delay [id]1711831169472",
+            "type": "keyword",
+            "keyword_name": "delay",
+            "keyword_category": "common",
+            "priority": "optional",
+            "description": "暫停執行指定的秒數",
+            "parameters": {
+                "seconds": "1",
+                "reason": "None"
+            }
+        },
+        {
+            "test_id": 1711826975616,
+            "test_name": "Execute Keyword - check_payload [id]1711826975616",
+            "type": "keyword",
+            "keyword_name": "check_payload",
+            "keyword_category": "common",
+            "priority": "normal",
+            "description": "高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）",
+            "parameters": {
+                "expected_payload": "01 5A 00 5A 23 00 32 06",
+                "expected_can_id": "0x300",
+                "timeout": "10",
+                "expected_fields": ""
+            }
+        },
+        {
+            "test_id": 1711760428608,
+            "test_name": "Execute Keyword - button_short_press [id]1711760428608",
+            "type": "keyword",
+            "keyword_name": "button_short_press",
+            "keyword_category": "hmi",
+            "priority": "optional",
+            "description": "按鈕短按操作",
+            "parameters": {
+                "button": "\"up\""
+            }
+        },
+        {
+            "test_id": 1711831478912,
+            "test_name": "Execute Keyword - delay [id]1711831478912",
+            "type": "keyword",
+            "keyword_name": "delay",
+            "keyword_category": "common",
+            "priority": "optional",
+            "description": "暫停執行指定的秒數",
+            "parameters": {
+                "seconds": "1",
+                "reason": "None"
+            }
+        },
+        {
+            "test_id": 1711830546944,
+            "test_name": "Execute Keyword - button_short_press [id]1711830546944",
+            "type": "keyword",
+            "keyword_name": "button_short_press",
+            "keyword_category": "hmi",
+            "priority": "optional",
+            "description": "按鈕短按操作",
+            "parameters": {
+                "button": "\"down\""
+            }
+        },
+        {
+            "test_id": 1711771277248,
+            "test_name": "Execute Keyword - delay [id]1711771277248",
+            "type": "keyword",
+            "keyword_name": "delay",
+            "keyword_category": "common",
+            "priority": "optional",
+            "description": "暫停執行指定的秒數",
+            "parameters": {
+                "seconds": "1",
+                "reason": "None"
+            }
+        },
+        {
+            "test_id": 1711654895872,
+            "test_name": "Execute Keyword - button_short_press [id]1711654895872",
+            "type": "keyword",
+            "keyword_name": "button_short_press",
+            "keyword_category": "hmi",
+            "priority": "optional",
+            "description": "按鈕短按操作",
+            "parameters": {
+                "button": "\"down\""
+            }
         }
     ],
     "keyword_dependencies": [
         {
             "category": "hmi",
             "library_name": "Lib.HMILibrary",
+            "required_keywords": []
+        },
+        {
+            "category": "common",
+            "library_name": "Lib.CommonLibrary",
             "required_keywords": []
         }
     ],
