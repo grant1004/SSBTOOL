@@ -68,7 +68,7 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
             self._load_initial_data()
         self._logger.info("Test case controller set and view registered")
 
-    # ==================== UI 設置 ====================
+    #region ==================== UI 設置 ====================
 
     def _setup_shadow(self):
         """設置陰影效果"""
@@ -115,7 +115,7 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
         self.content = QWidget()
         self.content_layout = QVBoxLayout(self.content)
         self.content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.content_layout.setContentsMargins(8, 0, 8, 0)
+        self.content_layout.setContentsMargins(8, 0, 8, 8)
         self.content_layout.setSpacing(8)
 
         # 創建模式切換按鈕
@@ -141,6 +141,9 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
         self.empty_state_widget.hide()
         self.content_layout.addWidget(self.empty_state_widget)
 
+
+
+
         # 創建堆疊部件來管理不同模式的內容
         self.stacked_widget = QStackedWidget()
 
@@ -151,8 +154,27 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
         # 創建關鍵字組
         self.keyword_group = KeywordGroup(self)
         self.stacked_widget.addWidget(self.keyword_group)
-
         self.content_layout.addWidget(self.stacked_widget)
+
+        # 刷新按鈕
+
+        self.refresh_button = QPushButton("刷新")
+        self.refresh_button.setFixedSize(60, 24)
+        self.refresh_button.clicked.connect(self.on_refresh_requested)
+        self.refresh_button.setStyleSheet("""
+                                           QPushButton {
+                                               background-color: #4CAF50;
+                                               color: white;
+                                               border: none;
+                                               border-radius: 6px;
+                                               font-size: 12px;
+                                               font-weight: 600;
+                                           }
+                                           QPushButton:hover {
+                                               background-color: #45A049;
+                                           }
+                                       """)
+        self.content_layout.addWidget(self.refresh_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # 添加到主布局
         self.main_layout.addWidget(self.tabs_group)
@@ -221,28 +243,29 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
         """)
 
         # 刷新按鈕
-        self.refresh_button = QPushButton("刷新")
-        self.refresh_button.setFixedSize(100, 36)
-        self.refresh_button.clicked.connect(self.on_refresh_requested)
-        self.refresh_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #45A049;
-            }
-        """)
+        # self.refresh_button = QPushButton("刷新")
+        # self.refresh_button.setFixedSize(100, 36)
+        # self.refresh_button.clicked.connect(self.on_refresh_requested)
+        # self.refresh_button.setStyleSheet("""
+        #     QPushButton {
+        #         background-color: #4CAF50;
+        #         color: white;
+        #         border: none;
+        #         border-radius: 6px;
+        #         font-size: 14px;
+        #         font-weight: 600;
+        #     }
+        #     QPushButton:hover {
+        #         background-color: #45A049;
+        #     }
+        # """)
 
         layout.addWidget(self.empty_state_label)
-        layout.addWidget(self.refresh_button, alignment=Qt.AlignmentFlag.AlignCenter)
+        # layout.addWidget(self.refresh_button, alignment=Qt.AlignmentFlag.AlignCenter)
         return widget
+    #endregion
 
-    # ==================== ITestCaseView 接口實現 ====================
+    #region ==================== ITestCaseView 接口實現 ====================
 
     def display_test_cases(self, test_cases: List[TestCaseInfo]) -> None:
         """顯示測試案例列表"""
@@ -367,8 +390,9 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
         self.tabs_group.setEnabled(False)
         self.switch_button.setEnabled(False)
         self.search_bar.setEnabled(False)
+    #endregion
 
-    # ==================== ITestCaseViewEvents 接口實現 ====================
+    #region ==================== ITestCaseViewEvents 接口實現 ====================
 
     def on_category_changed(self, category: TestCaseCategory) -> None:
         """當分類變更時觸發"""
@@ -399,8 +423,9 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
         """當請求刷新時觸發"""
         if self._test_case_controller:
             self._test_case_controller.handle_refresh_request()
+    # endregion
 
-    # ==================== 內部事件處理 ====================
+    #region ==================== 內部事件處理 ====================
 
     def _on_tab_changed(self, tab_id: str) -> None:
         """處理標籤變更"""
@@ -423,8 +448,9 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
     def _on_search_changed(self, search_text: str) -> None:
         """處理搜索變更"""
         self.on_search_text_changed(search_text)
+    #endregion
 
-    # ==================== 輔助方法 ====================
+    #region ==================== 輔助方法 ====================
 
     def _update_mode_display(self) -> None:
         """更新模式顯示"""
@@ -498,8 +524,9 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
                 padding: 20px;
             }}
         """)
+    #endregion
 
-    # ==================== 狀態查詢方法 ====================
+    #region ==================== 狀態查詢方法 ====================
 
     def get_current_category(self) -> TestCaseCategory:
         """獲取當前分類"""
@@ -522,9 +549,9 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
             'search_text': self.search_bar.get_text() if self.search_bar else "",
             'has_controller': self._test_case_controller is not None
         }
+    #endregion
 
     # ==================== 調試方法 ====================
-
     def debug_state(self) -> None:
         """調試狀態信息"""
         state = self.get_widget_state()

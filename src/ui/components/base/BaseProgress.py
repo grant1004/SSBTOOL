@@ -1,3 +1,5 @@
+import time
+
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -300,6 +302,11 @@ class CollapsibleProgressPanel(QFrame):
 
         # UI元件列表
         self.ui_widgets = []
+
+        # ✅ 新增：錯誤訊息管理
+        self.current_error_message = ""
+        self.error_history = []
+
         self._setup_ui()
 
         # 允許右鍵選單
@@ -345,6 +352,10 @@ class CollapsibleProgressPanel(QFrame):
         """)
         self.main_layout.addWidget(self.overall_progress)
 
+        # ✅ 新增：收縮狀態的錯誤訊息顯示
+        self.collapsed_error_widget = self._create_collapsed_error_widget()
+        self.main_layout.addWidget(self.collapsed_error_widget)
+
         # 執行指針指示器
         self.pointer_indicator = self._create_pointer_indicator()
         self.main_layout.addWidget(self.pointer_indicator)
@@ -357,21 +368,119 @@ class CollapsibleProgressPanel(QFrame):
 
         # 創建所有步驟的UI
         self._create_step_ui_widgets()
-
         self.main_layout.addWidget(self.steps_container)
 
-        # 初始狀態
-        self.steps_container.hide()
+        # ✅ 新增：展開狀態的錯誤訊息顯示
+        self.expanded_error_widget = self._create_expanded_error_widget()
+        self.main_layout.addWidget(self.expanded_error_widget)
+
+        # 初始狀態設定
+        self._set_initial_collapsed_state()
         self._update_expand_icon()
         self._update_statistics_display()
         self._update_pointer_indicator()
 
-        # 【新增】設置時間更新定時器
+        # 時間更新定時器
         self.time_update_timer = QTimer()
         self.time_update_timer.timeout.connect(self._update_time_display)
         self.time_update_timer.start(1000)  # 每秒更新一次
 
-    # 修改 _create_header() 方法，在展開按鈕前新增三個功能按鈕
+    def _create_collapsed_error_widget(self):
+        """創建收縮狀態的錯誤訊息顯示區域"""
+        widget = QWidget()
+        widget.setObjectName("collapsed-error")
+        layout = QHBoxLayout(widget)
+        layout.setContentsMargins(10, 4, 10, 4)
+        layout.setSpacing(8)
+
+        # 錯誤圖標
+        self.collapsed_error_icon = QLabel()
+        self.collapsed_error_icon.setFixedSize(16, 16)
+        self.collapsed_error_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        try:
+            from src.utils import get_icon_path, Utils
+            error_icon = QIcon(get_icon_path("error.svg"))
+            colored_icon = Utils.change_icon_color(error_icon, "#F44336")
+            self.collapsed_error_icon.setPixmap(colored_icon.pixmap(16, 16))
+        except:
+            self.collapsed_error_icon.setText("⚠")
+            self.collapsed_error_icon.setStyleSheet("color: #F44336; font-weight: bold;")
+
+        layout.addWidget(self.collapsed_error_icon)
+
+        # 錯誤訊息文字（單行，省略顯示）
+        self.collapsed_error_label = QLabel()
+        self.collapsed_error_label.setStyleSheet("""
+            QLabel {
+                color: #F44336;
+                font-size: 12px;
+                font-weight: 500;
+                background: transparent;
+            }
+        """)
+        self.collapsed_error_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        layout.addWidget(self.collapsed_error_label, 1)
+
+        # 初始隱藏
+        widget.hide()
+        return widget
+
+    def _create_expanded_error_widget(self):
+        """創建展開狀態的錯誤訊息顯示區域"""
+        widget = QWidget()
+        widget.setObjectName("expanded-error")
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(4)
+
+        # 錯誤標題
+        error_title = QLabel("執行錯誤")
+        error_title.setStyleSheet("""
+            QLabel {
+                color: #F44336;
+                font-size: 14px;
+                font-weight: 600;
+                background: transparent;
+            }
+        """)
+        layout.addWidget(error_title)
+
+        # 錯誤內容（多行顯示）
+        self.expanded_error_label = QLabel()
+        self.expanded_error_label.setStyleSheet("""
+            QLabel {
+                color: #D32F2F;
+                padding: 8px;
+                border: none;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: 400;
+                background-color: #FFEBEE;
+                border: 1px solid #FFCDD2;
+            }
+        """)
+        self.expanded_error_label.setWordWrap(True)
+        self.expanded_error_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        layout.addWidget(self.expanded_error_label)
+
+        # 初始隱藏
+        widget.hide()
+        return widget
+
+    def _set_initial_collapsed_state(self):
+        """設置初始收縮狀態 - 確保UI一致性"""
+        self.is_expanded = False
+
+        # 隱藏展開狀態的元件
+        self.steps_container.hide()
+        # self.pointer_indicator.hide()
+        self.expanded_error_widget.hide()
+
+        # 顯示收縮狀態的元件（如果有錯誤的話）
+        if self.current_error_message:
+            self.collapsed_error_widget.show()
+        else:
+            self.collapsed_error_widget.hide()
 
     def _create_header(self):
         """創建標題欄"""
@@ -608,6 +717,8 @@ class CollapsibleProgressPanel(QFrame):
         print(f"[CollapsibleProgressPanel] Test started")
         self.execution_manager.handle_test_start(data.get('test_name', ''))
         self._update_overall_status_indicator(ExecutionStatus.RUNNING)
+        # ✅ 測試開始時清空錯誤訊息
+        self.clear_error_message()
 
     def _handle_keyword_start(self, data):
         """處理關鍵字開始"""
@@ -631,6 +742,14 @@ class CollapsibleProgressPanel(QFrame):
         step = self.execution_manager.handle_keyword_end(robot_keyword_name, robot_status, error_message)
         if step:
             print(f"[CollapsibleProgressPanel] ✅ Completed step #{step.index}: {step.name} -> {robot_status}")
+
+            # ✅ 處理錯誤訊息
+            if robot_status == 'FAIL' and error_message.strip():
+                self.update_error_message(error_message)
+            elif robot_status == 'PASS':
+                # 成功時清空錯誤訊息
+                self.clear_error_message()
+
         else:
             print(f"[CollapsibleProgressPanel] ❌ Could not complete step for: {robot_keyword_name}")
 
@@ -641,6 +760,8 @@ class CollapsibleProgressPanel(QFrame):
 
         if level in ['ERROR', 'FAIL']:
             print(f"[CollapsibleProgressPanel] Error log: {message}")
+            # ✅ 從日誌更新錯誤訊息
+            self.update_error_message(message)
 
     def _handle_test_end(self, data):
         """處理測試結束"""
@@ -796,18 +917,38 @@ class CollapsibleProgressPanel(QFrame):
         self._update_pointer_indicator()
         self._update_time_display()
         self._update_overall_status_indicator(ExecutionStatus.WAITING)
+        # ✅ 重置時清空錯誤訊息
+        self.clear_error_message()
 
     def toggle_expand(self):
-        """切換展開/收起狀態"""
+        """切換展開/收起狀態 - 修正版本"""
         self.is_expanded = not self.is_expanded
 
         if self.is_expanded:
+            # 展開狀態
             self.steps_container.show()
-            self.pointer_indicator.show()
-        else:
-            self.steps_container.hide()
-            self.pointer_indicator.hide()
+            # self.pointer_indicator.show()
+            self.collapsed_error_widget.hide()
 
+            # 如果有錯誤訊息，顯示展開版本
+            if self.current_error_message:
+                self.expanded_error_widget.show()
+            else:
+                self.expanded_error_widget.hide()
+
+        else:
+            # 收縮狀態
+            self.steps_container.hide()
+            # self.pointer_indicator.hide()
+            self.expanded_error_widget.hide()
+
+            # 如果有錯誤訊息，顯示收縮版本
+            if self.current_error_message:
+                self.collapsed_error_widget.show()
+            else:
+                self.collapsed_error_widget.hide()
+
+        # 更新幾何和父級ScrollArea
         self.updateGeometry()
         self.adjustSize()
 
@@ -921,3 +1062,120 @@ class CollapsibleProgressPanel(QFrame):
             print(f"[CollapsibleProgressPanel] Error updating time display: {e}")
             self.time_display_label.setText("--:--")
 
+        # ✅ 新增：錯誤訊息管理方法
+        def update_error_message(self, error_msg: str):
+            """更新錯誤訊息"""
+            try:
+                self.current_error_message = error_msg.strip() if error_msg else ""
+
+                if self.current_error_message:
+                    # 記錄錯誤歷史
+                    self.error_history.append({
+                        'timestamp': time.time(),
+                        'message': self.current_error_message
+                    })
+
+                    # 限制歷史記錄數量
+                    if len(self.error_history) > 10:
+                        self.error_history.pop(0)
+
+                    # 更新收縮狀態顯示（省略長文字）
+                    metrics = QFontMetrics(self.collapsed_error_label.font())
+                    elided_text = metrics.elidedText(
+                        self.current_error_message,
+                        Qt.TextElideMode.ElideRight,
+                        200  # 最大寬度
+                    )
+                    self.collapsed_error_label.setText(elided_text)
+                    self.collapsed_error_label.setToolTip(self.current_error_message)
+
+                    # 更新展開狀態顯示（完整文字）
+                    self.expanded_error_label.setText(self.current_error_message)
+
+                    # 根據當前狀態顯示對應的錯誤區域
+                    if self.is_expanded:
+                        self.collapsed_error_widget.hide()
+                        self.expanded_error_widget.show()
+                    else:
+                        self.expanded_error_widget.hide()
+                        self.collapsed_error_widget.show()
+
+                    print(f"[CollapsibleProgressPanel] 錯誤訊息已更新: {self.current_error_message}")
+
+                else:
+                    # 清空錯誤訊息
+                    self.collapsed_error_label.clear()
+                    self.expanded_error_label.clear()
+                    self.collapsed_error_widget.hide()
+                    self.expanded_error_widget.hide()
+                    print(f"[CollapsibleProgressPanel] 錯誤訊息已清空")
+
+            except Exception as e:
+                print(f"[CollapsibleProgressPanel] 更新錯誤訊息時發生異常: {e}")
+
+        def clear_error_message(self):
+            """清空錯誤訊息"""
+            self.update_error_message("")
+
+        def get_error_history(self):
+            """獲取錯誤歷史"""
+            return self.error_history.copy()
+
+    # ✅ 新增：錯誤訊息管理方法
+    def update_error_message(self, error_msg: str):
+        """更新錯誤訊息"""
+        try:
+            self.current_error_message = error_msg.strip() if error_msg else ""
+
+            if self.current_error_message:
+                # 記錄錯誤歷史
+                self.error_history.append({
+                    'timestamp': time.time(),
+                    'message': self.current_error_message
+                })
+
+                # 限制歷史記錄數量
+                if len(self.error_history) > 10:
+                    self.error_history.pop(0)
+
+                # 更新收縮狀態顯示（省略長文字）
+                metrics = QFontMetrics(self.collapsed_error_label.font())
+                elided_text = metrics.elidedText(
+                    self.current_error_message,
+                    Qt.TextElideMode.ElideRight,
+                    200  # 最大寬度
+                )
+                self.collapsed_error_label.setText(elided_text)
+                self.collapsed_error_label.setToolTip(self.current_error_message)
+
+                # 更新展開狀態顯示（完整文字）
+                self.expanded_error_label.setText(self.current_error_message)
+
+                # 根據當前狀態顯示對應的錯誤區域
+                if self.is_expanded:
+                    self.collapsed_error_widget.hide()
+                    self.expanded_error_widget.show()
+                else:
+                    self.expanded_error_widget.hide()
+                    self.collapsed_error_widget.show()
+
+                print(f"[CollapsibleProgressPanel] 錯誤訊息已更新: {self.current_error_message}")
+
+            else:
+                # 清空錯誤訊息
+                self.collapsed_error_label.clear()
+                self.expanded_error_label.clear()
+                self.collapsed_error_widget.hide()
+                self.expanded_error_widget.hide()
+                print(f"[CollapsibleProgressPanel] 錯誤訊息已清空")
+
+        except Exception as e:
+            print(f"[CollapsibleProgressPanel] 更新錯誤訊息時發生異常: {e}")
+
+    def clear_error_message(self):
+        """清空錯誤訊息"""
+        self.update_error_message("")
+
+    def get_error_history(self):
+        """獲取錯誤歷史"""
+        return self.error_history.copy()

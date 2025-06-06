@@ -1,0 +1,82 @@
+{
+    "meta": {
+        "version": "1.0",
+        "type": "user_composition",
+        "test_name": "測試 check paylod keyword",
+        "created_by": "robot_app",
+        "created_at": "2025-06-06T13:52:12.772846",
+        "description": "Generated test composition: 測試 check paylod keyword"
+    },
+    "selected_settings": {
+        "documentation": "測試 check paylod keyword",
+        "libraries": [
+            {
+                "library_name": "Lib.CommonLibrary",
+                "category": "common",
+                "config": {}
+            }
+        ],
+        "suite_setup": null,
+        "suite_teardown": null
+    },
+    "selected_variables": [
+        {
+            "name": "TIMEOUT",
+            "value": "30s",
+            "data_type": "string"
+        }
+    ],
+    "individual_testcases": [
+        {
+            "test_id": 1685416357184,
+            "test_name": "Execute Keyword - start_listening [id]1685416357184",
+            "type": "keyword",
+            "keyword_name": "start_listening",
+            "keyword_category": "common",
+            "priority": "optional",
+            "description": "開始監聽設備訊息 啟動 USB 設備的消息監聽功能，開始記錄接收到的數據 Examples: | Start Listening |",
+            "parameters": {}
+        },
+        {
+            "test_id": 1685416495424,
+            "test_name": "Execute Keyword - check_payload [id]1685416495424",
+            "type": "keyword",
+            "keyword_name": "check_payload",
+            "keyword_category": "common",
+            "priority": "normal",
+            "description": "高精度檢查接收到的 CAN 消息數據（絕對精確，不遺漏任何 packet）",
+            "parameters": {
+                "expected_payload": "FF FF FF FF FF FF 12 34",
+                "expected_can_id": "0x123",
+                "timeout": "10",
+                "expected_fields": "None"
+            }
+        },
+        {
+            "test_id": 1685416503296,
+            "test_name": "Execute Keyword - start_listening [id]1685416503296",
+            "type": "keyword",
+            "keyword_name": "start_listening",
+            "keyword_category": "common",
+            "priority": "optional",
+            "description": "開始監聽設備訊息 啟動 USB 設備的消息監聽功能，開始記錄接收到的數據 Examples: | Start Listening |",
+            "parameters": {}
+        }
+    ],
+    "keyword_dependencies": [
+        {
+            "category": "common",
+            "library_name": "Lib.CommonLibrary",
+            "required_keywords": []
+        }
+    ],
+    "runtime_config": {
+        "output_filename": "測試 check paylod keyword.robot",
+        "execution_mode": "multiple_tests",
+        "parallel": false,
+        "tags_to_run": [
+            "auto-generated"
+        ],
+        "variables_file": null
+    }
+}

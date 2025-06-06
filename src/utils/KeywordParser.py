@@ -12,6 +12,8 @@ class ArgumentInfo:
     description: str
     value: str
     default: Optional[str] = None
+    options: Optional[List[str]] = None  # 新增：參數選項列表
+    example: Optional[str] = None  # 新增：參數示例
 
 
 @dataclass
@@ -78,15 +80,20 @@ class KeywordParser:
                         if param.default != inspect.Parameter.empty:
                             default = str(param.default)
 
-                        # 從文檔中獲取參數描述
-                        param_desc = args_doc.get(param_name, '')
+                        # 從文檔中獲取參數詳細信息
+                        param_info = args_doc.get(param_name, {})
+                        param_desc = param_info.get('description', '')
+                        param_options = param_info.get('options', [])
+                        param_example = param_info.get('example', '')
 
                         arguments.append(ArgumentInfo(
                             name=param_name,
                             type=param_type,
                             description=param_desc,
                             default=default,
-                            value=default
+                            value=default,
+                            options=param_options if param_options else None,
+                            example=param_example if param_example else None
                         ))
 
                     # 創建關鍵字信息
@@ -117,6 +124,7 @@ class KeywordParser:
 
         mode = 'description'
         current_arg = None
+        current_arg_info = {}
 
         for line in lines:
             line = line.strip()
@@ -133,22 +141,72 @@ class KeywordParser:
             if mode == 'description':
                 description.append(line)
             elif mode == 'args':
-                if line.startswith('    '):  # 參數描述
-                    if current_arg:
-                        args_doc[current_arg] = line.strip()
+                if line.startswith('    '):  # 縮排行，是參數的詳細信息
+                    if current_arg and line.strip():
+                        # 解析參數的詳細屬性
+                        self._parse_arg_detail_line(line.strip(), current_arg_info)
                 else:  # 新參數
+                    # 保存前一個參數的信息
+                    if current_arg and current_arg_info:
+                        args_doc[current_arg] = current_arg_info.copy()
+
+                    # 開始新參數
                     parts = line.split(':')
                     if len(parts) > 0:
                         current_arg = parts[0].strip()
-                        args_doc[current_arg] = parts[1].strip() if len(parts) > 1 else ''
+                        current_arg_info = {
+                            'description': parts[1].strip() if len(parts) > 1 else '',
+                            'options': [],
+                            'example': '',
+                            'default': ''
+                        }
             elif mode == 'returns':
                 returns_doc = line.strip()
+
+        # 保存最後一個參數的信息
+        if current_arg and current_arg_info:
+            args_doc[current_arg] = current_arg_info
 
         return (
             ' '.join(description),
             args_doc,
             returns_doc
         )
+
+    def _parse_arg_detail_line(self, line: str, arg_info: dict):
+        """解析參數詳細信息行"""
+        line = line.strip()
+
+        if line.startswith('options:'):
+            # 解析選項，支持用 | 或 , 分隔
+            options_str = line.replace('options:', '').strip()
+            if '|' in options_str:
+                options = [opt.strip() for opt in options_str.split('|') if opt.strip()]
+            else:
+                options = [opt.strip() for opt in options_str.split(',') if opt.strip()]
+            arg_info['options'] = options
+
+        elif line.startswith('default:'):
+            # 解析默認值
+            default_value = line.replace('default:', '').strip()
+            arg_info['default'] = default_value
+
+        elif line.startswith('example:'):
+            # 解析示例
+            example_value = line.replace('example:', '').strip()
+            arg_info['example'] = example_value
+
+        elif line.startswith('description:'):
+            # 解析描述
+            desc_value = line.replace('description:', '').strip()
+            arg_info['description'] = desc_value
+
+        elif not any(line.startswith(prefix) for prefix in ['options:', 'default:', 'example:', 'description:']):
+            # 如果沒有明確的前綴，假設是描述的一部分
+            if arg_info['description']:
+                arg_info['description'] += ' ' + line
+            else:
+                arg_info['description'] = line
 
     def get_keywords_for_category(self, category: str) -> List[Dict[str, Any]]:
         """獲取特定類別的所有關鍵字的卡片配置"""
@@ -160,21 +218,33 @@ class KeywordParser:
 
     def convert_to_card_config(self, keyword_info: KeywordInfo) -> Dict[str, Any]:
         """將關鍵字數據轉換為 KeywordCard 配置格式"""
+        # 轉換參數信息，包含選項
+        arguments_config = []
+        for arg in keyword_info.arguments:
+            arg_config = {
+                'name': arg.name,
+                'type': arg.type,
+                'description': arg.description,
+                'default': arg.default,
+                'value': arg.value
+            }
+
+            # 添加選項信息
+            if arg.options:
+                arg_config['options'] = arg.options
+
+            # 添加示例信息
+            if arg.example:
+                arg_config['example'] = arg.example
+
+            arguments_config.append(arg_config)
+
         return {
             'id': keyword_info.name,
             'name': keyword_info.name,
             'category': keyword_info.category,
             'description': keyword_info.description,
-            'arguments': [
-                {
-                    'name': arg.name,
-                    'type': arg.type,
-                    'description': arg.description,
-                    'default': arg.default,
-                    'value': arg.value
-                }
-                for arg in keyword_info.arguments
-            ],
+            'arguments': arguments_config,
             'returns': keyword_info.returns,
             'priority': keyword_info.priority
         }

@@ -161,7 +161,7 @@ class CommonLibrary(BaseRobotLibrary):
     @keyword
     def check_payload(self, expected_payload=None, expected_can_id=None, timeout=5, **expected_fields):
         """
-        高精度檢查接收到的 CAN 消息數據（絕對精確，不遺漏任何 packet）
+        高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）
 
         Args:
             expected_payload: 期望的 payload 數據 (可選，支持有無空格格式)
@@ -170,9 +170,9 @@ class CommonLibrary(BaseRobotLibrary):
             **expected_fields: 其他期望的字段值 (例如: header="0xFFFF", node="1")
 
         特性:
-            - 記錄開始檢查的精確時間
+            - 記錄開始檢查的時間
             - 檢查所有在開始時間後收到的訊息
-            - 絕對精確，不遺漏任何 packet
+            - 絕對，不遺漏任何 packet
             - 非同步處理，性能優化
             - 智能輪詢和記憶體管理
 
@@ -216,14 +216,19 @@ class CommonLibrary(BaseRobotLibrary):
                 self._log_warning("USB 設備不支持消息歷史功能，跳過檢查")
                 return True
 
-            # 使用 asyncio 運行精確檢查
-            return asyncio.run(
+            # 使用 asyncio 運行檢查
+            result =  asyncio.run(
                 self._precise_message_check(
                     usb_device, expected_payload, expected_can_id, timeout, expected_fields
                 ))
 
+            if not result:
+                error_msg = f"CAN 消息檢查失敗 - 在 {timeout} 秒內未收到期望的訊息"
+                self._log_error(error_msg)
+                raise RuntimeError(error_msg)  # 這裡拋出異常讓測試FAIL
+
         except Exception as e:
-            error_msg = f"精確 CAN 消息檢查失敗: {str(e)}"
+            error_msg = f"CAN 消息檢查失敗: {str(e)}"
             self._log_error(error_msg)
             raise RuntimeError(error_msg)
 
@@ -602,15 +607,15 @@ class CommonLibrary(BaseRobotLibrary):
 
     async def _precise_message_check(self, usb_device, expected_payload, expected_can_id, timeout, expected_fields):
         """
-        精確的非同步消息檢查邏輯
+        的非同步消息檢查邏輯
         """
         # ==================== 初始化階段 ====================
 
-        # 記錄精確的開始時間
+        # 記錄的開始時間
         start_system_time = time.time()
         start_datetime = datetime.now()
 
-        self._log_info(f"🎯 開始精確檢查 - 系統時間: {start_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+        self._log_info(f"🎯 開始檢查 - 系統時間: {start_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
 
         # 準備期望值
         expected_values = await self._prepare_expected_values(expected_payload, expected_can_id, expected_fields)
@@ -652,9 +657,9 @@ class CommonLibrary(BaseRobotLibrary):
         except Exception as e:
             self._log_warning(f"建立基準線時發生錯誤: {e}")
 
-        # ==================== 精確監控循環 ====================
+        # ==================== 監控循環 ====================
 
-        self._log_info(f"🔍 開始精確監控新訊息...")
+        self._log_info(f"🔍 開始監控新訊息...")
 
         try:
             while (time.time() - start_system_time) < timeout:
@@ -677,7 +682,6 @@ class CommonLibrary(BaseRobotLibrary):
 
                             # 處理新訊息
                             for message in new_messages:
-                                print( message )
                                 total_checked_messages += 1
                                 performance_stats['messages_processed'] += 1
 
@@ -689,12 +693,13 @@ class CommonLibrary(BaseRobotLibrary):
                                 check_result = await self._check_single_message(
                                     message, expected_values, total_checked_messages
                                 )
+                                # print( str(check_result) )
 
                                 if check_result['success']:
                                     # 找到匹配的訊息！
                                     elapsed_time = time.time() - start_system_time
                                     success_msg = (
-                                        f"✅ 精確檢查成功! "
+                                        f"✅ 檢查成功! "
                                         f"用時: {elapsed_time:.3f}s, "
                                         f"檢查了 {total_checked_messages} 條新訊息"
                                     )
@@ -748,13 +753,13 @@ class CommonLibrary(BaseRobotLibrary):
                     await asyncio.sleep(0.02)
 
         except asyncio.CancelledError:
-            self._log_warning("精確檢查被取消")
+            self._log_warning("檢查被取消")
             raise
 
         # ==================== 超時處理 ====================
 
         elapsed_time = time.time() - start_system_time
-        timeout_msg = f"⏰ 精確檢查超時 ({elapsed_time:.3f}s)"
+        timeout_msg = f"⏰ 檢查超時 ({elapsed_time:.3f}s)"
 
         if expected_values:
             timeout_msg += f"\n未找到期望的訊息: {expected_values}"
@@ -830,6 +835,7 @@ class CommonLibrary(BaseRobotLibrary):
             # 解析訊息
             parsed_message = self._parse_can_message(message)
 
+
             if not parsed_message:
                 return {'success': False, 'details': '無法解析訊息格式'}
 
@@ -842,30 +848,31 @@ class CommonLibrary(BaseRobotLibrary):
 
             # 檢查所有期望字段
             match_results = []
-            all_match = True
+            has_match = False
 
             for expected_field, expected_value in expected_values.items():
                 actual_value = parsed_message.get(expected_field)
 
                 if actual_value is None:
-                    all_match = False
                     match_results.append(f"{expected_field}: 字段不存在")
                     continue
 
                 # 字段比較邏輯
+                # print( f"expected_field: {expected_field}, expected_value: {expected_value}, actual_value: {actual_value}" )
                 field_match = await self._compare_field_values(
                     expected_field, expected_value, actual_value
                 )
+                print(f"field_match: {field_match}")
 
                 if field_match:
+                    has_match = True
                     match_results.append(f"{expected_field}: {actual_value} ✓")
                 else:
-                    all_match = False
                     match_results.append(f"{expected_field}: 期望 {expected_value}, 實際 {actual_value} ✗")
 
             return {
-                'success': all_match,
-                'details': ', '.join(match_results) if all_match else None
+                'success': has_match,
+                'details': ', '.join(match_results) if has_match else None
             }
 
         except Exception as e:
@@ -874,6 +881,7 @@ class CommonLibrary(BaseRobotLibrary):
     async def _compare_field_values(self, field_name, expected_value, actual_value):
         """比較字段值"""
         try:
+            print( f"field_name: {field_name}, expected_value: {expected_value}, actual_value: {actual_value}" )
             if field_name == 'payload':
                 return actual_value == expected_value
             elif field_name in ['can_id', 'header']:

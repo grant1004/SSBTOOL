@@ -1,0 +1,82 @@
+{
+    "meta": {
+        "version": "1.0",
+        "type": "user_composition",
+        "test_name": "Untitled2",
+        "created_by": "robot_app",
+        "created_at": "2025-06-06T15:06:29.549959",
+        "description": "Generated test composition: Untitled2"
+    },
+    "selected_settings": {
+        "documentation": "Untitled2",
+        "libraries": [
+            {
+                "library_name": "Lib.CommonLibrary",
+                "category": "common",
+                "config": {}
+            }
+        ],
+        "suite_setup": null,
+        "suite_teardown": null
+    },
+    "selected_variables": [
+        {
+            "name": "TIMEOUT",
+            "value": "30s",
+            "data_type": "string"
+        }
+    ],
+    "individual_testcases": [
+        {
+            "test_id": 1225115995840,
+            "test_name": "Execute Keyword - start_listening [id]1225115995840",
+            "type": "keyword",
+            "keyword_name": "start_listening",
+            "keyword_category": "common",
+            "priority": "optional",
+            "description": "開始監聽設備訊息 啟動 USB 設備的消息監聽功能，開始記錄接收到的數據 Examples: | Start Listening |",
+            "parameters": {}
+        },
+        {
+            "test_id": 1225115922176,
+            "test_name": "Execute Keyword - check_payload [id]1225115922176",
+            "type": "keyword",
+            "keyword_name": "check_payload",
+            "keyword_category": "common",
+            "priority": "normal",
+            "description": "高精度檢查接收到的 CAN 消息數據（絕對精確，不遺漏任何 packet）",
+            "parameters": {
+                "expected_payload": "None",
+                "expected_can_id": "0x10010",
+                "timeout": "10",
+                "expected_fields": "None"
+            }
+        },
+        {
+            "test_id": 1225116000000,
+            "test_name": "Execute Keyword - stop_listening [id]1225116000000",
+            "type": "keyword",
+            "keyword_name": "stop_listening",
+            "keyword_category": "common",
+            "priority": "optional",
+            "description": "停止監聽設備訊息 停止 USB 設備的消息監聽功能 Examples: | Stop Listening |",
+            "parameters": {}
+        }
+    ],
+    "keyword_dependencies": [
+        {
+            "category": "common",
+            "library_name": "Lib.CommonLibrary",
+            "required_keywords": []
+        }
+    ],
+    "runtime_config": {
+        "output_filename": "Untitled2.robot",
+        "execution_mode": "multiple_tests",
+        "parallel": false,
+        "tags_to_run": [
+            "auto-generated"
+        ],
+        "variables_file": null
+    }
+}
