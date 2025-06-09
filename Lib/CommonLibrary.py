@@ -690,22 +690,21 @@ class CommonLibrary(BaseRobotLibrary):
 
     async def _precise_message_check(self, usb_device, expected_payload, expected_can_id, timeout, expected_fields):
         """
-        的非同步消息檢查邏輯
+        🔧 修正版：精確的非同步消息檢查邏輯 - 確保只檢查指定時間後的消息
         """
         # ==================== 初始化階段 ====================
 
-        # 記錄的開始時間
-        start_system_time = time.time()
+        # 🔧 關鍵：記錄檢查開始的準確時間
+        start_time = time.time()
         start_datetime = datetime.now()
 
         self._log_info(f"🎯 開始檢查 - 系統時間: {start_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+        self._log_info(f"🎯 基準時間戳: {start_time}")
 
         # 準備期望值
         expected_values = await self._prepare_expected_values(expected_payload, expected_can_id, expected_fields)
 
         # 初始化追蹤變數
-        processed_message_ids: Set[str] = set()
-        baseline_message_count = 0
         total_checked_messages = 0
         polling_interval = 0.01  # 初始輪詢間隔：10ms
         max_polling_interval = 0.1  # 最大輪詢間隔：100ms
@@ -714,88 +713,91 @@ class CommonLibrary(BaseRobotLibrary):
         performance_stats = {
             'polling_cycles': 0,
             'messages_processed': 0,
-            'baseline_messages': 0,
             'new_messages_found': 0,
             'parsing_failures': 0
         }
 
         # ==================== 建立基準線 ====================
 
+        baseline_count = 0
         try:
-            # 獲取當前所有訊息作為基準線
-            baseline_messages = usb_device.get_recent_messages(1000)  # 獲取更多歷史訊息
-            if baseline_messages:
-                baseline_message_count = len(baseline_messages)
-                # 記錄所有基準線訊息的ID
-                for msg in baseline_messages:
-                    msg_id = self._generate_message_id(msg)
-                    processed_message_ids.add(msg_id)
-
-                performance_stats['baseline_messages'] = baseline_message_count
-                self._log_info(f"📊 建立基準線: {baseline_message_count} 條歷史訊息")
+            # 🔧 新方法：如果設備支持獲取基準線消息數量
+            if hasattr(usb_device, 'get_baseline_message_count'):
+                baseline_count = usb_device.get_baseline_message_count()
+                self._log_info(f"📊 建立基準線: {baseline_count} 條歷史訊息將被忽略")
+            else:
+                # 舊方法：獲取當前所有訊息作為基準線
+                baseline_messages = usb_device.get_recent_messages(1000)
+                baseline_count = len(baseline_messages) if baseline_messages else 0
+                self._log_info(f"📊 建立基準線: {baseline_count} 條歷史訊息")
 
             # 等待一小段時間，確保基準線建立完成
-            await asyncio.sleep(0.005)  # 5ms
+            await asyncio.sleep(0.01)  # 10ms
 
         except Exception as e:
             self._log_warning(f"建立基準線時發生錯誤: {e}")
 
         # ==================== 監控循環 ====================
 
-        self._log_info(f"🔍 開始監控新訊息...")
+        self._log_info(f"🔍 開始監控 {start_time} 時間戳之後的新訊息...")
 
         try:
-            while (time.time() - start_system_time) < timeout:
+            while (time.time() - start_time) < timeout:
                 performance_stats['polling_cycles'] += 1
                 cycle_start = time.time()
-                new_messages = []  # 初始化 new_messages 變數
+                new_messages = []
 
                 try:
-                    # 獲取當前所有訊息
-                    current_messages = usb_device.get_recent_messages(1000)
-
-                    if current_messages:
-                        new_messages = await self._filter_new_messages(
-                            current_messages, processed_message_ids, start_datetime
-                        )
+                    # 🔧 關鍵改進：只獲取指定時間之後的消息
+                    if hasattr(usb_device, 'get_messages_after_time'):
+                        # 使用新的精確方法
+                        new_messages = usb_device.get_messages_after_time(start_time, 100)
 
                         if new_messages:
                             performance_stats['new_messages_found'] += len(new_messages)
-                            self._log_info(f"📥 發現 {len(new_messages)} 條新訊息")
+                            self._log_info(f"📥 發現 {len(new_messages)} 條新訊息（基準時間後）")
+                    else:
+                        # 🔧 備用方法：使用傳統方式但改進過濾邏輯
+                        all_messages = usb_device.get_recent_messages(1000)
+                        if all_messages and len(all_messages) > baseline_count:
+                            # 只取超出基準線的新消息
+                            new_messages = all_messages[baseline_count:]
+                            performance_stats['new_messages_found'] += len(new_messages)
+                            self._log_info(f"📥 發現 {len(new_messages)} 條新訊息（傳統方式）")
 
-                            # 處理新訊息
-                            for message in new_messages:
-                                total_checked_messages += 1
-                                performance_stats['messages_processed'] += 1
+                        # 更新基準線計數
+                        if all_messages:
+                            baseline_count = len(all_messages)
 
-                                # 記錄已處理
-                                msg_id = self._generate_message_id(message)
-                                processed_message_ids.add(msg_id)
+                    # 處理新訊息
+                    if new_messages:
+                        for message in new_messages:
+                            total_checked_messages += 1
+                            performance_stats['messages_processed'] += 1
 
-                                # 解析並檢查訊息
-                                check_result = await self._check_single_message(
-                                    message, expected_values, total_checked_messages
+                            # 解析並檢查訊息
+                            check_result = await self._check_single_message(
+                                message, expected_values, total_checked_messages
+                            )
+
+                            if check_result['success']:
+                                # 找到匹配的訊息！
+                                elapsed_time = time.time() - start_time
+                                success_msg = (
+                                    f"✅ 檢查成功! "
+                                    f"用時: {elapsed_time:.3f}s, "
+                                    f"檢查了 {total_checked_messages} 條新訊息"
                                 )
-                                # print( str(check_result) )
 
-                                if check_result['success']:
-                                    # 找到匹配的訊息！
-                                    elapsed_time = time.time() - start_system_time
-                                    success_msg = (
-                                        f"✅ 檢查成功! "
-                                        f"用時: {elapsed_time:.3f}s, "
-                                        f"檢查了 {total_checked_messages} 條新訊息"
-                                    )
+                                # 顯示詳細結果
+                                if check_result['details']:
+                                    success_msg += f"\n匹配結果: {check_result['details']}"
 
-                                    # 顯示詳細結果
-                                    if check_result['details']:
-                                        success_msg += f"\n匹配結果: {check_result['details']}"
+                                # 顯示性能統計
+                                success_msg += f"\n性能統計: {self._format_performance_stats(performance_stats, elapsed_time)}"
 
-                                    # 顯示性能統計
-                                    success_msg += f"\n性能統計: {self._format_performance_stats(performance_stats, elapsed_time)}"
-
-                                    self._log_success(success_msg)
-                                    return True
+                                self._log_success(success_msg)
+                                return True
 
                     # ==================== 智能輪詢間隔調整 ====================
 
@@ -813,14 +815,11 @@ class CommonLibrary(BaseRobotLibrary):
                     if cycle_duration < polling_interval:
                         await asyncio.sleep(polling_interval - cycle_duration)
 
-                    # ==================== 記憶體管理 ====================
+                    # ==================== 進度報告 ====================
 
-                    # 每1000個循環清理一次記憶體
+                    # 每1000個循環顯示進度報告
                     if performance_stats['polling_cycles'] % 1000 == 0:
-                        await self._cleanup_memory(processed_message_ids)
-
-                        # 顯示進度報告
-                        elapsed = time.time() - start_system_time
+                        elapsed = time.time() - start_time
                         remaining = timeout - elapsed
                         self._log_info(
                             f"📊 進度報告: "
@@ -841,15 +840,16 @@ class CommonLibrary(BaseRobotLibrary):
 
         # ==================== 超時處理 ====================
 
-        elapsed_time = time.time() - start_system_time
+        elapsed_time = time.time() - start_time
         timeout_msg = f"⏰ 檢查超時 ({elapsed_time:.3f}s)"
 
         if expected_values:
             timeout_msg += f"\n未找到期望的訊息: {expected_values}"
         else:
-            timeout_msg += f"\n未收到任何有效的 CAN 訊息"
+            timeout_msg += f"\n在基準時間 {start_time} 之後未收到任何有效的 CAN 訊息"
 
         timeout_msg += f"\n檢查統計: 總共檢查了 {total_checked_messages} 條新訊息"
+        timeout_msg += f"\n基準線: {baseline_count} 條歷史訊息被忽略"
         timeout_msg += f"\n性能統計: {self._format_performance_stats(performance_stats, elapsed_time)}"
 
         if total_checked_messages == 0:
@@ -1236,7 +1236,7 @@ class CommonLibrary(BaseRobotLibrary):
         return payload_str
 
 
-# 在 CommonLibrary.py 中新增/修改的方法
+
 
 
 

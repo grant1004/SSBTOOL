@@ -84,14 +84,6 @@
                 "steps": [
                     {
                         "step_type": "keyword",
-                        "keyword_id": 2332289284480,
-                        "keyword_name": "start_listening",
-                        "keyword_category": "common",
-                        "parameters": {},
-                        "description": "開始監聽設備訊息 啟動 USB 設備的消息監聽功能，開始記錄接收到的數據 Examples: | Start Listening |"
-                    },
-                    {
-                        "step_type": "keyword",
                         "keyword_id": 2332295292352,
                         "keyword_name": "button_short_press",
                         "keyword_category": "hmi",
@@ -132,14 +124,6 @@
                             "expected_fields": ""
                         },
                         "description": "高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）"
-                    },
-                    {
-                        "step_type": "keyword",
-                        "keyword_id": 2332289420032,
-                        "keyword_name": "stop_listening",
-                        "keyword_category": "common",
-                        "parameters": {},
-                        "description": "停止監聽設備訊息 停止 USB 設備的消息監聽功能 Examples: | Stop Listening |"
                     }
                 ],
                 "dependencies": {
@@ -157,6 +141,226 @@
                 "metadata": {
                     "source_composition": "user_Reset Assist Level to 0 and Check success..json",
                     "total_steps": 6
+                }
+            }
+        }
+    },
+    "user_testcase_1749462979": {
+        "data": {
+            "config": {
+                "type": "testcase",
+                "name": "Test HMI Assist Level Button click",
+                "description": "測試 Assist Level ( 0x300 ) 通訊是否正常",
+                "category": "hmi",
+                "priority": "required",
+                "estimated_time": "26min",
+                "created_by": "robot_app",
+                "created_at": "2025-06-09T17:56:19.320480",
+                "steps": [
+                    {
+                        "step_type": "testcase",
+                        "testcase_id": 1959481067648,
+                        "testcase_name": "Reset Assist Level to 0 and Check success.",
+                        "description": "short down button click * 3, \ncheck payload 0x300 reset to 00",
+                        "priority": "optional",
+                        "steps": [
+                            {
+                                "step_type": "keyword",
+                                "keyword_id": 2332295292352,
+                                "keyword_name": "button_short_press",
+                                "keyword_category": "hmi",
+                                "parameters": {
+                                    "button": "\"down\""
+                                },
+                                "description": "按鈕短按操作"
+                            },
+                            {
+                                "step_type": "keyword",
+                                "keyword_id": 2332295194944,
+                                "keyword_name": "button_short_press",
+                                "keyword_category": "hmi",
+                                "parameters": {
+                                    "button": "\"down\""
+                                },
+                                "description": "按鈕短按操作"
+                            },
+                            {
+                                "step_type": "keyword",
+                                "keyword_id": 2332291237888,
+                                "keyword_name": "button_short_press",
+                                "keyword_category": "hmi",
+                                "parameters": {
+                                    "button": "\"down\""
+                                },
+                                "description": "按鈕短按操作"
+                            },
+                            {
+                                "step_type": "keyword",
+                                "keyword_id": 2332289428480,
+                                "keyword_name": "check_payload",
+                                "keyword_category": "common",
+                                "parameters": {
+                                    "expected_payload": "00 5A 00 5A 00 00 00 XX",
+                                    "expected_can_id": "0x300",
+                                    "timeout": "5",
+                                    "expected_fields": ""
+                                },
+                                "description": "高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）"
+                            }
+                        ]
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 1959411948096,
+                        "keyword_name": "button_short_press",
+                        "keyword_category": "hmi",
+                        "parameters": {
+                            "button": "\"up\""
+                        },
+                        "description": "按鈕短按操作"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 1959393357120,
+                        "keyword_name": "check_payload",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "expected_payload": "01 xx xx xx xx xx xx xx",
+                            "expected_can_id": "0x300 ",
+                            "timeout": "5",
+                            "expected_fields": ""
+                        },
+                        "description": "高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 1959407322176,
+                        "keyword_name": "button_short_press",
+                        "keyword_category": "hmi",
+                        "parameters": {
+                            "button": "\"up\""
+                        },
+                        "description": "按鈕短按操作"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 1959393041792,
+                        "keyword_name": "check_payload",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "expected_payload": "02 xx xx xx xx xx xx xx",
+                            "expected_can_id": "0x300",
+                            "timeout": "5",
+                            "expected_fields": ""
+                        },
+                        "description": "高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 1959468808512,
+                        "keyword_name": "button_short_press",
+                        "keyword_category": "hmi",
+                        "parameters": {
+                            "button": "\"up\""
+                        },
+                        "description": "按鈕短按操作"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 1959407494208,
+                        "keyword_name": "check_payload",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "expected_payload": "03 xx xx xx xx xx xx xx",
+                            "expected_can_id": "0x300",
+                            "timeout": "5",
+                            "expected_fields": ""
+                        },
+                        "description": "高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 1959392742784,
+                        "keyword_name": "button_short_press",
+                        "keyword_category": "hmi",
+                        "parameters": {
+                            "button": "\"down\""
+                        },
+                        "description": "按鈕短按操作"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 1959469090944,
+                        "keyword_name": "check_payload",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "expected_payload": "02 xx xx xx xx xx xx xx",
+                            "expected_can_id": "0x300",
+                            "timeout": "5",
+                            "expected_fields": ""
+                        },
+                        "description": "高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 1959392753984,
+                        "keyword_name": "button_short_press",
+                        "keyword_category": "hmi",
+                        "parameters": {
+                            "button": "\"down\""
+                        },
+                        "description": "按鈕短按操作"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 1959861907264,
+                        "keyword_name": "check_payload",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "expected_payload": "01 xx xx xx xx xx xx xx",
+                            "expected_can_id": "0x300",
+                            "timeout": "5",
+                            "expected_fields": ""
+                        },
+                        "description": "高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 1959398117248,
+                        "keyword_name": "button_short_press",
+                        "keyword_category": "hmi",
+                        "parameters": {
+                            "button": "\"down\""
+                        },
+                        "description": "按鈕短按操作"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 1959407387392,
+                        "keyword_name": "check_payload",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "expected_payload": "00 xx xx xx xx xx xx xx",
+                            "expected_can_id": "0x300",
+                            "timeout": "5",
+                            "expected_fields": ""
+                        },
+                        "description": "高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）"
+                    }
+                ],
+                "dependencies": {
+                    "libraries": [
+                        "hmi",
+                        "common"
+                    ],
+                    "keywords": [
+                        "button_short_press",
+                        "check_payload"
+                    ]
+                },
+                "metadata": {
+                    "source_composition": "user_Test HMI Assist Level Button click.json",
+                    "total_steps": 13
                 }
             }
         }

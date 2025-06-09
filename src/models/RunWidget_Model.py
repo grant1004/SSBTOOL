@@ -460,7 +460,10 @@ class RunWidget_Model(QObject):
             content.append(keyword_name)
 
             # Documentation
+
+            # Documentation
             if description:
+                description = description.replace('\n', ' ')
                 content.append(f"    [Documentation]    {description}")
 
             # 處理步驟
