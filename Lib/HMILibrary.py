@@ -156,7 +156,7 @@ class HMILibrary(BaseRobotLibrary):
             raise RuntimeError(error_msg)
 
     @keyword("Button Short Press")
-    def button_short_press(self, button: str):
+    def button_short_press(self, button: str = "up"):
         """
         按鈕短按操作
 
@@ -173,7 +173,7 @@ class HMILibrary(BaseRobotLibrary):
         self.button_click(button, "short")
 
     @keyword("Button Long Press")
-    def button_long_press(self, button: str):
+    def button_long_press(self, button: str = "up"):
         """
         按鈕長按操作
 
@@ -190,7 +190,7 @@ class HMILibrary(BaseRobotLibrary):
         self.button_click(button, "long")
 
     @keyword("Button Press Down")
-    def button_press_down(self, button: str):
+    def button_press_down(self, button: str = "up"):
         """
         按下按鈕（不釋放）
 
@@ -206,7 +206,7 @@ class HMILibrary(BaseRobotLibrary):
         self.button_click(button, "up")
 
     @keyword("Button Release")
-    def button_release(self, button: str):
+    def button_release(self, button: str = "up"):
         """
         釋放按鈕
 
@@ -285,7 +285,7 @@ class HMILibrary(BaseRobotLibrary):
     # ==================== 狀態查詢方法 ====================
 
     @keyword("Get Button State")
-    def get_button_state(self, button: str) -> bool:
+    def get_button_state(self, button: str = "up") -> bool:
         """
         獲取按鈕狀態
 

@@ -1,71 +1,162 @@
 {
-    "user_testcase_1748860115": {
+    "user_testcase_1749202818": {
         "data": {
             "config": {
                 "type": "testcase",
-                "name": "TESTCAN300",
+                "name": "Check Button short press",
                 "description": "",
                 "category": "hmi",
-                "priority": "optional",
+                "priority": "required",
                 "estimated_time": "8min",
                 "created_by": "robot_app",
-                "created_at": "2025-06-02T18:28:35.435457",
+                "created_at": "2025-06-06T17:40:18.058457",
                 "steps": [
                     {
                         "step_type": "keyword",
-                        "keyword_id": 2065029100608,
+                        "keyword_id": 1742147277952,
                         "keyword_name": "start_listening",
                         "keyword_category": "common",
                         "parameters": {},
-                        "description": "開始監聽設備訊息"
+                        "description": "開始監聽設備訊息 啟動 USB 設備的消息監聽功能，開始記錄接收到的數據 Examples: | Start Listening |"
                     },
                     {
                         "step_type": "keyword",
-                        "keyword_id": 2064939856448,
-                        "keyword_name": "send_can_message",
+                        "keyword_id": 1742147812608,
+                        "keyword_name": "button_short_press",
+                        "keyword_category": "hmi",
+                        "parameters": {
+                            "button": "\"up\""
+                        },
+                        "description": "按鈕短按操作"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 1742044562368,
+                        "keyword_name": "check_payload",
                         "keyword_category": "common",
                         "parameters": {
-                            "can_id": "\"300\"",
-                            "payload": "\"3030\"",
-                            "node": "1",
-                            "can_type": "0"
+                            "expected_payload": "01 5A 00 5A 23 00 32 XX",
+                            "expected_can_id": "0x300",
+                            "timeout": "10",
+                            "expected_fields": ""
                         },
-                        "description": "Sends a CAN message using the specified CAN ID, payload, and other parameters."
+                        "description": "高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）"
                     },
                     {
                         "step_type": "keyword",
-                        "keyword_id": 2065027808704,
-                        "keyword_name": "delay",
-                        "keyword_category": "common",
-                        "parameters": {
-                            "seconds": "5",
-                            "reason": "None"
-                        },
-                        "description": "暫停執行指定的秒數（非阻塞實現） 參數: seconds: 暫停的秒數，可以是整數或浮點數 reason: 可選參數，記錄暫停原因"
-                    },
-                    {
-                        "step_type": "keyword",
-                        "keyword_id": 2064939704384,
+                        "keyword_id": 1742147408704,
                         "keyword_name": "stop_listening",
                         "keyword_category": "common",
                         "parameters": {},
-                        "description": "停止監聽設備訊息"
+                        "description": "停止監聽設備訊息 停止 USB 設備的消息監聽功能 Examples: | Stop Listening |"
                     }
                 ],
                 "dependencies": {
                     "libraries": [
+                        "common",
+                        "hmi"
+                    ],
+                    "keywords": [
+                        "start_listening",
+                        "check_payload",
+                        "stop_listening",
+                        "button_short_press"
+                    ]
+                },
+                "metadata": {
+                    "source_composition": "user_Check Button short press.json",
+                    "total_steps": 4
+                }
+            }
+        }
+    },
+    "user_testcase_1749456148": {
+        "data": {
+            "config": {
+                "type": "testcase",
+                "name": "Reset Assist Level to 0 and Check success.",
+                "description": "short down button click * 3, \ncheck payload 0x300 reset to 00",
+                "category": "hmi",
+                "priority": "optional",
+                "estimated_time": "12min",
+                "created_by": "robot_app",
+                "created_at": "2025-06-09T16:02:28.556735",
+                "steps": [
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 2332289284480,
+                        "keyword_name": "start_listening",
+                        "keyword_category": "common",
+                        "parameters": {},
+                        "description": "開始監聽設備訊息 啟動 USB 設備的消息監聽功能，開始記錄接收到的數據 Examples: | Start Listening |"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 2332295292352,
+                        "keyword_name": "button_short_press",
+                        "keyword_category": "hmi",
+                        "parameters": {
+                            "button": "\"down\""
+                        },
+                        "description": "按鈕短按操作"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 2332295194944,
+                        "keyword_name": "button_short_press",
+                        "keyword_category": "hmi",
+                        "parameters": {
+                            "button": "\"down\""
+                        },
+                        "description": "按鈕短按操作"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 2332291237888,
+                        "keyword_name": "button_short_press",
+                        "keyword_category": "hmi",
+                        "parameters": {
+                            "button": "\"down\""
+                        },
+                        "description": "按鈕短按操作"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 2332289428480,
+                        "keyword_name": "check_payload",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "expected_payload": "00 5A 00 5A 00 00 00 XX",
+                            "expected_can_id": "0x300",
+                            "timeout": "5",
+                            "expected_fields": ""
+                        },
+                        "description": "高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": 2332289420032,
+                        "keyword_name": "stop_listening",
+                        "keyword_category": "common",
+                        "parameters": {},
+                        "description": "停止監聽設備訊息 停止 USB 設備的消息監聽功能 Examples: | Stop Listening |"
+                    }
+                ],
+                "dependencies": {
+                    "libraries": [
+                        "hmi",
                         "common"
                     ],
                     "keywords": [
                         "start_listening",
-                        "send_can_message",
+                        "check_payload",
                         "stop_listening",
-                        "delay"
+                        "button_short_press"
                     ]
                 },
                 "metadata": {
-                    "source_composition": "user_TESTCAN300.json",
-                    "total_steps": 4
+                    "source_composition": "user_Reset Assist Level to 0 and Check success..json",
+                    "total_steps": 6
                 }
             }
         }

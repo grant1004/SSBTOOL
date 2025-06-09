@@ -1,3 +1,4 @@
+import re
 import sys
 import os
 from typing import Union, Set, List, Dict, Any, Optional
@@ -164,10 +165,17 @@ class CommonLibrary(BaseRobotLibrary):
         高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）
 
         Args:
-            expected_payload: 期望的 payload 數據 (可選，支持有無空格格式)
-            expected_can_id: 期望的 CAN ID (可選，支持 0x207 或 207 格式)
-            timeout: 超時時間（秒）
-            **expected_fields: 其他期望的字段值 (例如: header="0xFFFF", node="1")
+            expected_payload: 期望的 payload 數據
+                description: 期望的 payload 數據，支援 XX 通配符表示不關心的位置
+                example: FF XX AA 55
+            expected_can_id: 期望的 CAN ID
+                description: 期望的 CAN 訊息識別碼，支援 0x207 或 207 格式
+                example: 0x207
+            timeout: 超時時間
+                default: 5
+                description: 等待接收訊息的超時時間（秒）
+            **expected_fields: 其他期望字段
+                description: 其他期望的字段值（如 header=0xFFFF, node=1, crc32=3A00A141）
 
         特性:
             - 記錄開始檢查的時間
@@ -188,6 +196,9 @@ class CommonLibrary(BaseRobotLibrary):
             | Check Payload | FF00AA55 | 0x207 | node=1 | data_length=8 |
             | Check Payload | ${EMPTY} | ${EMPTY} | systick=1452363 |
             | Check Payload | ${EMPTY} | ${EMPTY} | crc32=3A00A141 | node=1 |
+            | Check Payload | FF XX AA 55 |         # 第2個byte不關心
+            | Check Payload | XX 00 XX XX |         # 只檢查第2個byte為00
+            | Check Payload | FF XX XX 55 | 0x207 | # 只檢查第1和第4個byte
 
         支持的字段:
             - timestamp: 時間戳
@@ -229,6 +240,57 @@ class CommonLibrary(BaseRobotLibrary):
 
         except Exception as e:
             error_msg = f"CAN 消息檢查失敗: {str(e)}"
+            self._log_error(error_msg)
+            raise RuntimeError(error_msg)
+
+    # 擴展的關鍵字方法 - 提供更多選項
+    @keyword("Check Payload Advanced")
+    def check_payload_advanced(self, expected_payload=None, expected_can_id=None,
+                               timeout=5, wildcard_char='XX', exact_length=True, **expected_fields):
+        """
+        高級 payload 檢查，支援通配符和更多選項
+
+        Args:
+            expected_payload: 期望的 payload 數據
+                description: 期望的 payload 數據，支援通配符表示不關心的位置
+                example: FF XX AA 55
+            expected_can_id: 期望的 CAN ID
+                description: 期望的 CAN 訊息識別碼，支援十進制或十六進制格式
+                example: 0x207
+            timeout: 超時時間
+                default: 5
+                description: 等待接收訊息的超時時間（秒）
+            wildcard_char: 通配符字符
+                options: XX|??|--
+                default: XX
+                description: 用於表示不關心位置的通配符字符
+            exact_length: 精確長度匹配
+                options: True|False
+                default: True
+                description: 是否要求 payload 長度完全匹配
+            **expected_fields: 其他期望字段
+                description: 其他期望的字段值，如 header、node、crc32 等
+
+        Returns:
+            bool: 檢查是否成功
+
+        Examples:
+            | Check Payload Advanced | FF XX AA 55 |           |   |       |      # 使用 XX 通配符
+            | Check Payload Advanced | FF ?? AA 55 | 0x207     | 5 | ??    |      # 使用 ?? 通配符
+            | Check Payload Advanced | FF -- AA 55 | 0x207     | 5 | --    |      # 使用 -- 通配符
+        """
+        try:
+            # 如果指定了不同的通配符格式，先轉換
+            if expected_payload and wildcard_char != 'XX':
+                expected_payload = self._convert_wildcard_format(
+                    expected_payload, from_format=wildcard_char, to_format='XX'
+                )
+
+            # 調用原始的 check_payload 方法
+            return self.check_payload(expected_payload, expected_can_id, timeout, **expected_fields)
+
+        except Exception as e:
+            error_msg = f"高級 Payload 檢查失敗: {str(e)}"
             self._log_error(error_msg)
             raise RuntimeError(error_msg)
 
@@ -471,18 +533,19 @@ class CommonLibrary(BaseRobotLibrary):
 
     def _normalize_payload(self, payload_str):
         """
-        標準化 payload 字符串格式
+        標準化 payload 字符串格式，支援 XX 通配符
 
         Args:
-            payload_str: 輸入的 payload 字符串，可能有或沒有空格
+            payload_str: 輸入的 payload 字符串
+                description: 可能有或沒有空格的 payload 字符串，支援 XX 表示 don't care
 
         Returns:
             標準化的 payload 字符串（大寫，每兩個字符用空格分隔）
 
         Examples:
             "FF00AA55" -> "FF 00 AA 55"
-            "ff 00 aa 55" -> "FF 00 AA 55"
-            "FF00 AA55" -> "FF 00 AA 55"
+            "ff xx aa 55" -> "FF XX AA 55"
+            "FF XX AA55" -> "FF XX AA 55"
         """
         if not payload_str:
             return None
@@ -490,8 +553,9 @@ class CommonLibrary(BaseRobotLibrary):
         # 移除所有空格並轉為大寫
         clean_payload = payload_str.replace(' ', '').upper()
 
-        # 檢查是否為有效的十六進制字符串
-        if not all(c in '0123456789ABCDEF' for c in clean_payload):
+        # 檢查是否為有效的十六進制字符串或包含通配符
+        valid_chars = '0123456789ABCDEFX'
+        if not all(c in valid_chars for c in clean_payload):
             raise ValueError(f"無效的 payload 格式: {payload_str}")
 
         # 確保長度為偶數
@@ -539,47 +603,66 @@ class CommonLibrary(BaseRobotLibrary):
 
     def _parse_can_message(self, message_str):
         """
-        解析 CAN 消息字符串，提取 CAN ID 和 Payload
-
-        Args:
-            message_str: 完整的消息字符串
-
-        Returns:
-            字典包含解析出的 can_id 和 payload，如果解析失敗返回 None
-
-        Example:
-            Input: "[2025-06-06 11:25:59.203] CAN Packet:\n  CAN ID: 0x207\n  Payload: 00 00 00 00 00 00 00 00"
-            Output: {'can_id': '0x207', 'payload': '00 00 00 00 00 00 00 00'}
+        解析 CAN 消息字符串 - 簡單修正版本
+        使用按行處理的方式避免跨行匹配問題
         """
         import re
 
         try:
             message_str = str(message_str)
+            parsed_data = {}
 
-            # 提取 CAN ID
-            can_id_pattern = r'CAN ID:\s*(0x[0-9A-Fa-f]+|[0-9A-Fa-f]+)'
-            can_id_match = re.search(can_id_pattern, message_str)
+            # 按行處理
+            lines = message_str.split('\n')
 
-            # 提取 Payload
-            payload_pattern = r'Payload:\s*([0-9A-Fa-f\s]+)'
-            payload_match = re.search(payload_pattern, message_str)
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
 
-            if can_id_match and payload_match:
-                can_id_raw = can_id_match.group(1)
-                payload_raw = payload_match.group(1).strip()
+                # 時間戳行
+                timestamp_match = re.match(r'\[([0-9\-\s:\.]+)\]\s*(.+)', line)
+                if timestamp_match:
+                    parsed_data['timestamp'] = timestamp_match.group(1).strip()
+                    remainder = timestamp_match.group(2)
+                    if ':' in remainder:
+                        parsed_data['packet_type'] = remainder.split(':')[0].strip()
+                    continue
 
-                # 標準化 CAN ID
-                normalized_can_id = self._normalize_can_id(can_id_raw)
+                # 字段行 - 簡單的冒號分割
+                if ':' in line:
+                    parts = line.split(':', 1)
+                    if len(parts) == 2:
+                        field_key = parts[0].strip().lower().replace(' ', '_')
+                        field_value = parts[1].strip()
 
-                # 標準化 Payload（移除多餘空格，統一格式）
-                normalized_payload = ' '.join(payload_raw.split()).upper()
+                        # 根據字段名稱進行特殊處理
+                        if field_key == 'can_id':
+                            try:
+                                parsed_data['can_id'] = self._normalize_can_id(field_value)
+                            except:
+                                parsed_data['can_id'] = field_value
+                        elif field_key == 'payload':
+                            # 🔧 Payload 特殊處理：清理並標準化
+                            normalized = ' '.join(field_value.split()).upper()
+                            parsed_data['payload'] = normalized
+                        elif field_key == 'header':
+                            if not field_value.upper().startswith('0X'):
+                                parsed_data['header'] = f"0x{field_value.upper()}"
+                            else:
+                                parsed_data['header'] = field_value.upper()
+                        elif field_key == 'crc32':
+                            parsed_data['crc32'] = field_value.upper()
+                        else:
+                            parsed_data[field_key] = field_value
 
-                return {
-                    'can_id': normalized_can_id,
-                    'payload': normalized_payload
-                }
+            # 檢查基本字段
+            if 'can_id' in parsed_data or 'payload' in parsed_data:
+                parsed_data['_raw_message'] = message_str
+                parsed_data['_parsed_fields_count'] = len([k for k in parsed_data.keys() if not k.startswith('_')])
+                return parsed_data
             else:
-                self._log_warning(f"無法從消息中提取 CAN ID 或 Payload: {message_str}")
+                self._log_warning(f"無法從消息中提取基本字段: {message_str}")
                 return None
 
         except Exception as e:
@@ -830,60 +913,185 @@ class CommonLibrary(BaseRobotLibrary):
         return new_messages
 
     async def _check_single_message(self, message, expected_values, message_count):
-        """檢查單一訊息"""
+        """
+        檢查單一訊息 - 完整版本
+
+        Args:
+            message: 原始訊息字符串
+            expected_values: 期望值字典
+            message_count: 訊息計數（用於調試）
+
+        Returns:
+            dict: {'success': bool, 'details': str}
+        """
         try:
-            # 解析訊息
+            # 1. 解析訊息
             parsed_message = self._parse_can_message(message)
 
-
             if not parsed_message:
-                return {'success': False, 'details': '無法解析訊息格式'}
+                return {
+                    'success': False,
+                    'details': '無法解析訊息格式',
+                    'debug_info': f"原始訊息: {message[:100]}..."
+                }
 
-            # 如果沒有期望值，任何有效訊息都算通過
+            # 2. 如果沒有期望值，任何有效訊息都算通過
             if not expected_values:
                 return {
                     'success': True,
-                    'details': f"CAN ID: {parsed_message.get('can_id', 'N/A')}, Payload: {parsed_message.get('payload', 'N/A')}"
+                    'details': f"CAN ID: {parsed_message.get('can_id', 'N/A')}, Payload: {parsed_message.get('payload', 'N/A')}",
+                    'debug_info': f"無期望值檢查，訊息解析成功"
                 }
 
-            # 檢查所有期望字段
-            match_results = []
-            has_match = False
+            # 3. 檢查所有期望字段
+            field_results = {}
+            overall_success = True
+            missing_fields = []
 
+            self._log_info(f"開始檢查訊息 #{message_count}，期望字段數: {len(expected_values)}")
+
+            # 逐一檢查每個期望字段
             for expected_field, expected_value in expected_values.items():
                 actual_value = parsed_message.get(expected_field)
 
+                # 檢查字段是否存在
                 if actual_value is None:
-                    match_results.append(f"{expected_field}: 字段不存在")
+                    field_results[expected_field] = {
+                        'status': 'missing',
+                        'expected': expected_value,
+                        'actual': None,
+                        'match': False
+                    }
+                    missing_fields.append(expected_field)
+                    overall_success = False
+                    self._log_warning(f"字段 '{expected_field}' 在訊息中不存在")
                     continue
 
-                # 字段比較邏輯
-                # print( f"expected_field: {expected_field}, expected_value: {expected_value}, actual_value: {actual_value}" )
-                field_match = await self._compare_field_values(
-                    expected_field, expected_value, actual_value
-                )
-                print(f"field_match: {field_match}")
+                # 執行字段比較
+                try:
+                    field_match = await self._compare_field_values(
+                        expected_field, expected_value, actual_value
+                    )
 
-                if field_match:
-                    has_match = True
-                    match_results.append(f"{expected_field}: {actual_value} ✓")
-                else:
-                    match_results.append(f"{expected_field}: 期望 {expected_value}, 實際 {actual_value} ✗")
+                    field_results[expected_field] = {
+                        'status': 'checked',
+                        'expected': expected_value,
+                        'actual': actual_value,
+                        'match': field_match
+                    }
 
+                    if field_match:
+                        self._log_info(f"✓ {expected_field}: {actual_value} 匹配成功")
+                    else:
+                        self._log_error(f"✗ {expected_field}: 期望 '{expected_value}', 實際 '{actual_value}' 不匹配")
+                        overall_success = False
+
+                except Exception as field_error:
+                    field_results[expected_field] = {
+                        'status': 'error',
+                        'expected': expected_value,
+                        'actual': actual_value,
+                        'match': False,
+                        'error': str(field_error)
+                    }
+                    overall_success = False
+                    self._log_error(f"✗ {expected_field}: 比較時發生錯誤 - {str(field_error)}")
+
+            # 4. 生成詳細結果
+            result_details = []
+
+            # 成功的字段
+            successful_fields = [
+                f"{field}: {info['actual']} ✓"
+                for field, info in field_results.items()
+                if info['match']
+            ]
+
+            # 失敗的字段
+            failed_fields = [
+                f"{field}: 期望 {info['expected']}, 實際 {info['actual']} ✗"
+                for field, info in field_results.items()
+                if not info['match'] and info['status'] == 'checked'
+            ]
+
+            # 缺失的字段
+            missing_field_details = [
+                f"{field}: 字段不存在 ✗"
+                for field in missing_fields
+            ]
+
+            # 錯誤的字段
+            error_fields = [
+                f"{field}: 比較錯誤 ({info.get('error', 'unknown')}) ✗"
+                for field, info in field_results.items()
+                if info['status'] == 'error'
+            ]
+
+            # 組合所有結果詳情
+            result_details.extend(successful_fields)
+            result_details.extend(failed_fields)
+            result_details.extend(missing_field_details)
+            result_details.extend(error_fields)
+
+            # 5. 記錄檢查總結
+            if overall_success:
+                summary = f"訊息 #{message_count} 檢查成功，所有 {len(expected_values)} 個字段都匹配"
+                self._log_success(summary)
+            else:
+                failed_count = len(failed_fields) + len(missing_fields) + len(error_fields)
+                summary = f"訊息 #{message_count} 檢查失敗，{failed_count}/{len(expected_values)} 個字段不匹配"
+                self._log_error(summary)
+
+            # 6. 返回結果
             return {
-                'success': has_match,
-                'details': ', '.join(match_results) if has_match else None
+                'success': overall_success,
+                'details': ', '.join(result_details) if result_details else 'No details',
+                'debug_info': {
+                    'message_count': message_count,
+                    'expected_fields_count': len(expected_values),
+                    'successful_fields_count': len(successful_fields),
+                    'failed_fields_count': len(failed_fields),
+                    'missing_fields_count': len(missing_fields),
+                    'error_fields_count': len(error_fields),
+                    'field_results': field_results,
+                    'parsed_message_keys': list(parsed_message.keys()),
+                    'raw_message_preview': message[:200] + "..." if len(message) > 200 else message
+                }
             }
 
         except Exception as e:
-            return {'success': False, 'details': f'檢查錯誤: {str(e)}'}
+            error_msg = f'檢查訊息時發生嚴重錯誤: {str(e)}'
+            self._log_error(error_msg)
+            import traceback
+            self._log_error(f"錯誤堆疊: {traceback.format_exc()}")
+
+            return {
+                'success': False,
+                'details': error_msg,
+                'debug_info': {
+                    'exception_type': type(e).__name__,
+                    'exception_message': str(e),
+                    'message_count': message_count,
+                    'raw_message_preview': message[:200] + "..." if len(message) > 200 else message
+                }
+            }
 
     async def _compare_field_values(self, field_name, expected_value, actual_value):
-        """比較字段值"""
+        """
+        比較字段值 - 修改版，支援 payload 通配符
+
+        Args:
+            field_name: 字段名稱
+                description: 要比較的字段名稱（如 'payload', 'can_id', 'header' 等）
+            expected_value: 期望值
+                description: 期望的字段值，payload 字段支援 XX 通配符
+            actual_value: 實際值
+                description: 實際接收到的字段值
+        """
         try:
-            print( f"field_name: {field_name}, expected_value: {expected_value}, actual_value: {actual_value}" )
             if field_name == 'payload':
-                return actual_value == expected_value
+                # 使用新的通配符比較方法
+                return self._compare_payload_with_wildcards(expected_value, actual_value)
             elif field_name in ['can_id', 'header']:
                 # 十六進制字段比較
                 normalized_expected = self._normalize_can_id(
@@ -914,149 +1122,122 @@ class CommonLibrary(BaseRobotLibrary):
             f"平均處理速度: {stats['messages_processed'] / elapsed_time:.1f} msg/s"
         )
 
-    def _normalize_payload(self, payload_str):
+    def _compare_payload_with_wildcards(self, expected_payload, actual_payload):
         """
-        標準化 payload 字符串格式
+        比較 payload，支援 XX 作為 don't care
 
         Args:
-            payload_str: 輸入的 payload 字符串，可能有或沒有空格
+            expected_payload: 期望的 payload
+                description: 期望的 payload 字符串，可包含 XX 通配符表示不關心該位置
+            actual_payload: 實際收到的 payload
+                description: 從設備實際接收到的 payload 字符串
 
         Returns:
-            標準化的 payload 字符串（大寫，每兩個字符用空格分隔）
+            bool: 是否匹配
+
+        Examples:
+            expected: "FF XX AA 55", actual: "FF 12 AA 55" -> True
+            expected: "FF XX AA 55", actual: "FF 12 AA 66" -> False
+        """
+        if not expected_payload or not actual_payload:
+            return expected_payload == actual_payload
+
+        # 將兩個 payload 都分割成 bytes
+        expected_bytes = expected_payload.split()
+        actual_bytes = actual_payload.split()
+
+        # 長度檢查
+        if len(expected_bytes) != len(actual_bytes):
+            self._log_warning(f"Payload 長度不匹配: 期望 {len(expected_bytes)} bytes, 實際 {len(actual_bytes)} bytes")
+            return False
+
+        # 逐個 byte 比較
+        mismatched_positions = []
+        matched_positions = []
+        ignored_positions = []
+
+        for i, (expected_byte, actual_byte) in enumerate(zip(expected_bytes, actual_bytes)):
+            if expected_byte.upper() == 'XX':
+                # Don't care，跳過這個 byte
+                ignored_positions.append(f"位置 {i}: {actual_byte} (ignored)")
+                continue
+            elif expected_byte.upper() != actual_byte.upper():
+                # 不匹配
+                mismatched_positions.append(f"位置 {i}: 期望 {expected_byte}, 實際 {actual_byte}")
+            else:
+                # 匹配
+                matched_positions.append(f"位置 {i}: {actual_byte}")
+
+        # 🔧 詳細的日誌記錄
+        if mismatched_positions:
+            mismatch_details = '; '.join(mismatched_positions)
+            self._log_error(f"Payload 不匹配: {mismatch_details}")
+
+            # 顯示完整的比較結果
+            if matched_positions:
+                match_details = '; '.join(matched_positions)
+                self._log_info(f"匹配的位置: {match_details}")
+            if ignored_positions:
+                ignore_details = '; '.join(ignored_positions)
+                self._log_info(f"忽略的位置: {ignore_details}")
+
+            return False
+
+        # 🔧 成功時的詳細記錄
+        all_details = []
+        if matched_positions:
+            all_details.extend([f"{pos} ✓" for pos in matched_positions])
+        if ignored_positions:
+            all_details.extend([f"{pos}" for pos in ignored_positions])
+
+        success_msg = f"Payload 匹配成功: {'; '.join(all_details)}"
+        self._log_success(success_msg)
+        return True
+
+    # 新增：支援多種通配符格式的輔助方法（可選）
+    def _convert_wildcard_format(self, payload_str, from_format='auto', to_format='XX'):
+        """
+        轉換不同的通配符格式
+
+        Args:
+            payload_str: 原始 payload 字符串
+                description: 包含通配符的原始 payload 字符串
+            from_format: 原始格式
+                options: auto|XX|??|--
+                default: auto
+                description: 原始通配符格式，auto 表示自動檢測
+            to_format: 目標格式
+                options: XX|??|--
+                default: XX
+                description: 要轉換到的目標通配符格式
+
+        Returns:
+            轉換後的 payload 字符串
         """
         if not payload_str:
-            return None
+            return payload_str
 
-        # 移除所有空格並轉為大寫
-        clean_payload = payload_str.replace(' ', '').upper()
+        # 支援的通配符格式
+        wildcard_patterns = ['XX', '??', '--', '..']
 
-        # 檢查是否為有效的十六進制字符串
-        if not all(c in '0123456789ABCDEF' for c in clean_payload):
-            raise ValueError(f"無效的 payload 格式: {payload_str}")
-
-        # 確保長度為偶數
-        if len(clean_payload) % 2 != 0:
-            raise ValueError(f"Payload 長度必須為偶數: {payload_str}")
-
-        # 每兩個字符插入一個空格
-        formatted_payload = ' '.join(clean_payload[i:i + 2] for i in range(0, len(clean_payload), 2))
-
-        return formatted_payload
-
-    def _normalize_can_id(self, can_id_str):
-        """
-        標準化 CAN ID 格式
-
-        Args:
-            can_id_str: 輸入的 CAN ID 字符串，可能是 "0x207", "207", "0X207" 等
-
-        Returns:
-            標準化的 CAN ID 字符串（十六進制格式，如 "0x207"）
-        """
-        if not can_id_str:
-            return None
-
-        can_id_str = str(can_id_str).strip()
-
-        try:
-            # 如果以 0x 或 0X 開頭，直接解析
-            if can_id_str.lower().startswith('0x'):
-                can_id_int = int(can_id_str, 16)
+        if from_format == 'auto':
+            # 自動檢測
+            for pattern in wildcard_patterns:
+                if pattern in payload_str.upper():
+                    from_format = pattern
+                    break
             else:
-                # 假設是十進制或十六進制數字
-                try:
-                    # 先嘗試十六進制解析
-                    can_id_int = int(can_id_str, 16)
-                except ValueError:
-                    # 如果失敗，嘗試十進制解析
-                    can_id_int = int(can_id_str, 10)
+                return payload_str  # 沒有通配符
 
-            # 轉換為標準的十六進制格式
-            return f"0x{can_id_int:X}"
+        # 轉換格式
+        if from_format != to_format:
+            payload_str = payload_str.replace(from_format, to_format)
 
-        except ValueError:
-            raise ValueError(f"無效的 CAN ID 格式: {can_id_str}")
+        return payload_str
 
-    def _parse_can_message(self, message_str):
-        """
-        解析 CAN 消息字符串，提取所有字段
 
-        Args:
-            message_str: 完整的消息字符串
+# 在 CommonLibrary.py 中新增/修改的方法
 
-        Returns:
-            字典包含解析出的所有字段，如果解析失敗返回 None
-        """
-        import re
 
-        try:
-            message_str = str(message_str)
-            parsed_data = {}
 
-            # 提取時間戳
-            timestamp_pattern = r'\[([0-9\-\s:\.]+)\]'
-            timestamp_match = re.search(timestamp_pattern, message_str)
-            if timestamp_match:
-                parsed_data['timestamp'] = timestamp_match.group(1).strip()
 
-            # 提取封包類型
-            packet_type_pattern = r'\]\s*([^:]+?):'
-            packet_type_match = re.search(packet_type_pattern, message_str)
-            if packet_type_match:
-                parsed_data['packet_type'] = packet_type_match.group(1).strip()
-
-            # 定義所有可能的字段模式
-            field_patterns = {
-                'header': r'Header:\s*(0x[0-9A-Fa-f]+|[0-9A-Fa-f]+)',
-                'systick': r'Systick:\s*([0-9]+)',
-                'node': r'Node:\s*([0-9]+)',
-                'can_type': r'CAN Type:\s*([0-9]+)',
-                'can_id': r'CAN ID:\s*(0x[0-9A-Fa-f]+|[0-9A-Fa-f]+)',
-                'data_length': r'Data Length:\s*([0-9]+)',
-                'payload': r'Payload:\s*([0-9A-Fa-f\s]+)',
-                'crc32': r'CRC32:\s*([0-9A-Fa-f]+)'
-            }
-
-            # 解析每個字段
-            for field_name, pattern in field_patterns.items():
-                match = re.search(pattern, message_str, re.IGNORECASE)
-                if match:
-                    raw_value = match.group(1).strip()
-
-                    # 根據字段類型進行標準化
-                    if field_name == 'can_id':
-                        try:
-                            parsed_data[field_name] = self._normalize_can_id(raw_value)
-                        except ValueError:
-                            parsed_data[field_name] = raw_value
-                    elif field_name == 'header':
-                        # 標準化 Header 格式
-                        if not raw_value.upper().startswith('0X'):
-                            parsed_data[field_name] = f"0x{raw_value.upper()}"
-                        else:
-                            parsed_data[field_name] = raw_value.upper()
-                    elif field_name == 'payload':
-                        # 標準化 Payload 格式
-                        normalized_payload = ' '.join(raw_value.split()).upper()
-                        parsed_data[field_name] = normalized_payload
-                    elif field_name == 'crc32':
-                        # 標準化 CRC32 格式
-                        parsed_data[field_name] = raw_value.upper()
-                    else:
-                        # 其他字段保持原樣
-                        parsed_data[field_name] = raw_value
-
-            # 檢查是否至少解析出了基本字段
-            if 'can_id' in parsed_data or 'payload' in parsed_data:
-                # 添加一些便於調試的信息
-                parsed_data['_raw_message'] = message_str
-                parsed_data['_parsed_fields_count'] = len([k for k in parsed_data.keys() if not k.startswith('_')])
-
-                return parsed_data
-            else:
-                self._log_warning(f"無法從消息中提取基本字段 (CAN ID 或 Payload): {message_str}")
-                return None
-
-        except Exception as e:
-            self._log_error(f"解析 CAN 消息時發生錯誤: {e}")
-            return None

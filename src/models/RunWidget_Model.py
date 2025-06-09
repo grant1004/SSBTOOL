@@ -118,16 +118,21 @@ class RunWidget_Model(QObject):
         for key, test in test_cases.items():
             config = test.get('data', {}).get('config', {})
             # print( "Config : " + str(config) )
-            # 收集 libraries
+
+            # 收集 libraries - 原有邏輯
             if category := config.get('category'):
                 libraries.add(category)
 
             if libraries_in_setup := config.get('setup', {}).get('library'):
                 libraries.update(libraries_in_setup)
 
+            # 🔥 新增：收集 steps 中每個 keyword 的 keyword_category
+            steps = config.get('steps', [])
+            self._collect_libraries_from_steps(steps, libraries)
+
             # 建立獨立的 test case（每個 keyword 一個 test case）
             casetype = config.get('type', '')
-            if  casetype == "testcase":
+            if casetype == "testcase":
                 # 這是一個 testcase，建立獨立的 test case
                 testcase = self._build_individual_testcase(key, test)
             else:
@@ -172,6 +177,25 @@ class RunWidget_Model(QObject):
         }
 
         return composition
+
+    def _collect_libraries_from_steps(self, steps, libraries):
+        """遞迴收集 steps 中所有 keyword 的 keyword_category"""
+        for step in steps:
+            if not isinstance(step, dict):
+                continue
+
+            step_type = step.get('step_type', 'keyword')
+
+            if step_type == 'keyword':
+                # 收集 keyword 的 category
+                if keyword_category := step.get('keyword_category'):
+                    libraries.add(keyword_category)
+
+            elif step_type == 'testcase':
+                # 如果是嵌套的 testcase，遞迴收集其內部 steps
+                nested_steps = step.get('steps', [])
+                if nested_steps:
+                    self._collect_libraries_from_steps(nested_steps, libraries)
 
     def _build_library_configs(self, libraries):
         """建立 library 配置"""
@@ -267,9 +291,11 @@ class RunWidget_Model(QObject):
         """第二階段：從 user composition JSON 生成 Robot Framework 檔案"""
         try:
             # 讀取 user composition
+
             with open(json_path, 'r', encoding='utf-8') as f:
                 composition = json.load(f)
 
+            print(f"user composition: {composition}")
             # 收集嵌套 testcases
             nested_testcases = self._collect_nested_testcases(composition)
 
@@ -529,7 +555,9 @@ class RunWidget_Model(QObject):
 
         # Documentation
         if testcase['description']:
-            content.append(f"    [Documentation]    {testcase['description']}")
+            description = testcase['description']
+            description = description.replace('\n', ' ')
+            content.append(f"    [Documentation]    {description}")
 
         # 處理步驟 - 使用新的處理方法
         for step in testcase.get('steps', []):
@@ -551,7 +579,9 @@ class RunWidget_Model(QObject):
 
         # Documentation
         if testcase['description']:
-            content.append(f"    [Documentation]    {testcase['description']}")
+            description = testcase['description']
+            description = description.replace('\n', ' ')
+            content.append(f"    [Documentation]    {description}")
 
         # Keyword 呼叫
         keyword_name = testcase['keyword_name']
@@ -624,10 +654,10 @@ class RunWidget_Model(QObject):
         # print(f"[MODEL] 🔥 Received: {message['type']}")
         try:
             test_name = message.get('data', {}).get('test_name', '')
-            # print(f"[MODEL] 🔍 Extracting ID from: {test_name}")
+            print(f"[MODEL] 🔍 Extracting ID from: {test_name}")
 
             self.test_id = int(self._get_id_from_testName(test_name))
-            # print(f"[MODEL] ✅ Extracted test_id: {self.test_id}")
+            print(f"[MODEL] ✅ Extracted test_id: {self.test_id}")
 
             # print(f"[MODEL] 📤 Emitting to UI...")
             self.test_progress.emit(message, self.test_id)

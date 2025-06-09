@@ -6,7 +6,6 @@
 
 import sys
 from typing import Dict, Any, Optional
-from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QObject, Signal
 import logging
 
@@ -22,7 +21,6 @@ from src.mvc_framework.event_bus import event_bus
 # 導入現有組件（在重構過程中會逐步替換）
 from src.ui.main_window import MainWindow
 from src.ui.Theme import ThemeManager
-from src.ui.widgets import TopWidget
 
 
 class ApplicationCoordinator(QObject):

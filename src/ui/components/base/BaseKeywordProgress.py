@@ -26,7 +26,7 @@ class BaseKeywordProgressCard(QFrame):
     def __init__(self, keyword_config: dict, parent=None):
         super().__init__(parent)
 
-        print(keyword_config)
+        # print(keyword_config)
 
         self.keyword_config = keyword_config
         self.status = 'waiting'
@@ -354,7 +354,7 @@ class BaseKeywordProgressCard(QFrame):
 
     def _create_input_field(self, arg):
         """創建適合參數類型的輸入框 - 重構版本，支持選項下拉框"""
-        print( arg )
+        # print( arg )
         arg_type = arg.get('type', 'str').lower()
         name = arg.get('name')
         default = arg.get('default')
@@ -803,3 +803,5 @@ class BaseKeywordProgressCard(QFrame):
             self.move_up_requested.emit(self)
         elif action == move_down_action:
             self.move_down_requested.emit(self)
+
+
