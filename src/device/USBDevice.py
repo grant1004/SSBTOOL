@@ -63,6 +63,7 @@ class USBDevice(DeviceBase):
         """連接 USB 設備並自動開始接收數據"""
         try:
             # 尋找並連接設備
+            self.enable_logging()
             self.device = usb.core.find(
                 idVendor=self.vendor_id,
                 idProduct=self.product_id
@@ -114,7 +115,7 @@ class USBDevice(DeviceBase):
             self._stop_auto_receive()
 
             # 關閉日誌檔案
-            self._close_log_file()
+            self.disable_logging()
 
             if self.device:
                 usb.util.dispose_resources(self.device)

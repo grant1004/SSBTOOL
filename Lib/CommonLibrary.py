@@ -440,6 +440,7 @@ class CommonLibrary(BaseRobotLibrary):
                 "LOADER": DeviceType.LOADER
             }
 
+            device_type_str = device_type_str.strip().replace('\"', '')
             device_type = device_type_map.get(device_type_str.upper())
             if not device_type:
                 raise ValueError(f"不支持的設備類型: {device_type_str}")
