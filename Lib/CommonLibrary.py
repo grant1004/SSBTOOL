@@ -1110,7 +1110,6 @@ class CommonLibrary(BaseRobotLibrary):
         self._log_success(success_msg)
         return True
 
-    # 新增：支援多種通配符格式的輔助方法（可選）
     def _convert_wildcard_format(self, payload_str, from_format='auto', to_format='XX'):
         """
         轉換不同的通配符格式
