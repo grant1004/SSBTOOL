@@ -176,8 +176,8 @@ class TestCaseController(BaseController, ITestCaseController):
 
     def handle_mode_switch(self, mode: TestCaseMode) -> None:
         """處理模式切換（測試案例 vs 關鍵字）"""
-        if mode == self._current_mode:
-            return
+        # if mode == self._current_mode:
+        #     return
 
         operation_name = f"mode_switch_{self._current_mode.value}_to_{mode.value}"
 
@@ -377,17 +377,17 @@ class TestCaseController(BaseController, ITestCaseController):
 
             # 根據當前模式顯示對應數據
             if self._current_mode == TestCaseMode.TEST_CASES:
-                if self._current_test_cases:
-                    self._notify_views_batch('display_test_cases', self._current_test_cases)
-                else:
-                    # 需要載入測試案例
-                    asyncio.create_task(self._coordinate_category_data_loading(self._current_category))
+                # if self._current_test_cases:
+                #     self._notify_views_batch('display_test_cases', self._current_test_cases)
+                # else:
+                #     # 需要載入測試案例
+                asyncio.create_task(self._coordinate_category_data_loading(self._current_category))
             else:
-                if self._current_keywords:
-                    self._notify_views_batch('display_keywords', self._current_keywords)
-                else:
-                    # 需要載入關鍵字
-                    asyncio.create_task(self._coordinate_category_data_loading(self._current_category))
+                # if self._current_keywords:
+                #     self._notify_views_batch('display_keywords', self._current_keywords)
+                # else:
+                #     # 需要載入關鍵字
+                asyncio.create_task(self._coordinate_category_data_loading(self._current_category))
 
         except Exception as e:
             self._logger.error(f"Error coordinating mode switch display: {e}")
