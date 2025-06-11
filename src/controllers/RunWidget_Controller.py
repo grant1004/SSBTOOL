@@ -1,8 +1,8 @@
 # controllers/RunWidget_Controller.py - 更新版本
-from PySide6.QtCore import QObject, Slot, Signal, Property
+
+from PySide6.QtCore import QObject,  Qt, QMutex, QMutexLocker
 from src.utils import singleton, Container
 from src.ui.components import ExportDialog
-
 
 @singleton
 class RunWidgetController(QObject):
@@ -15,8 +15,14 @@ class RunWidgetController(QObject):
     def set_view(self, view):
         # 提供方法來設置 view
         self.view = view
-        self.model.test_progress.connect(self.view.update_progress)
-        self.model.test_finished.connect(self.view.test_finished)
+        self.model.test_progress.connect(
+            self.view.update_progress,
+            Qt.ConnectionType.QueuedConnection  )
+        self.model.test_finished.connect(
+            self.view.test_finished,
+            Qt.ConnectionType.QueuedConnection
+        )
+
 
     def RunCommand(self):
         testcase = self.view.test_cases

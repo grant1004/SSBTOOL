@@ -12,7 +12,7 @@ from src.worker import RobotTestWorker
 @singleton
 class RunWidget_Model(QObject):
     test_progress = Signal(dict, long)  # 測試進度信號, test id
-    test_finished = Signal(bool)  # 測試完成信號, test id
+    test_finished = Signal(bool)
 
     def __init__(self):
         super().__init__()
@@ -55,8 +55,8 @@ class RunWidget_Model(QObject):
             self.worker = RobotTestWorker(robot_path, project_root, lib_path, output_dir, mapping_path)
 
             # 連接信號
-            self.worker.progress.connect(self.handle_progress, Qt.ConnectionType.DirectConnection)
-            self.worker.finished.connect(self.handle_finished, Qt.ConnectionType.DirectConnection)
+            self.worker.progress.connect(self.handle_progress, Qt.ConnectionType.QueuedConnection)
+            self.worker.finished.connect(self.handle_finished, Qt.ConnectionType.QueuedConnection)
 
             # 創建新的線程
             self.thread = QThread()
@@ -295,7 +295,7 @@ class RunWidget_Model(QObject):
             with open(json_path, 'r', encoding='utf-8') as f:
                 composition = json.load(f)
 
-            print(f"user composition: {composition}")
+            # print(f"user composition: {composition}")
             # 收集嵌套 testcases
             nested_testcases = self._collect_nested_testcases(composition)
 
@@ -657,10 +657,10 @@ class RunWidget_Model(QObject):
         # print(f"[MODEL] 🔥 Received: {message['type']}")
         try:
             test_name = message.get('data', {}).get('test_name', '')
-            print(f"[MODEL] 🔍 Extracting ID from: {test_name}")
+            # print(f"[MODEL] 🔍 Extracting ID from: {test_name}")
 
             self.test_id = int(self._get_id_from_testName(test_name))
-            print(f"[MODEL] ✅ Extracted test_id: {self.test_id}")
+            # print(f"[MODEL] ✅ Extracted test_id: {self.test_id}")
 
             # print(f"[MODEL] 📤 Emitting to UI...")
             self.test_progress.emit(message, self.test_id)
@@ -675,7 +675,7 @@ class RunWidget_Model(QObject):
     def handle_finished(self, success):
         """處理測試完成 - 改進版本"""
         try:
-            # print(f"[FINISHED] Test completed with success: {success}")  # 新增：調試信息
+            print(f"[FINISHED] Test completed with success: {success}")  # 新增：調試信息
             if self.test_id is not None:
                 self.test_finished.emit(success)
             else:

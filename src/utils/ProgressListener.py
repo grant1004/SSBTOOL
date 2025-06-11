@@ -147,7 +147,7 @@ class ProgressListener:
             # 這是一個生成的 testcase keyword
             testcase_info = keyword_to_testcase[robot_keyword_name]
             return {
-                'display_name': self.format_DisplayName(testcase_info['testcase_name']),  # 使用格式化函數
+                'display_name': testcase_info['testcase_name'],  # 使用格式化函數
                 'is_nested_testcase': True,
                 'testcase_id': testcase_info['testcase_id']
             }
@@ -161,9 +161,9 @@ class ProgressListener:
 
     def _emit_message(self, message: dict):
         try:
-            # print( "="*100 + f"\n[LISTENER] 🔥 Emitting: {message['type']} - {message}")
+            print( f"[LISTENER] 🔥 Emitting message to worker: {message['type']} - {message}")
             self.signal.emit(message)
-            # print(f"[LISTENER] ✅ Emit successful\n" + "="*100)
+            print(f"[LISTENER] ✅ Emit successful\n" + "="*100)
         except Exception as e:
             print(f"[LISTENER] ❌ Emit failed: {e}")
 

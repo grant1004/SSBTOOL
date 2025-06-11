@@ -160,14 +160,14 @@ class ExecutionPointerManager:
         # 建立層級上下文
         self._build_level_contexts()
 
-        print(f"[ExecutionPointerManager] Built execution sequence with {len(self.execution_sequence)} steps")
-        for step in self.execution_sequence:
-            print(f"  {step}")
-
-        print(f"[ExecutionPointerManager] Built level contexts:")
-        for parent_index, context in self.level_contexts.items():
-            parent_name = f"Step {parent_index}" if parent_index is not None else "ROOT"
-            print(f"  {parent_name}: children={context.children_indices}")
+        # print(f"[ExecutionPointerManager] Built execution sequence with {len(self.execution_sequence)} steps")
+        # for step in self.execution_sequence:
+        #     print(f"  {step}")
+        #
+        # print(f"[ExecutionPointerManager] Built level contexts:")
+        # for parent_index, context in self.level_contexts.items():
+        #     parent_name = f"Step {parent_index}" if parent_index is not None else "ROOT"
+        #     print(f"  {parent_name}: children={context.children_indices}")
 
     def _build_execution_sequence(self, steps_data: List[dict], parent_index: Optional[int] = None, level: int = 0):
         """將嵌套步驟結構扁平化為線性執行序列"""
@@ -239,23 +239,23 @@ class ExecutionPointerManager:
     def find_step_by_robot_keyword(self, robot_keyword_name: str) -> Optional[ExecutionStep]:
         """根據 Robot Framework 關鍵字名稱查找對應的步驟"""
 
-        print(f"[ExecutionPointerManager] 🔍 Searching for keyword: '{robot_keyword_name}'")
-        print(f"[ExecutionPointerManager] Current execution stack: {self.execution_stack}")
+        # print(f"[ExecutionPointerManager] 🔍 Searching for keyword: '{robot_keyword_name}'")
+        # print(f"[ExecutionPointerManager] Current execution stack: {self.execution_stack}")
 
         # 首先檢查當前層級的預期步驟
         expected_step = self.get_current_expected_step()
         if expected_step and expected_step.matches_robot_keyword(robot_keyword_name):
-            print(f"[ExecutionPointerManager] ✅ Found expected step: Step {expected_step.index} - {expected_step.name}")
+            # print(f"[ExecutionPointerManager] ✅ Found expected step: Step {expected_step.index} - {expected_step.name}")
             return expected_step
 
         # 如果預期步驟不匹配，檢查是否是新的 testcase 開始（可能在不同層級）
         for step in self.execution_sequence:
             if (step.status == ExecutionStatus.WAITING and
                     step.matches_robot_keyword(robot_keyword_name)):
-                print(f"[ExecutionPointerManager] ✅ Found matching step: Step {step.index} - {step.name}")
+                # print(f"[ExecutionPointerManager] ✅ Found matching step: Step {step.index} - {step.name}")
                 return step
 
-        print(f"[ExecutionPointerManager] ❌ No matching step found for: '{robot_keyword_name}'")
+        # print(f"[ExecutionPointerManager] ❌ No matching step found for: '{robot_keyword_name}'")
         return None
 
     def handle_keyword_start(self, robot_keyword_name: str) -> Optional[ExecutionStep]:
@@ -264,12 +264,12 @@ class ExecutionPointerManager:
         step = self.find_step_by_robot_keyword(robot_keyword_name)
 
         if step is None:
-            print(f"[ExecutionPointerManager] ❌ Could not find step for keyword: '{robot_keyword_name}'")
+            # print(f"[ExecutionPointerManager] ❌ Could not find step for keyword: '{robot_keyword_name}'")
             return None
 
         # 檢查步驟是否已經在運行
         if step.status == ExecutionStatus.RUNNING:
-            print(f"[ExecutionPointerManager] ⚠️ Step {step.index} is already running: {step.name}")
+            # print(f"[ExecutionPointerManager] ⚠️ Step {step.index} is already running: {step.name}")
             return step
 
         # 更新步驟狀態
@@ -278,16 +278,15 @@ class ExecutionPointerManager:
         # 如果是 testcase，進入新的層級
         if step.step_type == StepType.TESTCASE:
             self.execution_stack.append(step.index)
-            print(f"[ExecutionPointerManager] 📥 Entered testcase level: Step {step.index}")
-            print(f"[ExecutionPointerManager] Execution stack: {self.execution_stack}")
+            # print(f"[ExecutionPointerManager] 📥 Entered testcase level: Step {step.index}")
+            # print(f"[ExecutionPointerManager] Execution stack: {self.execution_stack}")
 
-        print(f"[ExecutionPointerManager] ✅ Step {step.index} started: {step.name}")
+        # print(f"[ExecutionPointerManager] ✅ Step {step.index} started: {step.name}")
         return step
 
-    def handle_keyword_end(self, robot_keyword_name: str, robot_status: str, error_message: str = "") -> Optional[
-        ExecutionStep]:
+    def handle_keyword_end(self, robot_keyword_name: str, robot_status: str, error_message: str = "") -> Optional[ExecutionStep]:
         """處理關鍵字結束"""
-        print(f"[ExecutionPointerManager] 🔍 Looking for running step matching: '{robot_keyword_name}'")
+        # print(f"[ExecutionPointerManager] 🔍 Looking for running step matching: '{robot_keyword_name}'")
 
         # 查找對應的運行中步驟
         step = None
@@ -298,7 +297,7 @@ class ExecutionPointerManager:
                 break
 
         if step is None:
-            print(f"[ExecutionPointerManager] ❌ Could not find running step for keyword: '{robot_keyword_name}'")
+            # print(f"[ExecutionPointerManager] ❌ Could not find running step for keyword: '{robot_keyword_name}'")
             return None
 
         # 映射 Robot Framework 狀態
@@ -324,8 +323,8 @@ class ExecutionPointerManager:
             # testcase 結束，退出該層級
             if self.execution_stack and self.execution_stack[-1] == step.index:
                 self.execution_stack.pop()
-                print(f"[ExecutionPointerManager] 📤 Exited testcase level: Step {step.index}")
-                print(f"[ExecutionPointerManager] Execution stack: {self.execution_stack}")
+                # print(f"[ExecutionPointerManager] 📤 Exited testcase level: Step {step.index}")
+                # print(f"[ExecutionPointerManager] Execution stack: {self.execution_stack}")
 
                 # 推進父層級的指針
                 self._advance_parent_pointer(step.parent_index)
@@ -333,7 +332,7 @@ class ExecutionPointerManager:
             # keyword 結束，推進當前層級的指針
             self._advance_current_level_pointer()
 
-        print(f"[ExecutionPointerManager] ✅ Step {step.index} ended: {step.name} ({robot_status})")
+        # print(f"[ExecutionPointerManager] ✅ Step {step.index} ended: {step.name} ({robot_status})")
         return step
 
     def _advance_current_level_pointer(self):
@@ -343,8 +342,7 @@ class ExecutionPointerManager:
 
         if context:
             advanced = context.advance_pointer()
-            print(
-                f"[ExecutionPointerManager] 📈 Advanced pointer in level {current_parent}: {context.current_pointer}/{len(context.children_indices)} (advanced={advanced})")
+            # print(f"[ExecutionPointerManager] 📈 Advanced pointer in level {current_parent}: {context.current_pointer}/{len(context.children_indices)} (advanced={advanced})")
 
     def _advance_parent_pointer(self, parent_index: Optional[int]):
         """推進父層級的指針"""
@@ -352,19 +350,18 @@ class ExecutionPointerManager:
 
         if context:
             advanced = context.advance_pointer()
-            print(
-                f"[ExecutionPointerManager] 📈 Advanced pointer in parent level {parent_index}: {context.current_pointer}/{len(context.children_indices)} (advanced={advanced})")
+            # print(f"[ExecutionPointerManager] 📈 Advanced pointer in parent level {parent_index}: {context.current_pointer}/{len(context.children_indices)} (advanced={advanced})")
 
     def handle_test_start(self, test_name: str):
         """處理測試開始"""
-        print(f"[ExecutionPointerManager] Test started: {test_name}")
+        # print(f"[ExecutionPointerManager] Test started: {test_name}")
         self.test_start_time = time.time()  # 記錄測試開始時間
         self.test_end_time = None
         self.reset_execution()
 
     def handle_test_end(self, test_name: str, test_status: str):
         """處理測試結束"""
-        print(f"[ExecutionPointerManager] Test ended: {test_name} ({test_status})")
+        # print(f"[ExecutionPointerManager] Test ended: {test_name} ({test_status})")
         self.test_end_time = time.time()  # 記錄測試結束時間
 
     def reset_execution(self):
@@ -384,7 +381,7 @@ class ExecutionPointerManager:
         # self.test_start_time = None  # 不重置，因為測試正在進行
         self.test_end_time = None
 
-        print(f"[ExecutionPointerManager] Execution reset")
+        # print(f"[ExecutionPointerManager] Execution reset")
 
     def get_execution_progress(self) -> dict:
         """獲取執行進度統計"""

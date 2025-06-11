@@ -151,7 +151,7 @@ class ApplicationCoordinator(QObject):
     def _setup_logging(self) -> None:
         """設置日誌系統"""
         logging.basicConfig(
-            level=logging.INFO,
+            level=logging.CRITICAL,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             handlers=[
                 logging.StreamHandler(sys.stdout),
@@ -160,6 +160,7 @@ class ApplicationCoordinator(QObject):
             ]
         )
         self._logger.info("Logging system initialized")
+        logging.disable(logging.CRITICAL)
 
     def _setup_theme_system(self) -> None:
         """設置主題系統"""

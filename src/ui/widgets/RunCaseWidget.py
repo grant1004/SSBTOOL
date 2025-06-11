@@ -10,228 +10,6 @@ import json
 import datetime
 from typing import Dict, Any
 
-
-class PrettyProgressPrinter:
-    """漂亮的測試進度顯示器"""
-
-    # ANSI 顏色代碼
-    COLORS = {
-        'RESET': '\033[0m',
-        'BOLD': '\033[1m',
-        'DIM': '\033[2m',
-        'RED': '\033[91m',
-        'GREEN': '\033[92m',
-        'YELLOW': '\033[93m',
-        'BLUE': '\033[94m',
-        'MAGENTA': '\033[95m',
-        'CYAN': '\033[96m',
-        'WHITE': '\033[97m',
-        'GRAY': '\033[90m'
-    }
-
-    # 圖標
-    ICONS = {
-        'test_start': '🚀',
-        'test_end': '✅',
-        'keyword_start': '⚡',
-        'keyword_end': '📝',
-        'log': '📋',
-        'running': '🔄',
-        'pass': '✅',
-        'fail': '❌',
-        'error': '⚠️',
-        'info': 'ℹ️'
-    }
-
-    def __init__(self, show_timestamp=True, use_colors=True, use_icons=True):
-        self.show_timestamp = show_timestamp
-        self.use_colors = use_colors
-        self.use_icons = use_icons
-        self.indent_level = 0
-
-    def _colorize(self, text: str, color: str) -> str:
-        """為文字添加顏色"""
-        if not self.use_colors:
-            return text
-        return f"{self.COLORS.get(color, '')}{text}{self.COLORS['RESET']}"
-
-    def _get_icon(self, icon_key: str) -> str:
-        """獲取圖標"""
-        if not self.use_icons:
-            return ""
-        return self.ICONS.get(icon_key, "") + " "
-
-    def _get_timestamp(self) -> str:
-        """獲取時間戳"""
-        if not self.show_timestamp:
-            return ""
-        return f"[{datetime.datetime.now().strftime('%H:%M:%S')}] "
-
-    def _get_indent(self) -> str:
-        """獲取縮排"""
-        return "  " * self.indent_level
-
-    def _format_test_start(self, data: Dict[str, Any]) -> str:
-        """格式化測試開始訊息"""
-        test_name = data.get('test_name', 'Unknown Test')
-        icon = self._get_icon('test_start')
-        timestamp = self._get_timestamp()
-        indent = self._get_indent()
-
-        header = "=" * 60
-        title = f"{icon}開始測試: {test_name}"
-
-        return (f"\n{self._colorize(header, 'CYAN')}\n"
-                f"{timestamp}{indent}{self._colorize(title, 'CYAN')}\n"
-                f"{self._colorize(header, 'CYAN')}")
-
-    def _format_test_end(self, data: Dict[str, Any]) -> str:
-        """格式化測試結束訊息"""
-        test_name = data.get('test_name', 'Unknown Test')
-        status = data.get('status', 'UNKNOWN')
-        message = data.get('message', '')
-
-        if status == 'PASS':
-            icon = self._get_icon('pass')
-            color = 'GREEN'
-            status_text = "測試通過"
-        elif status == 'FAIL':
-            icon = self._get_icon('fail')
-            color = 'RED'
-            status_text = "測試失敗"
-        else:
-            icon = self._get_icon('test_end')
-            color = 'YELLOW'
-            status_text = f"測試結束 ({status})"
-
-        timestamp = self._get_timestamp()
-        indent = self._get_indent()
-
-        result = (f"{timestamp}{indent}{icon}{self._colorize(status_text, color)}: "
-                  f"{self._colorize(test_name, 'WHITE')}")
-
-        if message:
-            result += f"\n{timestamp}{indent}  {self._colorize('訊息:', 'GRAY')} {self._colorize(message, color)}"
-
-        footer = "=" * 60
-        result += f"\n{self._colorize(footer, 'GRAY')}\n"
-
-        return result
-
-    def _format_keyword_start(self, data: Dict[str, Any]) -> str:
-        """格式化關鍵字開始訊息"""
-        keyword_name = data.get('keyword_name', 'Unknown Keyword')
-        icon = self._get_icon('keyword_start')
-        timestamp = self._get_timestamp()
-        indent = self._get_indent()
-
-        return (f"{timestamp}{indent}{icon}{self._colorize('執行關鍵字:', 'BLUE')} "
-                f"{self._colorize(keyword_name, 'WHITE')}")
-
-    def _format_keyword_end(self, data: Dict[str, Any]) -> str:
-        """格式化關鍵字結束訊息"""
-        keyword_name = data.get('keyword_name', 'Unknown Keyword')
-        status = data.get('status', 'UNKNOWN')
-        message = data.get('message', '')
-
-        if status == 'PASS':
-            icon = self._get_icon('pass')
-            color = 'GREEN'
-            status_text = "完成"
-        elif status == 'FAIL':
-            icon = self._get_icon('fail')
-            color = 'RED'
-            status_text = "失敗"
-        else:
-            icon = self._get_icon('keyword_end')
-            color = 'YELLOW'
-            status_text = status
-
-        timestamp = self._get_timestamp()
-        indent = self._get_indent()
-
-        result = (f"{timestamp}{indent}{icon}{self._colorize(f'關鍵字{status_text}:', color)} "
-                  f"{self._colorize(keyword_name, 'DIM')}")
-
-        if message:
-            result += f"\n{timestamp}{indent}  {self._colorize('→', 'GRAY')} {self._colorize(message, color)}"
-
-        return result
-
-    def _format_log(self, data: Dict[str, Any]) -> str:
-        """格式化日誌訊息"""
-        level = data.get('level', 'INFO')
-        message = data.get('message', '')
-        keyword_name = data.get('keyword_name', '')
-
-        if level == 'FAIL':
-            icon = self._get_icon('fail')
-            color = 'RED'
-            level_text = "錯誤"
-        elif level == 'ERROR':
-            icon = self._get_icon('error')
-            color = 'RED'
-            level_text = "錯誤"
-        elif level == 'WARN':
-            icon = self._get_icon('error')
-            color = 'YELLOW'
-            level_text = "警告"
-        else:
-            icon = self._get_icon('info')
-            color = 'CYAN'
-            level_text = "資訊"
-
-        timestamp = self._get_timestamp()
-        indent = self._get_indent()
-
-        result = f"{timestamp}{indent}{icon}{self._colorize(f'[{level_text}]', color)} {self._colorize(message, color)}"
-
-        if keyword_name:
-            result += f"\n{timestamp}{indent}  {self._colorize('來源:', 'GRAY')} {self._colorize(keyword_name, 'DIM')}"
-
-        return result
-
-    def update_progress(self, message: Dict[str, Any], test_id: int = None):
-        """更新進度顯示"""
-        try:
-            msg_type = message.get('type', 'unknown')
-            data = message.get('data', {})
-
-            # 根據訊息類型調整縮排
-            if msg_type == 'test_start':
-                self.indent_level = 0
-            elif msg_type in ['keyword_start', 'log']:
-                self.indent_level = 1
-            elif msg_type == 'keyword_end':
-                self.indent_level = 1
-            elif msg_type == 'test_end':
-                self.indent_level = 1
-
-            # 格式化不同類型的訊息
-            if msg_type == 'test_start':
-                formatted_msg = self._format_test_start(data)
-            elif msg_type == 'test_end':
-                formatted_msg = self._format_test_end(data)
-            elif msg_type == 'keyword_start':
-                formatted_msg = self._format_keyword_start(data)
-            elif msg_type == 'keyword_end':
-                formatted_msg = self._format_keyword_end(data)
-            elif msg_type == 'log':
-                formatted_msg = self._format_log(data)
-            else:
-                # 未知類型，使用簡單格式
-                timestamp = self._get_timestamp()
-                indent = self._get_indent()
-                formatted_msg = f"{timestamp}{indent}{self._colorize('[未知]', 'GRAY')} {str(message)}"
-
-            print(formatted_msg)
-
-        except Exception as e:
-            # 如果格式化失敗，回退到原始輸出
-            print(f"{self._colorize('[錯誤]', 'RED')} 格式化失敗: {e}")
-            print(f"> {str(message)}")
-
-
 class RunCaseWidget(QWidget):
     update_ui = Signal()
 
@@ -409,15 +187,17 @@ class RunCaseWidget(QWidget):
         """更新進度顯示 - 增強接收追蹤版本"""
         self._received_counter += 1
         msg_type = message.get('type', 'unknown')
-        #
-        # print(f"[UI] 🔥 #{self._received_counter} Received: {msg_type} for test_id: {test_id}")
-        #
+        test_name = message.get('data', {}).get('test_name', '')
+        key_word = message.get('data', {}).get('keyword_name', '')
         # 記錄接收的訊息
         message_record = {
             'counter': self._received_counter,
+            'test_name': test_name,
+            'keyword': key_word,
             'type': msg_type,
             'test_id': test_id,
-            'timestamp': QDateTime.currentDateTime().toString()
+            'timestamp': QDateTime.currentDateTime().toString(),
+            'message' : message
         }
         self._received_messages.append(message_record)
 
@@ -425,14 +205,16 @@ class RunCaseWidget(QWidget):
         panel.update_status(message)
         self._update_ui()
 
-
     def reset_test(self):
         for panel in self.test_cases.values():
             panel['panel'].reset_status()
 
-    def test_finished(self, result: bool):
-        pass
-        # print(f"[UI] 📋 Received messages history ({ self._received_counter }): {[m['type'] for m in self._received_messages]}")
+    def test_finished(self, success : bool ) :
+        for msg in self._received_messages :
+            # print( msg['message'] )
+            formatted = PrettyMessageFormatter.format_message(msg)
+            print(formatted)
+        self._received_messages.clear()
 
     # 新增處理右鍵選單動作的方法
     def handle_delete_item(self, panel):
@@ -509,3 +291,193 @@ class RunCaseWidget(QWidget):
                 if panel_id in self.test_cases:
                     ordered_cases.append(self.test_cases[panel_id])
         return ordered_cases
+
+class PrettyMessageFormatter:
+    """漂亮的消息格式化器"""
+
+    # 🎨 消息類型顏色和符號
+    TYPE_STYLES = {
+        'test_start': {'emoji': '🚀', 'color': '\033[92m', 'label': 'TEST_START'},  # 綠色
+        'test_end': {'emoji': '🏁', 'color': '\033[94m', 'label': 'TEST_END'},  # 藍色
+        'keyword_start': {'emoji': '▶️', 'color': '\033[93m', 'label': 'KW_START'},  # 黃色
+        'keyword_end': {'emoji': '✅', 'color': '\033[95m', 'label': 'KW_END'},  # 紫色
+        'log': {'emoji': '📝', 'color': '\033[96m', 'label': 'LOG'},  # 青色
+        'error': {'emoji': '❌', 'color': '\033[91m', 'label': 'ERROR'},  # 紅色
+        'unknown': {'emoji': '❓', 'color': '\033[90m', 'label': 'UNKNOWN'},  # 灰色
+    }
+
+    # 🎨 狀態顏色
+    STATUS_COLORS = {
+        'PASS': '\033[92m',  # 綠色
+        'FAIL': '\033[91m',  # 紅色
+        'RUNNING': '\033[93m',  # 黃色
+        'SKIP': '\033[90m',  # 灰色
+    }
+
+    # 重置顏色
+    RESET = '\033[0m'
+    BOLD = '\033[1m'
+
+    @classmethod
+    def format_message(cls, msg: Dict[str, Any], compact: bool = False) -> str:
+        """
+        格式化消息為漂亮的輸出
+
+        Args:
+            msg: 消息字典
+            compact: 是否使用緊湊格式
+        """
+        if compact:
+            return cls._format_compact(msg)
+        else:
+            return cls._format_detailed(msg)
+
+    @classmethod
+    def _format_detailed(cls, msg: Dict[str, Any]) -> str:
+        """詳細格式化"""
+
+        # 獲取基本信息
+        counter = msg.get('counter', '?')
+        msg_type = msg.get('type', 'unknown')
+        keyword = msg.get('keyword', '')
+        test_name = msg.get('test_name', '')
+        test_id = msg.get('test_id', '')
+        timestamp = msg.get('timestamp', '')
+        status = msg.get('status', '')
+
+        # 獲取樣式
+        style = cls.TYPE_STYLES.get(msg_type, cls.TYPE_STYLES['unknown'])
+        emoji = style['emoji']
+        color = style['color']
+        label = style['label']
+
+        # 格式化時間戳
+        formatted_time = cls._format_timestamp(timestamp)
+
+        # 🔥 使用完整的測試名稱（不截斷）
+        full_test_name = test_name
+
+        # 格式化狀態
+        formatted_status = cls._format_status(status)
+
+        # 構建輸出
+        lines = []
+
+        # 主要信息行
+        header = f"{color}{cls.BOLD}#{counter:>3}{cls.RESET} {emoji} {color}{label:<12}{cls.RESET}"
+
+        if keyword:
+            header += f" │ 🔧 {cls.BOLD}{keyword}{cls.RESET}"
+
+        if formatted_status:
+            header += f" │ {formatted_status}"
+
+        lines.append(header)
+
+        # 詳細信息行
+        if test_id:
+            lines.append(f"    📋 Test ID: {cls.BOLD}{test_id}{cls.RESET}")
+
+        # 🔥 顯示完整測試名稱
+        if full_test_name:
+            lines.append(f"    📝 Test: {full_test_name}")
+
+        # 🔥 如果有keyword，單獨顯示一行
+        if keyword:
+            lines.append(f"    🔧 Keyword: {cls.BOLD}{keyword}{cls.RESET}")
+
+        if formatted_time:
+            lines.append(f"    ⏰ Time: {formatted_time}")
+
+        # 分隔線（可選）
+        if counter and int(str(counter)) % 5 == 0:
+            lines.append(f"    {'-' * 100}")
+
+        return '\n'.join(lines)
+
+    @classmethod
+    def _format_compact(cls, msg: Dict[str, Any]) -> str:
+        """緊湊格式化 - 顯示完整信息"""
+
+        counter = msg.get('counter', '?')
+        msg_type = msg.get('type', 'unknown')
+        keyword = msg.get('keyword', '')
+        test_name = msg.get('test_name', '')
+        test_id = msg.get('test_id', '')
+        status = msg.get('status', '')
+        timestamp = msg.get('timestamp', '')
+
+        # 獲取樣式
+        style = cls.TYPE_STYLES.get(msg_type, cls.TYPE_STYLES['unknown'])
+        emoji = style['emoji']
+        color = style['color']
+        label = style['label']
+
+        # 格式化狀態
+        status_str = f" [{cls._format_status(status, short=True)}]" if status else ""
+
+        # 格式化時間
+        time_str = cls._format_timestamp(timestamp)
+        time_display = f" ⏰{time_str}" if time_str else ""
+
+        # 🔥 構建完整的輸出行
+        lines = []
+
+        # 主要信息行
+        main_line = (f"{color}#{counter:>3}{cls.RESET} {emoji} {color}{label:<12}{cls.RESET}"
+                     f" │ 🆔{test_id}{status_str}{time_display}")
+        lines.append(main_line)
+
+        # 🔥 如果有keyword，顯示keyword行
+        if keyword:
+            keyword_line = f"     🔧 Keyword: {cls.BOLD}{keyword}{cls.RESET}"
+            lines.append(keyword_line)
+
+        # 🔥 如果有完整測試名稱，顯示測試名稱行
+        if test_name:
+            test_line = f"     📝 Test: {test_name}"
+            lines.append(test_line)
+
+        return '\n'.join(lines)
+
+    @classmethod
+    def _format_timestamp(cls, timestamp: Any) -> str:
+        """格式化時間戳"""
+        if not timestamp:
+            return ""
+
+        try:
+            if isinstance(timestamp, (int, float)):
+                dt = datetime.datetime.fromtimestamp(timestamp)
+                return dt.strftime("%H:%M:%S.%f")[:-3]  # 保留毫秒
+            elif isinstance(timestamp, str):
+                return timestamp
+            else:
+                return str(timestamp)
+        except:
+            return str(timestamp)
+
+    @classmethod
+    def _format_status(cls, status: str, short: bool = False) -> str:
+        """格式化狀態"""
+        if not status:
+            return ""
+
+        status_upper = status.upper()
+        color = cls.STATUS_COLORS.get(status_upper, '')
+
+        if short:
+            status_map = {'RUNNING': 'RUN', 'PASS': 'OK', 'FAIL': 'ERR'}
+            display_status = status_map.get(status_upper, status_upper[:3])
+        else:
+            display_status = status_upper
+
+        return f"{color}{display_status}{cls.RESET}" if color else display_status
+
+    @classmethod
+    def _truncate_test_name(cls, test_name: str, max_length: int = None) -> str:
+        """
+        🔥 修改：現在返回完整的測試名稱，不進行截斷
+        保留此函數以維護向後兼容性
+        """
+        return test_name if test_name else ""
