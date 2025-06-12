@@ -54,7 +54,7 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
             controller.register_view(self)
         self._logger.info("Device controller set and view registered")
 
-    # ==================== UI 設置 ====================
+    #region ==================== UI 設置 ====================
 
     def setup_ui(self):
         """設置 UI"""
@@ -405,8 +405,9 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
                 return parent.theme_manager
             parent = parent.parent() if hasattr(parent, 'parent') else None
         return None
+    #endregion
 
-    # ==================== 事件處理 ====================
+    #region ==================== 事件處理 ====================
 
     def _handle_device_click(self, device_type: DeviceType):
         """處理設備點擊"""
@@ -429,8 +430,9 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
     def _open_settings(self):
         """開啟設置對話框"""
         self.emit_user_action("settings_requested", None)
+    #endregion
 
-    # ==================== IDeviceView 接口實現 ====================
+    #region ==================== IDeviceView 接口實現 ====================
 
     def update_device_status(self, device_type: DeviceType, status: DeviceStatus) -> None:
         """更新設備狀態顯示"""
@@ -507,7 +509,9 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
             None, self.request_user_confirmation, message
         )
 
-    # ==================== IDeviceViewEvents 接口實現 ====================
+    # endregion
+
+    #region ==================== IDeviceViewEvents 接口實現 ====================
 
     def on_connect_requested(self, device_type: DeviceType) -> None:
         """連接請求"""
@@ -528,13 +532,17 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
         """設備設置請求"""
         self.emit_user_action("device_settings_requested", device_type)
 
-    # ==================== 主題更新 ====================
+    # endregion
+
+    #region ==================== 主題更新 ====================
 
     def update_theme(self):
         """更新主題（當主題變更時調用）"""
         self._setup_styles()
 
-    # ==================== 便利方法 ====================
+    # endregion
+
+    #region ==================== 便利方法 ====================
 
     def get_all_device_status(self) -> Dict[DeviceType, DeviceStatus]:
         """獲取所有設備狀態"""
@@ -561,3 +569,5 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
                 summary['connecting'] += 1
 
         return summary
+
+    # endregion

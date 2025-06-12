@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
 
         self.run_case_widget = widgets.RunCaseWidget(self)
 
-        self.run_widget = widgets.RunWidget(self)
+        # self.run_widget = widgets.RunWidget(self)
 
         # 添加到網格布局中
         # addWidget(widget, row, column, rowSpan, columnSpan)
@@ -72,7 +72,7 @@ class MainWindow(QMainWindow):
         grid.addWidget(self.top_widget, 0, 0, 1, 2)  # 頂部跨兩列
         grid.addWidget(self.test_case_widget, 1, 0, 2, 1)  # 左側
         grid.addWidget(self.run_case_widget, 1, 1, 1, 1)  # 右側
-        grid.addWidget(self.run_widget, 2, 1, 1, 1)  # 右下
+        # grid.addWidget(self.run_widget, 2, 1, 1, 1)  # 右下
 
         # 設置列（column）的比例
         grid.setColumnStretch(0, 3)  # 左側占 3

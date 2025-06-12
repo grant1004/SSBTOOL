@@ -163,7 +163,7 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
         self.refresh_button.clicked.connect(self.on_refresh_requested)
         self.refresh_button.setStyleSheet("""
                                            QPushButton {
-                                               background-color: #4CAF50;
+                                               background-color: #006C4D;
                                                color: white;
                                                border: none;
                                                border-radius: 6px;
@@ -171,7 +171,7 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
                                                font-weight: 600;
                                            }
                                            QPushButton:hover {
-                                               background-color: #45A049;
+                                               background-color: #90006C4D;
                                            }
                                        """)
         self.content_layout.addWidget(self.refresh_button, alignment=Qt.AlignmentFlag.AlignCenter)
