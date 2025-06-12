@@ -265,18 +265,7 @@ class IExecutionController(ABC):
     """執行控制器接口"""
 
     @abstractmethod
-    def register_execution_view(self, view: 'IExecutionView') -> None:
-        """註冊執行視圖"""
-        pass
-
-    @abstractmethod
-    def register_composition_view(self, view: 'ICompositionView') -> None:
-        """註冊組合視圖"""
-        pass
-
-    @abstractmethod
-    def register_control_view(self, view: 'IControlView') -> None:
-        """註冊控制視圖"""
+    def register_view(self, view: 'IExecutionView') -> None:
         pass
 
     @abstractmethod

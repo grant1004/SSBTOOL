@@ -59,13 +59,17 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
 
         self._logger.info("TestCaseWidget initialized with MVC architecture")
 
+    def register_controller(self, name: str, controller: TestCaseController) -> None:
+        super().register_controller(name, controller)
+        self._test_case_controller = controller
+        if controller :
+            controller.register_view(self)
+            self._logger.info("Test Case controller set and view registered")
+        self._load_initial_data()
+
     def set_test_case_controller(self, controller: TestCaseController) -> None:
         """設置測試案例控制器"""
-        self._test_case_controller = controller
-        if controller:
-            controller.register_view(self)
-            # 控制器設置完成後，觸發初始數據載入
-            self._load_initial_data()
+
         self._logger.info("Test case controller set and view registered")
 
     #region ==================== UI 設置 ====================

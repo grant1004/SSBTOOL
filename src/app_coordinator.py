@@ -10,7 +10,9 @@ from PySide6.QtCore import QObject, Signal
 import logging
 
 from src.business_models.device_business_model import DeviceBusinessModel
+from src.business_models.execution_business_model import TestExecutionBusinessModel
 from src.business_models.test_case_business_model import TestCaseBusinessModelFactory
+from src.controllers.execution_controller import ExecutionController
 from src.controllers.device_controller import DeviceController
 from src.controllers.test_case_controller import TestCaseController
 # 導入框架基礎類
@@ -198,10 +200,10 @@ class ApplicationCoordinator(QObject):
         )
 
         # 測試執行業務模型（將來實現）
-        # self.container.register_singleton(
-        #     "test_execution_business_model",
-        #     lambda: TestExecutionBusinessModel()
-        # )
+        self.container.register_singleton(
+            "test_execution_business_model",
+            lambda: TestExecutionBusinessModel()
+        )
 
         self._logger.info("Business models created")
 
@@ -226,13 +228,12 @@ class ApplicationCoordinator(QObject):
         )
 
         # 測試執行控制器（將來實現）
-        # self.container.register_singleton(
-        #     "execution_controller",
-        #     lambda: ExecutionController(
-        #         self.container.get_required("test_execution_business_model"),
-        #         self.container.get_required("device_business_model")
-        #     )
-        # )
+        self.container.register_singleton(
+            "execution_controller",
+            lambda: ExecutionController(
+                self.container.get_required("test_execution_business_model")
+            )
+        )
 
         self._logger.info("Controllers created")
 
@@ -259,7 +260,7 @@ class ApplicationCoordinator(QObject):
         self._logger.info("----------------- Wiring TopWidget start ----------------------------------")
         device_controller = self.container.get_required("device_controller")
         top_widget = self.container.get_required("top_widget")
-        top_widget.set_device_controller(device_controller)
+        top_widget.register_controller("device_controller", device_controller)
 
         #endregion
 
@@ -267,9 +268,17 @@ class ApplicationCoordinator(QObject):
         self._logger.info("----------------- Wiring TestCase start ----------------------------------")
         test_case_controller = self.container.get_required("test_case_controller")
         test_case_widget = self.container.get_required("test_case_widget")
-        test_case_widget.set_test_case_controller(test_case_controller)
+        test_case_widget.register_controller("test_case_controller", test_case_controller)
 
         #endregion
+
+        # region Execution Case
+        self._logger.info("----------------- Wiring Execution Case start ----------------------------------")
+        execution_controller = self.container.get_required("execution_controller")
+        run_case_widget = self.container.get_required("run_case_widget")
+        run_case_widget.register_controller( "execution_controller", execution_controller)
+
+        # endregion
 
         self._logger.info("Component wiring completed")
 

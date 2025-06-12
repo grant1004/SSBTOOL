@@ -47,12 +47,12 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
         self.setup_ui()
         self._logger.info("TopWidget initialized with improved design and background")
 
-    def set_device_controller(self, controller: DeviceController) -> None:
-        """設置設備控制器"""
+    def register_controller(self, name: str, controller: DeviceController) -> None:
+        super().register_controller(name, controller)
         self._device_controller = controller
         if controller:
             controller.register_view(self)
-        self._logger.info("Device controller set and view registered")
+            self._logger.info("Device controller set and view registered")
 
     #region ==================== UI 設置 ====================
 

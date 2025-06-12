@@ -496,6 +496,7 @@ from typing import Dict, List, Optional, Any
 import json
 import datetime
 
+from src.controllers.execution_controller import ExecutionController
 from src.mvc_framework.base_view import BaseView
 from src.interfaces.execution_interface import (
     IExecutionView, ICompositionView, IControlView,
@@ -517,6 +518,7 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
+        self._execution_controller: Optional[ExecutionController] = None
 
         # 狀態管理
         self._current_execution_state = ExecutionState.IDLE
@@ -538,6 +540,13 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         """設置信號連接"""
         # 連接基礎視圖的信號
         self.user_action.connect(self._handle_user_action)
+
+    def register_controller(self, name: str, controller: ExecutionController) -> None:
+        super().register_controller(name, controller)
+        self._execution_controller = controller
+        if controller:
+            controller.register_view(self)
+            self._logger.info("Execution controller set and view registered")
 
     # region ==================== build UI ====================
 
