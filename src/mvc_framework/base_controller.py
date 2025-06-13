@@ -3,7 +3,7 @@
 MVC 框架基礎 Controller 類
 提供通用的控制器功能
 """
-
+import inspect
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Callable
 from PySide6.QtCore import QObject, Signal, Slot
@@ -156,12 +156,20 @@ class BaseController(QObject, metaclass=QObjectABCMeta):
 
         handler = handler_map.get(action_name)
         if handler:
+            sig = inspect.signature(handler)
+            params = list(sig.parameters.values())
+
+            # 移除 self 參數
+            if params and params[0].name == 'self':
+                params = params[1:]
+                # 準備調用參數
+            call_kwargs = self._prepare_call_arguments(params, action_data)
             try:
                 # 如果是異步方法，使用 asyncio 處理
                 if asyncio.iscoroutinefunction(handler):
-                    asyncio.create_task(handler(action_data))
+                    asyncio.create_task(handler(**call_kwargs))
                 else:
-                    handler(action_data)
+                    handler(**call_kwargs)
             except Exception as e:
                 self._logger.error(f"Error handling action {action_name}: {e}")
                 self._handle_action_error(action_name, e)
@@ -179,3 +187,51 @@ class BaseController(QObject, metaclass=QObjectABCMeta):
         """處理操作執行錯誤 - 子類可以重寫"""
         self._logger.error(f"Action {action_name} failed: {error}")
 
+    def _prepare_call_arguments(self, params: list, action_data: Any) -> Dict[str, Any]:
+        """
+        根據方法參數準備調用參數
+
+        Args:
+            params: 方法參數列表
+            action_data: 動作數據
+
+        Returns:
+            準備好的關鍵字參數字典
+        """
+        call_kwargs = {}
+
+        for param in params:
+            param_name = param.name
+            param_type = param.annotation
+            has_default = param.default is not inspect.Parameter.empty
+
+            # 策略 1: 如果 action_data 是字典且包含參數名
+            if isinstance(action_data, dict) and param_name in action_data:
+                call_kwargs[param_name] = action_data[param_name]
+                continue
+
+            # 策略 2: 特殊參數名處理
+            if param_name in ['action_data', 'data', 'payload']:
+                call_kwargs[param_name] = action_data
+                continue
+
+            # 策略 3: 根據參數名稱匹配 action_data 的屬性
+            if hasattr(action_data, param_name):
+                call_kwargs[param_name] = getattr(action_data, param_name)
+                continue
+
+
+            # 策略 5: 如果只有一個參數，直接傳遞 action_data
+            if len(params) == 1:
+                call_kwargs[param_name] = action_data
+                continue
+
+            # 策略 6: 使用默認值
+            if has_default:
+                # 有默認值的參數不需要傳遞
+                continue
+
+            # 策略 7: 最後手段，傳遞 None 或 action_data
+            call_kwargs[param_name] = action_data
+
+        return call_kwargs

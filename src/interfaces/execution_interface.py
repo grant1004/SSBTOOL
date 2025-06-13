@@ -97,6 +97,7 @@ class ExecutionConfiguration:
     generate_report: bool = True
     output_directory: str = ""
     variables: Dict[str, Any] = None
+    metadata: Dict[str, Any] = None
 
 
 # ==================== Model 層接口 ====================
@@ -230,6 +231,11 @@ class ITestCompositionModel(ABC):
         """生成執行配置"""
         pass
 
+    @abstractmethod
+    def get_item_order(self) -> List[str]:
+        """獲取當前項目順序"""
+        pass
+
 
 class IReportGenerationModel(ABC):
     """報告生成模型接口"""
@@ -303,7 +309,7 @@ class IExecutionController(ABC):
         pass
 
     @abstractmethod
-    def handle_test_item_clear(self, item_id: str, direction: str) -> None:
+    def handle_test_item_clear(self) -> None:
         """刪除所有項目"""
         pass
 
@@ -323,7 +329,7 @@ class IExecutionController(ABC):
         pass
 
     @abstractmethod
-    def get_current_execution_status(self) -> Dict[str, Any]:
+    def get_current_execution_status(self) -> ExecutionState:
         """獲取當前執行狀態"""
         pass
 
@@ -395,6 +401,13 @@ class ICompositionView(ABC):
     @abstractmethod
     def show_composition_validation_errors(self, errors: List[str]) -> None:
         """顯示組合驗證錯誤"""
+        pass
+
+    @abstractmethod
+    def clear_all_test_items_ui(self) -> None:
+        """
+        清空所有測試項目的 UI（由 Controller 調用）
+        """
         pass
 
 

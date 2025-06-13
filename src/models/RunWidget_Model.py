@@ -5,11 +5,9 @@ import json
 import os
 import time
 
-from src.Container import singleton
 from src.worker import RobotTestWorker
 
 
-@singleton
 class RunWidget_Model(QObject):
     test_progress = Signal(dict, long)  # 測試進度信號, test id
     test_finished = Signal(bool)

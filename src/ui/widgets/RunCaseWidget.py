@@ -292,202 +292,10 @@
 #                     ordered_cases.append(self.test_cases[panel_id])
 #         return ordered_cases
 #
-# class PrettyMessageFormatter:
-#     """漂亮的消息格式化器"""
-#
-#     # 🎨 消息類型顏色和符號
-#     TYPE_STYLES = {
-#         'test_start': {'emoji': '🚀', 'color': '\033[92m', 'label': 'TEST_START'},  # 綠色
-#         'test_end': {'emoji': '🏁', 'color': '\033[94m', 'label': 'TEST_END'},  # 藍色
-#         'keyword_start': {'emoji': '▶️', 'color': '\033[93m', 'label': 'KW_START'},  # 黃色
-#         'keyword_end': {'emoji': '✅', 'color': '\033[95m', 'label': 'KW_END'},  # 紫色
-#         'log': {'emoji': '📝', 'color': '\033[96m', 'label': 'LOG'},  # 青色
-#         'error': {'emoji': '❌', 'color': '\033[91m', 'label': 'ERROR'},  # 紅色
-#         'unknown': {'emoji': '❓', 'color': '\033[90m', 'label': 'UNKNOWN'},  # 灰色
-#     }
-#
-#     # 🎨 狀態顏色
-#     STATUS_COLORS = {
-#         'PASS': '\033[92m',  # 綠色
-#         'FAIL': '\033[91m',  # 紅色
-#         'RUNNING': '\033[93m',  # 黃色
-#         'SKIP': '\033[90m',  # 灰色
-#     }
-#
-#     # 重置顏色
-#     RESET = '\033[0m'
-#     BOLD = '\033[1m'
-#
-#     @classmethod
-#     def format_message(cls, msg: Dict[str, Any], compact: bool = False) -> str:
-#         """
-#         格式化消息為漂亮的輸出
-#
-#         Args:
-#             msg: 消息字典
-#             compact: 是否使用緊湊格式
-#         """
-#         if compact:
-#             return cls._format_compact(msg)
-#         else:
-#             return cls._format_detailed(msg)
-#
-#     @classmethod
-#     def _format_detailed(cls, msg: Dict[str, Any]) -> str:
-#         """詳細格式化"""
-#
-#         # 獲取基本信息
-#         counter = msg.get('counter', '?')
-#         msg_type = msg.get('type', 'unknown')
-#         keyword = msg.get('keyword', '')
-#         test_name = msg.get('test_name', '')
-#         test_id = msg.get('test_id', '')
-#         timestamp = msg.get('timestamp', '')
-#         status = msg.get('status', '')
-#
-#         # 獲取樣式
-#         style = cls.TYPE_STYLES.get(msg_type, cls.TYPE_STYLES['unknown'])
-#         emoji = style['emoji']
-#         color = style['color']
-#         label = style['label']
-#
-#         # 格式化時間戳
-#         formatted_time = cls._format_timestamp(timestamp)
-#
-#         # 🔥 使用完整的測試名稱（不截斷）
-#         full_test_name = test_name
-#
-#         # 格式化狀態
-#         formatted_status = cls._format_status(status)
-#
-#         # 構建輸出
-#         lines = []
-#
-#         # 主要信息行
-#         header = f"{color}{cls.BOLD}#{counter:>3}{cls.RESET} {emoji} {color}{label:<12}{cls.RESET}"
-#
-#         if keyword:
-#             header += f" │ 🔧 {cls.BOLD}{keyword}{cls.RESET}"
-#
-#         if formatted_status:
-#             header += f" │ {formatted_status}"
-#
-#         lines.append(header)
-#
-#         # 詳細信息行
-#         if test_id:
-#             lines.append(f"    📋 Test ID: {cls.BOLD}{test_id}{cls.RESET}")
-#
-#         # 🔥 顯示完整測試名稱
-#         if full_test_name:
-#             lines.append(f"    📝 Test: {full_test_name}")
-#
-#         # 🔥 如果有keyword，單獨顯示一行
-#         if keyword:
-#             lines.append(f"    🔧 Keyword: {cls.BOLD}{keyword}{cls.RESET}")
-#
-#         if formatted_time:
-#             lines.append(f"    ⏰ Time: {formatted_time}")
-#
-#         # 分隔線（可選）
-#         if counter and int(str(counter)) % 5 == 0:
-#             lines.append(f"    {'-' * 100}")
-#
-#         return '\n'.join(lines)
-#
-#     @classmethod
-#     def _format_compact(cls, msg: Dict[str, Any]) -> str:
-#         """緊湊格式化 - 顯示完整信息"""
-#
-#         counter = msg.get('counter', '?')
-#         msg_type = msg.get('type', 'unknown')
-#         keyword = msg.get('keyword', '')
-#         test_name = msg.get('test_name', '')
-#         test_id = msg.get('test_id', '')
-#         status = msg.get('status', '')
-#         timestamp = msg.get('timestamp', '')
-#
-#         # 獲取樣式
-#         style = cls.TYPE_STYLES.get(msg_type, cls.TYPE_STYLES['unknown'])
-#         emoji = style['emoji']
-#         color = style['color']
-#         label = style['label']
-#
-#         # 格式化狀態
-#         status_str = f" [{cls._format_status(status, short=True)}]" if status else ""
-#
-#         # 格式化時間
-#         time_str = cls._format_timestamp(timestamp)
-#         time_display = f" ⏰{time_str}" if time_str else ""
-#
-#         # 🔥 構建完整的輸出行
-#         lines = []
-#
-#         # 主要信息行
-#         main_line = (f"{color}#{counter:>3}{cls.RESET} {emoji} {color}{label:<12}{cls.RESET}"
-#                      f" │ 🆔{test_id}{status_str}{time_display}")
-#         lines.append(main_line)
-#
-#         # 🔥 如果有keyword，顯示keyword行
-#         if keyword:
-#             keyword_line = f"     🔧 Keyword: {cls.BOLD}{keyword}{cls.RESET}"
-#             lines.append(keyword_line)
-#
-#         # 🔥 如果有完整測試名稱，顯示測試名稱行
-#         if test_name:
-#             test_line = f"     📝 Test: {test_name}"
-#             lines.append(test_line)
-#
-#         return '\n'.join(lines)
-#
-#     @classmethod
-#     def _format_timestamp(cls, timestamp: Any) -> str:
-#         """格式化時間戳"""
-#         if not timestamp:
-#             return ""
-#
-#         try:
-#             if isinstance(timestamp, (int, float)):
-#                 dt = datetime.datetime.fromtimestamp(timestamp)
-#                 return dt.strftime("%H:%M:%S.%f")[:-3]  # 保留毫秒
-#             elif isinstance(timestamp, str):
-#                 return timestamp
-#             else:
-#                 return str(timestamp)
-#         except:
-#             return str(timestamp)
-#
-#     @classmethod
-#     def _format_status(cls, status: str, short: bool = False) -> str:
-#         """格式化狀態"""
-#         if not status:
-#             return ""
-#
-#         status_upper = status.upper()
-#         color = cls.STATUS_COLORS.get(status_upper, '')
-#
-#         if short:
-#             status_map = {'RUNNING': 'RUN', 'PASS': 'OK', 'FAIL': 'ERR'}
-#             display_status = status_map.get(status_upper, status_upper[:3])
-#         else:
-#             display_status = status_upper
-#
-#         return f"{color}{display_status}{cls.RESET}" if color else display_status
-#
-#     @classmethod
-#     def _truncate_test_name(cls, test_name: str, max_length: int = None) -> str:
-#         """
-#         🔥 修改：現在返回完整的測試名稱，不進行截斷
-#         保留此函數以維護向後兼容性
-#         """
-#         return test_name if test_name else ""
-
 
 # src/ui/widgets/RunCaseWidget.py
 
-"""
-重構的 RunCaseWidget - 實現執行、組合和控制視圖接口
-"""
+import uuid
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
@@ -571,7 +379,6 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
 
         # 測試項目組合區域
         self._setup_composition_area()
-
 
     def _setup_control_area(self):
         """設置控制區域"""
@@ -948,6 +755,17 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         else:  # KEYWORD
             widget = BaseKeywordProgressCard(item.config, self.content_widget)
 
+        # 連接信號
+        widget.delete_requested.connect(
+            lambda: self.on_test_item_delete_requested(item.id)
+        )
+        widget.move_up_requested.connect(
+            lambda: self.on_test_item_move_requested(item.id, "up")
+        )
+        widget.move_down_requested.connect(
+            lambda: self.on_test_item_move_requested(item.id, "down")
+        )
+
         # 設置右鍵選單
         self._setup_item_context_menu(widget, item.id)
 
@@ -957,6 +775,9 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         # 保存引用
         self._test_items[item.id] = item
         self._ui_widgets[item.id] = widget
+
+
+        self.scroll_area.ensureWidgetVisible(widget)
 
         self._logger.info(f"Added test item UI: {item.name} ({item.type.value})")
 
@@ -1045,6 +866,32 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
             error_text = "組合驗證錯誤:\n" + "\n".join(f"• {error}" for error in errors)
             self.show_error_message(error_text)
 
+    def clear_all_test_items_ui(self) -> None:
+        """
+        清空所有測試項目的 UI（由 Controller 調用）
+        """
+        try:
+            # 1. 移除所有 widgets
+            for item_id, widget in list(self._ui_widgets.items()):
+                self.content_layout.removeWidget(widget)
+                widget.hide()
+                widget.deleteLater()
+
+            # 2. 清空引用
+            self._ui_widgets.clear()
+            self._test_items.clear()
+
+            # 3. 顯示空狀態
+            self.empty_label.setVisible(True)
+
+            # 5. 重置進度顯示
+            self.reset_execution_display()
+
+            self._logger.info("All test items cleared from UI")
+
+        except Exception as e:
+            self._logger.error(f"Error clearing test items UI: {e}")
+
     # endregion
 
     # region ==================== IControlView 接口實現 ====================
@@ -1099,10 +946,7 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
 
     def on_run_requested(self) -> None:
         """當請求運行時觸發"""
-        if self._current_execution_state == ExecutionState.PAUSED:
-            self.emit_user_action("resume_execution")
-        else:
-            self.emit_user_action("start_execution", {"test_items": list(self._test_items.values())})
+        self.emit_user_action("start_execution", {"test_items": list(self._test_items.values())})
 
     def on_stop_requested(self) -> None:
         """當請求停止時觸發"""
@@ -1126,9 +970,67 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
     # region==================== ICompositionViewEvents 接口實現 ====================
 
     def on_test_item_dropped(self, item_data: Dict[str, Any], item_type: TestItemType) -> None:
-        """當測試項目被拖放時觸發"""
+        """ 
+        
+        self.on_test_item_dropped(data, TestItemType.TEST_CASE)
+        data : 
+            x-testcase : { 
+                'id': 'user_testcase_1749462979', 
+                'config': {
+                    'id': 'user_testcase_1749462979', 
+                    'name': 'Test HMI Assist Level Button click', 
+                    'description': '測試 Assist Level ( 0x300 ) 通訊是否正常', 
+                    'type': 'testcase', 
+                    'category': 'hmi', 
+                    'priority': 'required', 
+                    'steps': [
+                        {'step_type': 'testcase', 'testcase_id': 1959481067648, 'testcase_name': 'Reset Assist Level to 0 and Check success.', 'description': 'short down button click * 3, \ncheck payload 0x300 reset to 00', 'priority': 'optional', 'steps': [{'step_type': 'keyword', 'keyword_id': 2332295292352, 'keyword_name': 'button_short_press', 'keyword_category': 'hmi', 'parameters': {'button': '"down"'}, 'description': '按鈕短按操作'}, {'step_type': 'keyword', 'keyword_id': 2332295194944, 'keyword_name': 'button_short_press', 'keyword_category': 'hmi', 'parameters': {'button': '"down"'}, 'description': '按鈕短按操作'}, {'step_type': 'keyword', 'keyword_id': 2332291237888, 'keyword_name': 'button_short_press', 'keyword_category': 'hmi', 'parameters': {'button': '"down"'}, 'description': '按鈕短按操作'}, {'step_type': 'keyword', 'keyword_id': 2332289428480, 'keyword_name': 'check_payload', 'keyword_category': 'common', 'parameters': {'expected_payload': '00 5A 00 5A 00 00 00 XX', 'expected_can_id': '0x300', 'timeout': '5', 'expected_fields': ''}, 'description': '高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）'}]}, 
+                        {'step_type': 'keyword', 'keyword_id': 1959411948096, 'keyword_name': 'button_short_press', 'keyword_category': 'hmi', 'parameters': {'button': '"up"'}, 'description': '按鈕短按操作'}, 
+                        {'step_type': 'keyword', 'keyword_id': 1959393357120, 'keyword_name': 'check_payload', 'keyword_category': 'common', 'parameters': {'expected_payload': '01 xx xx xx xx xx xx xx', 'expected_can_id': '0x300 ', 'timeout': '5', 'expected_fields': ''}, 'description': '高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）'}, 
+                        .
+                        .
+                        .
+                    ], 
+                    'estimated_time': 26, 
+                    'dependencies': {'libraries': ['hmi', 'common'], 
+                    'keywords': ['button_short_press', 'check_payload']},
+                    'created_by': 'user', 
+                    'created_at': '', 
+                    'metadata': {'source_composition': 'user_Test HMI Assist Level Button click.json', 'total_steps': 13}}
+                }
+            keyword : {
+                'id': 'all_buttons_off', 
+                'config': {
+                    'id': 'all_buttons_off', 
+                    'name': 'all_buttons_off', 
+                    'category': 'hmi', 
+                    'description': '釋放所有按鈕 Examples: | All Buttons Off |', 
+                    'arguments': [], 
+                    'returns': '', 
+                    'priority': 'optional'
+                }
+            }
+
+        """
+
+        # 1. 生成穩定的唯一 ID
+        item_id = str(uuid.uuid4())
+
+        # 2. 創建標準的 TestItem 數據結構
+        test_item = TestItem(
+            id=item_id,
+            type=item_type,
+            name=item_data.get('name', ''),
+            config=item_data.get('config', item_data),  # 保留完整配置
+            status=TestItemStatus.WAITING,
+            progress=0
+        )
+
         self.emit_user_action("add_test_item", {
-            "item_data": item_data,
+            "item_data": {
+                "test_item": test_item,
+                "test_data": item_data
+            },  # 保留原始數據
             "item_type": item_type
         })
 
@@ -1202,6 +1104,10 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
 
     def _on_clear_clicked(self):
         """清空按鈕點擊處理"""
+        if self._current_execution_state == ExecutionState.RUNNING:
+            self.show_warning_message("無法在執行中清空測試項目")
+            return
+
         if len(self._test_items) > 0:
             if self.ask_user_confirmation("確定要清空所有測試項目嗎？", "確認清空"):
                 self.on_composition_cleared()
@@ -1254,3 +1160,195 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         """獲取當前執行狀態"""
         return self._current_execution_state
     # endregion
+
+
+class PrettyMessageFormatter:
+    """漂亮的消息格式化器"""
+
+    # 🎨 消息類型顏色和符號
+    TYPE_STYLES = {
+        'test_start': {'emoji': '🚀', 'color': '\033[92m', 'label': 'TEST_START'},  # 綠色
+        'test_end': {'emoji': '🏁', 'color': '\033[94m', 'label': 'TEST_END'},  # 藍色
+        'keyword_start': {'emoji': '▶️', 'color': '\033[93m', 'label': 'KW_START'},  # 黃色
+        'keyword_end': {'emoji': '✅', 'color': '\033[95m', 'label': 'KW_END'},  # 紫色
+        'log': {'emoji': '📝', 'color': '\033[96m', 'label': 'LOG'},  # 青色
+        'error': {'emoji': '❌', 'color': '\033[91m', 'label': 'ERROR'},  # 紅色
+        'unknown': {'emoji': '❓', 'color': '\033[90m', 'label': 'UNKNOWN'},  # 灰色
+    }
+
+    # 🎨 狀態顏色
+    STATUS_COLORS = {
+        'PASS': '\033[92m',  # 綠色
+        'FAIL': '\033[91m',  # 紅色
+        'RUNNING': '\033[93m',  # 黃色
+        'SKIP': '\033[90m',  # 灰色
+    }
+
+    # 重置顏色
+    RESET = '\033[0m'
+    BOLD = '\033[1m'
+
+    @classmethod
+    def format_message(cls, msg: Dict[str, Any], compact: bool = False) -> str:
+        """
+        格式化消息為漂亮的輸出
+
+        Args:
+            msg: 消息字典
+            compact: 是否使用緊湊格式
+        """
+        if compact:
+            return cls._format_compact(msg)
+        else:
+            return cls._format_detailed(msg)
+
+    @classmethod
+    def _format_detailed(cls, msg: Dict[str, Any]) -> str:
+        """詳細格式化"""
+
+        # 獲取基本信息
+        counter = msg.get('counter', '?')
+        msg_type = msg.get('type', 'unknown')
+        keyword = msg.get('keyword', '')
+        test_name = msg.get('test_name', '')
+        test_id = msg.get('test_id', '')
+        timestamp = msg.get('timestamp', '')
+        status = msg.get('status', '')
+
+        # 獲取樣式
+        style = cls.TYPE_STYLES.get(msg_type, cls.TYPE_STYLES['unknown'])
+        emoji = style['emoji']
+        color = style['color']
+        label = style['label']
+
+        # 格式化時間戳
+        formatted_time = cls._format_timestamp(timestamp)
+
+        # 🔥 使用完整的測試名稱（不截斷）
+        full_test_name = test_name
+
+        # 格式化狀態
+        formatted_status = cls._format_status(status)
+
+        # 構建輸出
+        lines = []
+
+        # 主要信息行
+        header = f"{color}{cls.BOLD}#{counter:>3}{cls.RESET} {emoji} {color}{label:<12}{cls.RESET}"
+
+        if keyword:
+            header += f" │ 🔧 {cls.BOLD}{keyword}{cls.RESET}"
+
+        if formatted_status:
+            header += f" │ {formatted_status}"
+
+        lines.append(header)
+
+        # 詳細信息行
+        if test_id:
+            lines.append(f"    📋 Test ID: {cls.BOLD}{test_id}{cls.RESET}")
+
+        # 🔥 顯示完整測試名稱
+        if full_test_name:
+            lines.append(f"    📝 Test: {full_test_name}")
+
+        # 🔥 如果有keyword，單獨顯示一行
+        if keyword:
+            lines.append(f"    🔧 Keyword: {cls.BOLD}{keyword}{cls.RESET}")
+
+        if formatted_time:
+            lines.append(f"    ⏰ Time: {formatted_time}")
+
+        # 分隔線（可選）
+        if counter and int(str(counter)) % 5 == 0:
+            lines.append(f"    {'-' * 100}")
+
+        return '\n'.join(lines)
+
+    @classmethod
+    def _format_compact(cls, msg: Dict[str, Any]) -> str:
+        """緊湊格式化 - 顯示完整信息"""
+
+        counter = msg.get('counter', '?')
+        msg_type = msg.get('type', 'unknown')
+        keyword = msg.get('keyword', '')
+        test_name = msg.get('test_name', '')
+        test_id = msg.get('test_id', '')
+        status = msg.get('status', '')
+        timestamp = msg.get('timestamp', '')
+
+        # 獲取樣式
+        style = cls.TYPE_STYLES.get(msg_type, cls.TYPE_STYLES['unknown'])
+        emoji = style['emoji']
+        color = style['color']
+        label = style['label']
+
+        # 格式化狀態
+        status_str = f" [{cls._format_status(status, short=True)}]" if status else ""
+
+        # 格式化時間
+        time_str = cls._format_timestamp(timestamp)
+        time_display = f" ⏰{time_str}" if time_str else ""
+
+        # 🔥 構建完整的輸出行
+        lines = []
+
+        # 主要信息行
+        main_line = (f"{color}#{counter:>3}{cls.RESET} {emoji} {color}{label:<12}{cls.RESET}"
+                     f" │ 🆔{test_id}{status_str}{time_display}")
+        lines.append(main_line)
+
+        # 🔥 如果有keyword，顯示keyword行
+        if keyword:
+            keyword_line = f"     🔧 Keyword: {cls.BOLD}{keyword}{cls.RESET}"
+            lines.append(keyword_line)
+
+        # 🔥 如果有完整測試名稱，顯示測試名稱行
+        if test_name:
+            test_line = f"     📝 Test: {test_name}"
+            lines.append(test_line)
+
+        return '\n'.join(lines)
+
+    @classmethod
+    def _format_timestamp(cls, timestamp: Any) -> str:
+        """格式化時間戳"""
+        if not timestamp:
+            return ""
+
+        try:
+            if isinstance(timestamp, (int, float)):
+                dt = datetime.datetime.fromtimestamp(timestamp)
+                return dt.strftime("%H:%M:%S.%f")[:-3]  # 保留毫秒
+            elif isinstance(timestamp, str):
+                return timestamp
+            else:
+                return str(timestamp)
+        except:
+            return str(timestamp)
+
+    @classmethod
+    def _format_status(cls, status: str, short: bool = False) -> str:
+        """格式化狀態"""
+        if not status:
+            return ""
+
+        status_upper = status.upper()
+        color = cls.STATUS_COLORS.get(status_upper, '')
+
+        if short:
+            status_map = {'RUNNING': 'RUN', 'PASS': 'OK', 'FAIL': 'ERR'}
+            display_status = status_map.get(status_upper, status_upper[:3])
+        else:
+            display_status = status_upper
+
+        return f"{color}{display_status}{cls.RESET}" if color else display_status
+
+    @classmethod
+    def _truncate_test_name(cls, test_name: str, max_length: int = None) -> str:
+        """
+        🔥 修改：現在返回完整的測試名稱，不進行截斷
+        保留此函數以維護向後兼容性
+        """
+        return test_name if test_name else ""
+
