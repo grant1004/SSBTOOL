@@ -283,16 +283,6 @@ class IExecutionController(ABC):
         pass
 
     @abstractmethod
-    async def handle_pause_request(self) -> None:
-        """處理暫停請求"""
-        pass
-
-    @abstractmethod
-    async def handle_resume_request(self) -> None:
-        """處理恢復請求"""
-        pass
-
-    @abstractmethod
     async def handle_stop_request(self) -> None:
         """處理停止請求"""
         pass
@@ -310,6 +300,11 @@ class IExecutionController(ABC):
     @abstractmethod
     def handle_test_item_moved(self, item_id: str, direction: str) -> None:
         """處理測試項目移動"""
+        pass
+
+    @abstractmethod
+    def handle_test_item_clear(self, item_id: str, direction: str) -> None:
+        """刪除所有項目"""
         pass
 
     @abstractmethod
@@ -438,16 +433,6 @@ class IExecutionViewEvents(ABC):
         pass
 
     @abstractmethod
-    def on_pause_requested(self) -> None:
-        """當請求暫停時觸發"""
-        pass
-
-    @abstractmethod
-    def on_resume_requested(self) -> None:
-        """當請求恢復時觸發"""
-        pass
-
-    @abstractmethod
     def on_stop_requested(self) -> None:
         """當請求停止時觸發"""
         pass
@@ -572,57 +557,3 @@ class CompositionChangedEvent:
         self.item_id = item_id
         self.item_data = item_data
         self.timestamp = datetime.now()
-
-
-# ==================== 使用範例 ====================
-
-"""
-使用範例：
-
-# Model 實現
-class TestExecutionBusinessModel(ITestExecutionBusinessModel):
-    def __init__(self):
-        self.active_executions = {}
-        self.progress_observers = []
-
-    async def start_execution(self, config: ExecutionConfiguration) -> str:
-        # 實現執行邏輯
-        execution_id = self._generate_execution_id()
-        # ... 執行邏輯
-        return execution_id
-
-# Controller 實現
-class ExecutionController(IExecutionController):
-    def __init__(self, execution_model: ITestExecutionBusinessModel, 
-                 composition_model: ITestCompositionModel):
-        self.execution_model = execution_model
-        self.composition_model = composition_model
-        self.views = []
-
-    async def handle_run_request(self):
-        # 協調執行流程
-        config = self.composition_model.generate_execution_config("My Test")
-        errors = self.execution_model.validate_execution_prerequisites(config)
-        if errors:
-            self._notify_views('show_validation_errors', errors)
-            return
-
-        execution_id = await self.execution_model.start_execution(config)
-        self._notify_views('update_execution_state', ExecutionState.RUNNING)
-
-# View 實現
-class RunCaseWidget(QWidget, ICompositionView, ICompositionViewEvents):
-    def add_test_item_ui(self, item: TestItem):
-        # 添加 UI 元素
-        pass
-
-    def on_test_item_dropped(self, item_data: Dict[str, Any], item_type: TestItemType):
-        # 發送到 Controller
-        pass
-
-設計重點：
-1. 執行和組合分離：執行邏輯和UI組合邏輯分開管理
-2. 進度追蹤：統一的進度報告機制
-3. 狀態管理：清晰的狀態轉換和管理
-4. 擴展性：支持不同的執行引擎和報告格式
-"""

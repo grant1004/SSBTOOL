@@ -1104,14 +1104,6 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         else:
             self.emit_user_action("start_execution", {"test_items": list(self._test_items.values())})
 
-    def on_pause_requested(self) -> None:
-        """當請求暫停時觸發"""
-        self.emit_user_action("pause_execution", {"execution_id": self._current_execution_id})
-
-    def on_resume_requested(self) -> None:
-        """當請求恢復時觸發"""
-        self.emit_user_action("resume_execution", {"execution_id": self._current_execution_id})
-
     def on_stop_requested(self) -> None:
         """當請求停止時觸發"""
         if self.ask_user_confirmation("確定要停止當前執行嗎？", "確認停止"):

@@ -6,7 +6,7 @@ MVC 框架基礎 Controller 類
 
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Callable
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Signal, Slot
 import logging
 import asyncio
 from .metaclass_utils import QObjectABCMeta
@@ -142,3 +142,40 @@ class BaseController(QObject, metaclass=QObjectABCMeta):
     def _handle_operation_error(self, operation_name: str, error: Exception) -> None:
         """處理操作錯誤 - 子類可覆蓋"""
         self.notify_views('show_error_message', f"操作失敗: {operation_name}")
+
+    @Slot(str, object)
+    def handle_user_action(self, action_name: str, action_data: Any = None):
+        """
+        處理來自視圖的用戶操作 - 通用路由機制
+        路由到子類實現的具體接口方法
+        """
+        self._logger.info(f"Routing user action: {action_name}")
+
+        # 🔑 關鍵：路由到接口定義的方法，而不是在這裡實現具體邏輯
+        handler_map = self._get_action_handler_map()
+
+        handler = handler_map.get(action_name)
+        if handler:
+            try:
+                # 如果是異步方法，使用 asyncio 處理
+                if asyncio.iscoroutinefunction(handler):
+                    asyncio.create_task(handler(action_data))
+                else:
+                    handler(action_data)
+            except Exception as e:
+                self._logger.error(f"Error handling action {action_name}: {e}")
+                self._handle_action_error(action_name, e)
+        else:
+            self._logger.warning(f"No handler found for action: {action_name}")
+
+    def _get_action_handler_map(self) -> Dict[str, callable]:
+        """
+        獲取操作處理器映射 - 子類需要重寫此方法
+        將用戶操作映射到接口定義的具體方法
+        """
+        return {}
+
+    def _handle_action_error(self, action_name: str, error: Exception):
+        """處理操作執行錯誤 - 子類可以重寫"""
+        self._logger.error(f"Action {action_name} failed: {error}")
+
