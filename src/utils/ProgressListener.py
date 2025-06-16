@@ -161,9 +161,9 @@ class ProgressListener:
 
     def _emit_message(self, message: dict):
         try:
-            print( f"[LISTENER] 🔥 Emitting message to worker: {message['type']} - {message}")
+            # print( f"[LISTENER] 🔥 Emitting message to worker: {message['type']} - {message}")
             self.signal.emit(message)
-            print(f"[LISTENER] ✅ Emit successful\n" + "="*100)
+            # print(f"[LISTENER] ✅ Emit successful\n" + "="*100)
         except Exception as e:
             print(f"[LISTENER] ❌ Emit failed: {e}")
 

@@ -1,6 +1,6 @@
 import asyncio
 from typing import Dict, List, Optional, Any, Set
-from PySide6.QtCore import QObject, Signal, QTimer
+from PySide6.QtCore import QObject, Signal, QTimer, Qt
 
 from src.business_models.execution_business_model import TestExecutionBusinessModel
 # 導入接口
@@ -57,7 +57,9 @@ class ExecutionController(BaseController, IExecutionController):
                 registered_as.append("IControlView")
 
         view.user_action.connect(self.handle_user_action)
-
+        self.execution_business_model.test_progress.connect(
+            self._run_case_views.update_progress, Qt.ConnectionType.QueuedConnection
+        )
         if registered_as:
             interfaces_str = ", ".join(registered_as)
             self._logger.info(f"Registered {type(view).__name__} as: {interfaces_str}")
@@ -85,9 +87,11 @@ class ExecutionController(BaseController, IExecutionController):
             "generate_execution_report": self.handle_report_request,
         }
 
+
     #endregion
 
     #region 組合相關操作
+
     def handle_test_item_added(self, item_data: Dict[str, Any], item_type: TestItemType) -> None:
         """
         處理測試項目添加
@@ -228,7 +232,7 @@ class ExecutionController(BaseController, IExecutionController):
                 "operation": "clear_all",
                 "items_count": items_count,
                 "cleared_items": cleared_items_data,
-                "timestamp": self._get_timestamp()
+                "timestamp": self._get_timestamp_qt()
             })
 
             # 8. 顯示操作結果
@@ -239,7 +243,7 @@ class ExecutionController(BaseController, IExecutionController):
         except Exception as e:
             self._logger.error(f"Error clearing test items: {e}")
             self.operation_completed.emit("clear_test_composition", False)
-            self._handle_error("clear_items_failed", str(e))
+            # self._handle_error("clear_items_failed", str(e))
 
     def _record_operation_history(self, operation_data: Dict[str, Any]):
         """記錄操作歷史"""
@@ -266,9 +270,13 @@ class ExecutionController(BaseController, IExecutionController):
             for item in items
         ]
 
-    # 額外功能：撤銷清空操作
+    def _get_timestamp_qt(self) -> str:
+        """使用 Qt 格式的時間戳"""
+        from PySide6.QtCore import QDateTime
+        return QDateTime.currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")
+
     def handle_undo_clear(self) -> None:
-        """撤銷清空操作（如果需要）"""
+        """撤銷清空操作 """
         if not hasattr(self, '_operation_history') or not self._operation_history:
             return
 
@@ -286,8 +294,11 @@ class ExecutionController(BaseController, IExecutionController):
     # endregion
 
     # region execution request
+
     async def handle_run_request(self) -> None:
         print( "Received run request")
+        exe_config = self.execution_business_model.generate_execution_config("Untitled")
+        await self.execution_business_model.start_execution(exe_config)
 
     async def handle_stop_request(self) -> None:
         print("Received stop request")

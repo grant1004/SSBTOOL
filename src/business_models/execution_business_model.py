@@ -41,7 +41,7 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
     """
 
     # 信號定義（保持原有的信號）
-    test_progress = Signal(dict, int)  # 測試進度信號
+    test_progress = Signal(dict, str)  # 測試進度信號
     test_finished = Signal(bool)  # 測試完成信號
     test_item_added = Signal(TestItem)
     test_item_removed = Signal(str)
@@ -76,7 +76,7 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
         self._progress_observers: List[Callable] = []
         self._result_observers: List[Callable] = []
 
-    # ==================== ITestCompositionModel 實現 ====================
+    # region  ==================== ITestCompositionModel 實現，和拖拉字卡有關的 ====================
 
     def add_test_item(self, item: TestItem) -> bool:
         """添加測試項目"""
@@ -195,30 +195,9 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
             }
         )
 
-    # ==================== ITestExecutionBusinessModel 實現 ====================
+    # endregion
 
-    def prepare_execution(self, config: ExecutionConfiguration) -> bool:
-        """準備執行環境"""
-        try:
-            # 檢查是否有正在執行的任務
-            if self.isRunning:
-                self._logger.warning("Another execution is already running")
-                return False
-
-            # 驗證配置
-            errors = self.validate_execution_prerequisites(config)
-            if errors:
-                self._logger.error(f"Execution prerequisites not met: {errors}")
-                return False
-
-            # 創建輸出目錄
-            os.makedirs(config.output_directory, exist_ok=True)
-
-            return True
-
-        except Exception as e:
-            self._logger.error(f"Failed to prepare execution: {e}")
-            return False
+    # region ==================== ITestExecutionBusinessModel 實現，和 run robot 有關的 ====================
 
     async def start_execution(self, config: ExecutionConfiguration) -> str:
         """
@@ -235,13 +214,11 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
 
             # 更新狀態
             self._current_execution_id = execution_id
-            self._update_execution_state(execution_id, ExecutionState.PREPARING)
-            self.isRunning = True
+            # self._update_execution_state(execution_id, ExecutionState.PREPARING)
+            # self.isRunning = True
 
             # 轉換為原有格式
             testcase_dict = self._convert_items_to_legacy_format()
-
-            # === 執行原有的三階段流程 ===
 
             # 第一階段：生成 user composition JSON
             user_json_success, user_json_msg, user_json_path = \
@@ -272,6 +249,29 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
             self.isRunning = False
             raise
 
+    def prepare_execution(self, config: ExecutionConfiguration) -> bool:
+        """準備執行環境"""
+        try:
+            # 檢查是否有正在執行的任務
+            if self.isRunning:
+                self._logger.warning("Another execution is already running")
+                return False
+
+            # 驗證配置
+            errors = self.validate_execution_prerequisites(config)
+            if errors:
+                self._logger.error(f"Execution prerequisites not met: {errors}")
+                return False
+
+            # 創建輸出目錄
+            os.makedirs(config.output_directory, exist_ok=True)
+
+            return True
+
+        except Exception as e:
+            self._logger.error(f"Failed to prepare execution: {e}")
+            return False
+
     async def _execute_robot_in_thread(self, execution_id: str, robot_path: str,
                                        mapping_path: str, config: ExecutionConfiguration):
         """在 QThread 中執行 Robot Framework（保持原有邏輯）"""
@@ -286,11 +286,11 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
 
         # 連接信號（保持原有邏輯）
         self.worker.progress.connect(
-            self._handle_worker_progress, Qt.ConnectionType.QueuedConnection
+            self._handle_worker_progress, Qt.ConnectionType.DirectConnection
         )
         self.worker.finished.connect(
             lambda success: self._handle_worker_finished(execution_id, success),
-            Qt.ConnectionType.QueuedConnection
+            Qt.ConnectionType.DirectConnection
         )
 
         # 創建線程
@@ -299,19 +299,20 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
 
         # 連接線程信號
         self.thread.started.connect(self.worker.start_work)
-        self.worker.finished.connect(self.thread.quit)
         self.thread.finished.connect(self.worker.deleteLater)
         self.thread.finished.connect(self.thread.deleteLater)
 
+        self.worker.finished.connect(self.thread.quit)
+
         # 更新狀態為運行中
-        self._update_execution_state(execution_id, ExecutionState.RUNNING)
+        # self._update_execution_state(execution_id, ExecutionState.RUNNING)
 
         # 啟動線程
         self.thread.start()
 
         # 等待完成（使用 asyncio）
-        while self.thread and self.thread.isRunning():
-            await asyncio.sleep(0.1)
+        # while self.thread and self.thread.isRunning():
+        #     await asyncio.sleep(0.1)
 
     async def stop_execution(self, execution_id: str, force: bool = False) -> bool:
         """停止執行"""
@@ -342,9 +343,9 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
         except Exception as e:
             self._logger.error(f"Failed to stop execution: {e}")
             return False
+    # endregion
 
-    # ==================== 原有方法的內部實現（保持兼容） ====================
-
+    # region 根據 UI 介面字卡設定，建立對應的 json  路徑 : data/robot/user/user_composition_test_name.json
     def _generate_user_composition_internal(self, test_cases: Dict, name_text: str):
         """內部方法：生成 user composition（原 generate_user_composition）"""
         try:
@@ -352,7 +353,6 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
             user_dir = os.path.join(project_root, "data", "robot", "user")
             os.makedirs(user_dir, exist_ok=True)
 
-            # 使用原有邏輯建立 composition
             composition = self._build_user_composition(test_cases, name_text)
 
             filename = f"user_{name_text}.json"
@@ -365,92 +365,6 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
 
         except Exception as e:
             return False, f"Error generating user composition: {e}", ""
-
-    def _generate_robot_from_json_internal(self, json_path: str):
-        """內部方法：從 JSON 生成 robot file（原 generate_robot_from_json）"""
-        try:
-            with open(json_path, 'r', encoding='utf-8') as f:
-                composition = json.load(f)
-
-            nested_testcases = self._collect_nested_testcases(composition)
-            keyword_mapping = self._build_keyword_mapping(nested_testcases, composition)
-            robot_content = self._generate_robot_content_from_composition(composition)
-
-            project_root = self._get_project_root()
-            robot_dir = os.path.join(project_root, "data", "robot", "run")
-            os.makedirs(robot_dir, exist_ok=True)
-
-            output_filename = composition.get('runtime_config', {}).get(
-                'output_filename', 'generated_test.robot'
-            )
-            robot_file_path = os.path.join(robot_dir, output_filename)
-            mapping_file_path = robot_file_path.replace('.robot', '_mapping.json')
-
-            with open(mapping_file_path, 'w', encoding='utf-8') as f:
-                json.dump(keyword_mapping, f, indent=4, ensure_ascii=False)
-
-            with open(robot_file_path, 'w', encoding='utf-8') as f:
-                f.write(robot_content)
-
-            return True, f"Robot file generated: {robot_file_path}", \
-                (robot_file_path, mapping_file_path)
-
-        except Exception as e:
-            return False, f"Error generating robot file: {e}", ""
-
-    def _convert_items_to_legacy_format(self) -> Dict[str, Any]:
-        """將新格式的 TestItem 轉換為原有格式"""
-        legacy_format = {}
-
-        for item_id, item in self._test_items.items():
-            legacy_format[item_id] = {
-                'data': {
-                    'config': item.config
-                },
-                'panel': None  # View 相關的不需要
-            }
-
-        return legacy_format
-
-    @Slot(dict)
-    def _handle_worker_progress(self, message: dict):
-        """處理 worker 進度（保持原有邏輯）"""
-        try:
-            test_name = message.get('data', {}).get('test_name', '')
-            self.test_id = int(self._get_id_from_testName(test_name))
-
-            # 發送原有格式的信號
-            self.test_progress.emit(message, self.test_id)
-
-            # 同時更新新格式的進度
-            if self._current_execution_id:
-                progress = self._create_execution_progress(message)
-                self._update_execution_progress(self._current_execution_id, progress)
-
-        except Exception as e:
-            self._logger.error(f"Error handling progress: {e}")
-
-    def _handle_worker_finished(self, execution_id: str, success: bool):
-        """處理 worker 完成"""
-        try:
-            # 發送原有格式的信號
-            if self.test_id is not None:
-                self.test_finished.emit(success)
-
-            # 更新執行狀態
-            final_state = ExecutionState.COMPLETED if success else ExecutionState.FAILED
-            self._update_execution_state(execution_id, final_state)
-
-            # 清理
-            self.worker = None
-            self.isRunning = False
-            self._current_execution_id = None
-
-        except Exception as e:
-            self._logger.error(f"Error handling finished: {e}")
-
-    # ==================== 其他必要的方法（從原文件複製） ====================
-
 
     def _build_user_composition(self, test_cases, name_text):
         """建立 user composition 結構"""
@@ -474,7 +388,7 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
             if casetype == "testcase":
                 testcase = self._build_individual_testcase(key, test)
             else:
-                testcase = self._build_individual_keyword_testcase(key, test)
+                testcase = self._build_individual_keyword(key, test)
 
             if testcase:
                 individual_testcases.append(testcase)
@@ -514,7 +428,6 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
 
         return composition
 
-
     def _collect_libraries_from_steps(self, steps, libraries):
         """遞迴收集 steps 中所有 keyword 的 keyword_category"""
         for step in steps:
@@ -534,31 +447,7 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
                 if nested_steps:
                     self._collect_libraries_from_steps(nested_steps, libraries)
 
-    def _build_library_configs(self, libraries):
-        """建立 library 配置"""
-        library_configs = []
-
-        # 庫名和文件對應
-        library_files = {
-            'common': 'Lib.CommonLibrary',
-            'battery': 'Lib.BatteryLibrary',
-            'hmi': 'Lib.HMILibrary',
-            'motor': 'Lib.MotorLibrary',
-            'controller': 'Lib.ControllerLibrary'
-        }
-
-        for category in sorted(libraries):
-            library_name = library_files.get(category.lower())
-            if library_name:
-                library_configs.append({
-                    "library_name": library_name,
-                    "category": category,
-                    "config": {}
-                })
-
-        return library_configs
-
-    def _build_individual_keyword_testcase(self, key, test):
+    def _build_individual_keyword(self, key, test):
         """建立獨立的 keyword test case"""
         config = test.get('data', {}).get('config', {})
 
@@ -601,6 +490,30 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
             "steps": config.get('steps', [])
         }
 
+    def _build_library_configs(self, libraries):
+        """建立 library 配置"""
+        library_configs = []
+
+        # 庫名和文件對應
+        library_files = {
+            'common': 'Lib.CommonLibrary',
+            'battery': 'Lib.BatteryLibrary',
+            'hmi': 'Lib.HMILibrary',
+            'motor': 'Lib.MotorLibrary',
+            'controller': 'Lib.ControllerLibrary'
+        }
+
+        for category in sorted(libraries):
+            library_name = library_files.get(category.lower())
+            if library_name:
+                library_configs.append({
+                    "library_name": library_name,
+                    "category": category,
+                    "config": {}
+                })
+
+        return library_configs
+
     def _build_keyword_dependencies(self, libraries):
         """建立 keyword 依賴資訊"""
         dependencies = []
@@ -624,12 +537,318 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
 
         return dependencies
 
+    # endregion
+
+    # region 根據生成的 json 轉譯成 .robot 檔案, 路徑 : data/robot/run/generated_test.robot
+    def _generate_robot_from_json_internal(self, json_path: str):
+        """內部方法：從 JSON 生成 robot file（原 generate_robot_from_json）"""
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                composition = json.load(f)
+
+            nested_testcases = self._collect_nested_testcases(composition)
+            keyword_mapping = self._build_keyword_mapping(nested_testcases, composition)
+            robot_content = self._generate_robot_content_from_composition(composition)
+            project_root = self._get_project_root()
+            robot_dir = os.path.join(project_root, "data", "robot", "run")
+            os.makedirs(robot_dir, exist_ok=True)
+
+            output_filename = composition.get('runtime_config', {}).get(
+                'output_filename', 'generated_test.robot'
+            )
+            robot_file_path = os.path.join(robot_dir, output_filename)
+            mapping_file_path = robot_file_path.replace('.robot', '_mapping.json')
+
+            with open(mapping_file_path, 'w', encoding='utf-8') as f:
+                json.dump(keyword_mapping, f, indent=4, ensure_ascii=False)
+
+            with open(robot_file_path, 'w', encoding='utf-8') as f:
+                f.write(robot_content)
+
+            return True, f"Robot file generated: {robot_file_path}", \
+                (robot_file_path, mapping_file_path)
+
+        except Exception as e:
+            return False, f"Error generating robot file: {e}", ""
+
+    """建立 keyword 映射關係 路徑 : data/robot/run/generated_test_mapping.json """
+    def _build_keyword_mapping(self, nested_testcases, composition):
+
+        mapping = {
+            'testcase_to_keyword': {},  # testcase_id -> keyword_name
+            'keyword_to_testcase': {},  # keyword_name -> testcase_info
+            'nested_structure': {}  # 完整的嵌套結構
+        }
+
+        # 處理嵌套的 testcases
+        for testcase_id, testcase_data in nested_testcases.items():
+            keyword_name = testcase_data['keyword_name']
+
+            mapping['testcase_to_keyword'][testcase_id] = keyword_name
+            mapping['keyword_to_testcase'][keyword_name] = {
+                'testcase_id': testcase_id,
+                'testcase_name': f"[Testcase] {testcase_data['testcase_name']}",
+                'description': testcase_data['description']
+            }
+
+        # 建立嵌套結構映射
+        for testcase in composition.get('individual_testcases', []):
+            if testcase.get('type') == 'testcase':
+                test_id = testcase.get('test_id')
+                mapping['nested_structure'][test_id] = self._map_testcase_structure(
+                    testcase.get('steps', []), nested_testcases
+                )
+
+        return mapping
+    def _map_testcase_structure(self, steps, nested_testcases):
+        """遞迴映射 testcase 結構"""
+        mapped_steps = []
+
+        for step in steps:
+            if step.get('step_type') == 'testcase':
+                testcase_id = step.get('testcase_id')
+                if testcase_id in nested_testcases:
+                    mapped_steps.append({
+                        'type': 'nested_testcase',
+                        'original_testcase_id': testcase_id,
+                        'generated_keyword_name': nested_testcases[testcase_id]['keyword_name'],
+                        'testcase_name': f"[Testcase] {step.get('testcase_name')}",
+                        'inner_steps': self._map_testcase_structure(step.get('steps', []), nested_testcases)
+                    })
+            elif step.get('step_type') == 'keyword':
+                mapped_steps.append({
+                    'type': 'keyword',
+                    'keyword_name': step.get('keyword_name'),
+                    'keyword_category': step.get('keyword_category')
+                })
+
+        return mapped_steps
+
+
+    """從 composition 生成 Robot Framework 內容 - 支援嵌套 testcase 轉 keyword"""
+    def _generate_robot_content_from_composition(self, composition):
+        robot_content = []
+
+        # 生成 Settings 區段
+        robot_content.extend(self._generate_settings_from_composition(composition))
+        robot_content.append("")
+
+        # 生成 Variables 區段
+        robot_content.extend(self._generate_variables_from_composition(composition))
+        robot_content.append("")
+
+        # 收集所有嵌套的 testcases 並生成 keywords
+        nested_testcases = self._collect_nested_testcases(composition)
+
+        # 生成 Test Cases 區段
+        robot_content.append("*** Test Cases ***")
+        robot_content.extend(self._generate_testcase_from_composition(composition, nested_testcases))
+
+        # 如果有嵌套的 testcases，生成 Keywords 區段
+        if nested_testcases:
+            robot_content.append("")
+            robot_content.append("*** Keywords ***")
+            robot_content.extend(self._generate_keywords_from_nested_testcases(nested_testcases))
+
+        return '\n'.join(robot_content)
+    def _generate_settings_from_composition(self, composition):
+        """從 composition 生成 Settings 區段"""
+        content = ["*** Settings ***"]
+
+        settings = composition.get('selected_settings', {})
+        content.append(f"Documentation    {settings.get('documentation', 'Generated Test')}")
+
+        # 添加 libraries
+        for lib in settings.get('libraries', []):
+            content.append(f"Library    {lib['library_name']}")
+
+        return content
+    def _generate_variables_from_composition(self, composition):
+        """從 composition 生成 Variables 區段"""
+        content = ["*** Variables ***"]
+
+        for var in composition.get('selected_variables', []):
+            content.append(f"${{{var['name']}}}    {var['value']}")
+
+        return content
+    def _collect_nested_testcases(self, composition):
+        """收集所有嵌套的 testcases，準備轉換為 keywords"""
+        nested_testcases = {}
+
+        def collect_from_steps(steps, collected_testcases):
+            """遞迴收集步驟中的 testcase"""
+            for step in steps:
+                if step.get('step_type') == 'testcase':
+                    testcase_id = step.get('testcase_id')
+                    testcase_name = step.get('testcase_name', 'Unknown')
+
+                    # 生成唯一的 keyword 名稱
+                    keyword_name = self._generate_keyword_name(testcase_name, testcase_id)
+
+                    collected_testcases[testcase_id] = {
+                        'keyword_name': keyword_name,
+                        'testcase_name': testcase_name,
+                        'testcase_id': testcase_id,
+                        'description': step.get('description', ''),
+                        'steps': step.get('steps', [])
+                    }
+
+                    # 遞迴收集內部的 testcase
+                    collect_from_steps(step.get('steps', []), collected_testcases)
+
+        # 從所有 individual_testcases 開始收集
+        for testcase in composition.get('individual_testcases', []):
+            if testcase.get('type') == 'testcase':
+                collect_from_steps(testcase.get('steps', []), nested_testcases)
+
+        return nested_testcases
+    def _generate_keyword_name(self, testcase_name, testcase_id):
+        """生成唯一的 keyword 名稱"""
+        # 清理 testcase_name，移除特殊字符
+        import re
+        safe_name = re.sub(r'[^a-zA-Z0-9_\u4e00-\u9fff]', '_', testcase_name)  # 支援中文
+        return f"Execute_Testcase_{safe_name}_{testcase_id}"
+    def _generate_testcase_from_composition(self, composition, nested_testcases):
+        """從 composition 生成 Test Cases 內容 - 支援 testcase 轉 keyword"""
+        content = []
+
+        # 處理每個獨立的 test case
+        for testcase in composition.get('individual_testcases', []):
+            if testcase['type'] == 'keyword':
+                content.extend(self._generate_keyword_testcase(testcase))
+            elif testcase['type'] == 'testcase':
+                content.extend(self._generate_testcase_testcase_with_keywords(testcase, nested_testcases))
+
+        return content
+    def _generate_keywords_from_nested_testcases(self, nested_testcases):
+        """從嵌套的 testcases 生成 Keywords 區段"""
+        content = []
+
+        for testcase_data in nested_testcases.values():
+            keyword_name = testcase_data['keyword_name']
+            description = testcase_data['description']
+            steps = testcase_data['steps']
+
+            # Keyword 名稱
+            content.append(keyword_name)
+
+            # Documentation
+
+            # Documentation
+            if description:
+                description = description.replace('\n', ' ')
+                content.append(f"    [Documentation]    {description}")
+
+            # 處理步驟
+            for step in steps:
+                step_content = self._process_step_for_keyword(step, nested_testcases)
+                content.extend(step_content)
+
+            content.append("")  # 添加空行分隔
+
+        return content
+    def _generate_testcase_testcase_with_keywords(self, testcase, nested_testcases):
+        """生成 testcase 類型的 test case - 支援 keyword 調用"""
+        content = []
+
+        # Test case 名稱
+        content.append(testcase['test_name'])
+
+        # Tags
+        content.append(f"    [Tags]    auto-generated    {testcase['priority']}")
+
+        # Documentation
+        if testcase['description']:
+            description = testcase['description']
+            description = description.replace('\n', ' ')
+            content.append(f"    [Documentation]    {description}")
+
+        # 處理步驟 - 使用新的處理方法
+        for step in testcase.get('steps', []):
+            step_content = self._process_step_for_keyword(step, nested_testcases)
+            content.extend(step_content)
+
+        content.append("")  # 添加空行分隔
+        return content
+    def _process_step_for_keyword(self, step, nested_testcases):
+        """處理 keyword 內的步驟，支援嵌套 testcase 調用"""
+        content = []
+        indent = "    "  # 固定使用 4 個空格縮排
+
+        step_type = step.get('step_type', 'keyword')
+
+        if step_type == 'keyword':
+            # 處理 keyword 類型
+            action = step.get('keyword_name', '')
+            params = step.get('parameters', {})
+
+            if params:
+                param_str = '    '.join(f"{k}={v}" for k, v in params.items())
+                content.append(f"{indent}{action}    {param_str}")
+            else:
+                content.append(f"{indent}{action}")
+
+        elif step_type == 'testcase':
+            # 處理嵌套的 testcase - 調用對應的 keyword
+            testcase_id = step.get('testcase_id')
+            if testcase_id in nested_testcases:
+                keyword_name = nested_testcases[testcase_id]['keyword_name']
+                content.append(f"{indent}{keyword_name}")
+            else:
+                # 備用方案：如果找不到對應的 keyword，使用註解
+                testcase_name = step.get('testcase_name', 'Unknown Testcase')
+                content.append(f"{indent}# ERROR: Missing keyword for testcase: {testcase_name}")
+
+        else:
+            # 處理其他類型或向下兼容舊格式
+            step_name = step.get('step_name', step.get('action', step.get('name', 'Unknown Step')))
+            content.append(f"{indent}{step_name}")
+
+        return content
+    def _generate_keyword_testcase(self, testcase):
+        """生成 keyword 類型的 test case"""
+        content = []
+
+        # Test case 名稱
+        content.append(testcase['test_name'])
+
+        # Tags
+        content.append(f"    [Tags]    auto-generated    {testcase['priority']}")
+
+        # Documentation
+        if testcase['description']:
+            description = testcase['description']
+            description = description.replace('\n', ' ')
+            content.append(f"    [Documentation]    {description}")
+
+        # Keyword 呼叫
+        keyword_name = testcase['keyword_name']
+        parameters = testcase.get('parameters', {})
+
+        if parameters:
+            param_list = []
+            for param_name, param_value in parameters.items():
+                param_list.append(f"{param_name}={param_value}")
+            content.append(f"    {keyword_name}    {'    '.join(param_list)}")
+        else:
+            content.append(f"    {keyword_name}")
+
+        content.append("")  # 添加空行分隔
+        return content
+
+    # endregion
+
+
     def _get_project_root(self):
         """獲取專案根目錄"""
         return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
     def _get_id_from_testName(self, data: str) -> str:
-        """從測試名稱中提取 ID"""
+        """
+        從 testname 取得 id :
+        testname : Execute TestCase - Test HMI Assist Level Button click [id]1578378060608
+        id : 1578378060608
+        """
         try:
             if "[id]" in data:
                 id_start = data.find("[id]") + len("[id]")
@@ -639,3 +858,61 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
         except Exception as e:
             self._logger.error(f"Error extracting ID: {e}")
             return ""
+
+
+    def _convert_items_to_legacy_format(self) -> Dict[str, Any]:
+        """將新格式的 TestItem 轉換為原有格式"""
+        legacy_format = {}
+
+        for item_id, item in self._test_items.items():
+            legacy_format[item_id] = {
+                'data': {
+                    'config': item.config
+                },
+                'panel': None  # View 相關的不需要
+            }
+
+        return legacy_format
+
+    @Slot(dict)
+    def _handle_worker_progress(self, message: dict):
+        """處理 worker 進度（保持原有邏輯）"""
+        try:
+            test_name = message.get('data', {}).get('test_name', '')
+            self.test_id = self._get_id_from_testName(test_name)
+            # 發送原有格式的信號
+            self.test_progress.emit(message, self.test_id)
+
+            # 同時更新新格式的進度
+            # if self._current_execution_id:
+            #     progress = self._create_execution_progress(message)
+            #     self._update_execution_progress(self._current_execution_id, progress)
+
+        except Exception as e:
+            self._logger.error(f"Error handling progress: {e}")
+
+
+    def _handle_worker_finished(self, execution_id: str, success: bool):
+        """處理 worker 完成"""
+        try:
+            # 發送原有格式的信號
+            if self.test_id is not None:
+                self.test_finished.emit(success)
+
+            # 更新執行狀態
+            final_state = ExecutionState.COMPLETED if success else ExecutionState.FAILED
+            self._update_execution_state(execution_id, final_state)
+
+            # 清理
+            self.worker = None
+            self.isRunning = False
+            self._current_execution_id = None
+
+        except Exception as e:
+            self._logger.error(f"Error handling finished: {e}")
+
+
+
+
+
+

@@ -342,6 +342,10 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
 
         self._setup_ui()
         self._setup_connections()
+
+        # 添加接收計數器
+        self._received_counter = 0
+        self._received_messages = []
         self._logger.info("TestCaseWidget initialized with MVC architecture")
 
     def _setup_connections(self):
@@ -623,6 +627,28 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
 
     #region ==================== IExecutionView 接口實現 ====================
 
+    def update_progress( self, message: dict, test_id ):
+        """更新進度顯示 - 增強接收追蹤版本"""
+        self._received_counter += 1
+        msg_type = message.get('type', 'unknown')
+        test_name = message.get('data', {}).get('test_name', '')
+        key_word = message.get('data', {}).get('keyword_name', '')
+        # 記錄接收的訊息
+        message_record = {
+            'counter': self._received_counter,
+            'test_name': test_name,
+            'keyword': key_word,
+            'type': msg_type,
+            'test_id': test_id,
+            'timestamp': QDateTime.currentDateTime().toString(),
+            'message' : message
+        }
+        self._received_messages.append(message_record)
+
+        panel = self._ui_widgets[test_id]
+        panel.update_status(message)
+        self._update_ui()
+
     def update_execution_state(self, state: ExecutionState) -> None:
         """更新執行狀態"""
         old_state = self._current_execution_state
@@ -739,6 +765,7 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         self._timer.stop()
 
         self._logger.info("Execution display reset")
+
     # endregion
 
     # region ==================== ICompositionView 接口實現 ====================
@@ -892,6 +919,7 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         except Exception as e:
             self._logger.error(f"Error clearing test items UI: {e}")
 
+
     # endregion
 
     # region ==================== IControlView 接口實現 ====================
@@ -1015,7 +1043,7 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
 
         # 1. 生成穩定的唯一 ID
         item_id = str(uuid.uuid4())
-
+        # print(f"**************Generated unique ID for item: {item_id}****************")
         # 2. 創建標準的 TestItem 數據結構
         test_item = TestItem(
             id=item_id,
@@ -1160,6 +1188,11 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         """獲取當前執行狀態"""
         return self._current_execution_state
     # endregion
+
+
+    def _update_ui(self):
+        self.update()
+        self.repaint()
 
 
 class PrettyMessageFormatter:

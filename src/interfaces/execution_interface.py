@@ -340,6 +340,10 @@ class IExecutionView(ABC):
     """執行視圖接口 - 顯示執行狀態和進度"""
 
     @abstractmethod
+    def update_progress(self, message:dict, test_id:str) -> None:
+        pass
+
+    @abstractmethod
     def update_execution_state(self, state: ExecutionState) -> None:
         """更新執行狀態"""
         pass
