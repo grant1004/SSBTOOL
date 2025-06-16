@@ -104,7 +104,6 @@ class ExecutionConfiguration:
 
 class ITestExecutionBusinessModel(ABC):
     """測試執行業務模型接口"""
-
     @abstractmethod
     def prepare_execution(self, config: ExecutionConfiguration) -> bool:
         """
@@ -138,58 +137,12 @@ class ITestExecutionBusinessModel(ABC):
         pass
 
     @abstractmethod
-    async def pause_execution(self, execution_id: str) -> bool:
-        """暫停執行"""
-        pass
-
-    @abstractmethod
-    async def resume_execution(self, execution_id: str) -> bool:
-        """恢復執行"""
-        pass
-
-    @abstractmethod
     async def stop_execution(self, execution_id: str, force: bool = False) -> bool:
         """停止執行"""
         pass
 
     @abstractmethod
-    def get_execution_state(self, execution_id: str) -> ExecutionState:
-        """獲取執行狀態"""
-        pass
-
-    @abstractmethod
-    def get_execution_progress(self, execution_id: str) -> Optional[ExecutionProgress]:
-        """獲取執行進度"""
-        pass
-
-    @abstractmethod
-    def get_execution_result(self, execution_id: str) -> Optional[ExecutionResult]:
-        """獲取執行結果"""
-        pass
-
-    @abstractmethod
-    def validate_execution_prerequisites(self, config: ExecutionConfiguration) -> List[str]:
-        """驗證執行前置條件，返回錯誤列表"""
-        pass
-
-    @abstractmethod
-    def estimate_execution_time(self, config: ExecutionConfiguration) -> float:
-        """估算執行時間（秒）"""
-        pass
-
-    @abstractmethod
-    def get_active_executions(self) -> List[str]:
-        """獲取活躍的執行 ID 列表"""
-        pass
-
-    @abstractmethod
-    def register_progress_observer(self, callback: Callable[[str, ExecutionProgress], None]) -> None:
-        """註冊進度觀察者"""
-        pass
-
-    @abstractmethod
-    def register_result_observer(self, callback: Callable[[str, ExecutionResult], None]) -> None:
-        """註冊結果觀察者"""
+    def generate_testcase(self, name_text, category, priority, description):
         pass
 
 
@@ -314,7 +267,7 @@ class IExecutionController(ABC):
         pass
 
     @abstractmethod
-    async def handle_generate_request(self, export_config: Dict[str, Any]) -> None:
+    async def handle_generate_request(self, export_config: Dict[str, Any]):
         """處理生成/導出請求"""
         pass
 
@@ -343,31 +296,6 @@ class IExecutionView(ABC):
     def update_progress(self, message:dict, test_id:str) -> None:
         pass
 
-    @abstractmethod
-    def update_execution_state(self, state: ExecutionState) -> None:
-        """更新執行狀態"""
-        pass
-
-    @abstractmethod
-    def update_execution_progress(self, progress: ExecutionProgress) -> None:
-        """更新執行進度"""
-        pass
-
-    @abstractmethod
-    def update_test_item_status(self, item_id: str, status: TestItemStatus, progress: int = 0, error: str = "") -> None:
-        """更新測試項目狀態"""
-        pass
-
-    @abstractmethod
-    def show_execution_result(self, result: ExecutionResult) -> None:
-        """顯示執行結果"""
-        pass
-
-    @abstractmethod
-    def reset_execution_display(self) -> None:
-        """重置執行顯示"""
-        pass
-
 
 class ICompositionView(ABC):
     """組合視圖接口 - 管理測試項目的組合"""
@@ -385,11 +313,6 @@ class ICompositionView(ABC):
     @abstractmethod
     def update_test_item_order(self, ordered_item_ids: List[str]) -> None:
         """更新測試項目順序"""
-        pass
-
-    @abstractmethod
-    def highlight_current_item(self, item_id: Optional[str]) -> None:
-        """高亮當前執行項目"""
         pass
 
     @abstractmethod

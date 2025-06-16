@@ -1,2 +1,43 @@
 {
+    "user_testcase_1750062893": {
+        "data": {
+            "config": {
+                "type": "testcase",
+                "name": "test",
+                "description": "test",
+                "category": "common",
+                "priority": "optional",
+                "estimated_time": "2min",
+                "created_by": "robot_app",
+                "created_at": "2025-06-16T16:34:53.257368",
+                "steps": [
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": "7184a00e-b0ab-460a-821d-17d343a00e9a",
+                        "keyword_name": "check_payload",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "expected_payload": "None",
+                            "expected_can_id": "None",
+                            "timeout": "5",
+                            "expected_fields": ""
+                        },
+                        "description": "高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）"
+                    }
+                ],
+                "dependencies": {
+                    "libraries": [
+                        "common"
+                    ],
+                    "keywords": [
+                        "check_payload"
+                    ]
+                },
+                "metadata": {
+                    "source_composition": "user_test.json",
+                    "total_steps": 1
+                }
+            }
+        }
+    }
 }

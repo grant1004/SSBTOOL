@@ -329,16 +329,16 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         self._execution_controller: Optional[ExecutionController] = None
 
         # 狀態管理
-        self._current_execution_state = ExecutionState.IDLE
-        self._current_execution_id: Optional[str] = None
+        # self._current_execution_state = ExecutionState.IDLE
+        # self._current_execution_id: Optional[str] = None
         self._test_items: Dict[str, TestItem] = {}
         self._ui_widgets: Dict[str, QWidget] = {}
-        self._current_highlighted_item: Optional[str] = None
+        self._ui_states: Dict[str, Any] = {}
 
         # 執行時間追蹤
-        self._start_time: Optional[datetime.datetime] = None
-        self._timer = QTimer()
-        self._timer.timeout.connect(self._update_execution_time)
+        # self._start_time: Optional[datetime.datetime] = None
+        # self._timer = QTimer()
+        # self._timer.timeout.connect(self._update_execution_time)
 
         self._setup_ui()
         self._setup_connections()
@@ -370,16 +370,6 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
 
         # 控制區域
         self._setup_control_area()
-
-        # 分隔線
-        # separator = QFrame()
-        # separator.setFrameShape(QFrame.Shape.HLine)
-        # separator.setFrameShadow(QFrame.Shadow.Sunken)
-        # separator.setStyleSheet("background-color: #90006C4D;")
-        # self.main_layout.addWidget(separator)
-
-        # 執行結果區域
-        # self._setup_execution_area()
 
         # 測試項目組合區域
         self._setup_composition_area()
@@ -413,24 +403,24 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
                 button.setEnabled(False)
 
         # 時間顯示標籤
-        self.time_label = QLabel("準備就緒")
-        self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.time_label.setStyleSheet("""
-            QLabel {
-                font-weight: bold; 
-                color: #666;
-                font-size: 12px;
-                padding: 8px;
-                background-color: rgba(0, 0, 0, 0.05);
-                border-radius: 4px;
-            }
-        """)
-        self.time_label.setMinimumWidth(150)
+        # self.time_label = QLabel("準備就緒")
+        # self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # self.time_label.setStyleSheet("""
+        #     QLabel {
+        #         font-weight: bold;
+        #         color: #666;
+        #         font-size: 12px;
+        #         padding: 8px;
+        #         background-color: rgba(0, 0, 0, 0.05);
+        #         border-radius: 4px;
+        #     }
+        # """)
+        # self.time_label.setMinimumWidth(150)
 
         # 佈局組裝
         control_layout.addWidget(self.run_button_group)
         control_layout.addStretch()
-        control_layout.addWidget(self.time_label)
+        # control_layout.addWidget(self.time_label)
         self.main_layout.addWidget(control_frame)
 
     def _setup_composition_area(self):
@@ -649,123 +639,6 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         panel.update_status(message)
         self._update_ui()
 
-    def update_execution_state(self, state: ExecutionState) -> None:
-        """更新執行狀態"""
-        old_state = self._current_execution_state
-        self._current_execution_state = state
-
-        self._logger.info(f"Execution state changed: {old_state.value} -> {state.value}")
-
-        # 更新控制項狀態
-        self.update_control_state(state)
-
-        # 更新狀態顯示
-        status_messages = {
-            ExecutionState.IDLE: "準備就緒",
-            ExecutionState.PREPARING: "準備中...",
-            ExecutionState.RUNNING: "執行中...",
-            ExecutionState.PAUSED: "已暫停",
-            ExecutionState.STOPPING: "停止中...",
-            ExecutionState.COMPLETED: "執行完成",
-            ExecutionState.FAILED: "執行失敗",
-            ExecutionState.CANCELLED: "已取消"
-        }
-
-        self.status_label.setText(status_messages.get(state, "未知狀態"))
-
-        # 管理計時器
-        if state == ExecutionState.RUNNING:
-            if not self._start_time:
-                self._start_time = datetime.datetime.now()
-            self._timer.start(1000)  # 每秒更新一次
-        elif state in [ExecutionState.COMPLETED, ExecutionState.FAILED, ExecutionState.CANCELLED]:
-            self._timer.stop()
-        elif state == ExecutionState.PAUSED:
-            self._timer.stop()
-
-    def update_execution_progress(self, progress: ExecutionProgress) -> None:
-        """更新執行進度"""
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setMaximum(progress.total_items)
-        self.progress_bar.setValue(progress.completed_items)
-
-        # 更新進度文字
-        progress_text = f"進度: {progress.completed_items}/{progress.total_items} ({progress.overall_progress}%)"
-
-        if progress.current_item:
-            progress_text += f" - 當前: {progress.current_item.name}"
-            # 高亮當前執行項目
-            self.highlight_current_item(progress.current_item.id)
-
-        if progress.estimated_remaining_time:
-            remaining_min = int(progress.estimated_remaining_time // 60)
-            remaining_sec = int(progress.estimated_remaining_time % 60)
-            progress_text += f" - 預計剩餘: {remaining_min:02d}:{remaining_sec:02d}"
-
-        self.progress_label.setText(progress_text)
-
-    def update_test_item_status(self, item_id: str, status: TestItemStatus,
-                                progress: int = 0, error: str = "") -> None:
-        """更新測試項目狀態"""
-        if item_id in self._ui_widgets:
-            widget = self._ui_widgets[item_id]
-
-            # 更新UI顯示
-            if hasattr(widget, 'update_status'):
-                widget.update_status(status, progress, error)
-
-            # 更新數據模型
-            if item_id in self._test_items:
-                item = self._test_items[item_id]
-                item.status = status
-                item.progress = progress
-                item.error_message = error
-
-        self._logger.debug(f"Test item {item_id} status updated to {status.value}")
-
-    def show_execution_result(self, result: ExecutionResult) -> None:
-        """顯示執行結果"""
-        # 更新所有項目的最終狀態
-        for item in result.test_items:
-            self.update_test_item_status(item.id, item.status, 100, item.error_message)
-
-        # 顯示執行摘要
-        summary = (f"執行完成！\n"
-                   f"總數: {result.total_tests}, "
-                   f"通過: {result.passed_tests}, "
-                   f"失敗: {result.failed_tests}, "
-                   f"跳過: {result.skipped_tests}\n"
-                   f"成功率: {result.success_rate:.1%}, "
-                   f"耗時: {result.total_duration:.1f}秒")
-
-        if result.state == ExecutionState.COMPLETED:
-            self.show_success_message(summary)
-        else:
-            error_summary = "\n".join(result.error_summary) if result.error_summary else "未知錯誤"
-            self.show_error_message(f"執行失敗!\n{summary}\n\n錯誤:\n{error_summary}")
-
-    def reset_execution_display(self) -> None:
-        """重置執行顯示"""
-        self.progress_bar.setVisible(False)
-        self.progress_bar.setValue(0)
-        self.progress_label.setText("執行進度")
-        self.status_label.setText("")
-        self.time_label.setText("準備就緒")
-
-        # 重置所有項目狀態
-        for widget in self._ui_widgets.values():
-            if hasattr(widget, 'reset_status'):
-                widget.reset_status()
-
-        # 清除高亮
-        self.highlight_current_item(None)
-
-        # 重置時間追蹤
-        self._start_time = None
-        self._timer.stop()
-
-        self._logger.info("Execution display reset")
-
     # endregion
 
     # region ==================== ICompositionView 接口實現 ====================
@@ -848,25 +721,6 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
 
         self._logger.info(f"Updated test item order: {ordered_item_ids}")
 
-    def highlight_current_item(self, item_id: Optional[str]) -> None:
-        """高亮當前執行項目"""
-        # 清除之前的高亮
-        if self._current_highlighted_item and self._current_highlighted_item in self._ui_widgets:
-            old_widget = self._ui_widgets[self._current_highlighted_item]
-            if hasattr(old_widget, 'set_highlighted'):
-                old_widget.set_highlighted(False)
-
-        # 設置新的高亮
-        if item_id and item_id in self._ui_widgets:
-            widget = self._ui_widgets[item_id]
-            if hasattr(widget, 'set_highlighted'):
-                widget.set_highlighted(True)
-
-            # 滾動到當前項目
-            self.scroll_area.ensureWidgetVisible(widget)
-
-        self._current_highlighted_item = item_id
-
     def enable_composition_editing(self) -> None:
         """啟用組合編輯"""
         self.setAcceptDrops(True)
@@ -911,9 +765,6 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
             # 3. 顯示空狀態
             self.empty_label.setVisible(True)
 
-            # 5. 重置進度顯示
-            self.reset_execution_display()
-
             self._logger.info("All test items cleared from UI")
 
         except Exception as e:
@@ -926,15 +777,13 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
 
     def enable_run_controls(self) -> None:
         """啟用運行控制"""
-        control = ["run", "export", "import"]
         for btn_key, config in self.buttons_config.items():
-            if btn_key in control:
-                self.buttons[btn_key].setEnabled(True)
+            self.buttons[btn_key].setEnabled(True)
 
     def disable_run_controls(self) -> None:
         """禁用運行控制"""
         for btn_key, config in self.buttons_config.items():
-                self.buttons[btn_key].setEnabled(False)
+            self.buttons[btn_key].setEnabled(False)
 
     def update_control_state(self, state: ExecutionState) -> None:
         """根據執行狀態更新控制項"""
@@ -966,8 +815,6 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
             remaining_sec = int(estimated_remaining % 60)
             time_text += f" | 預計剩餘: {remaining_min:02d}:{remaining_sec:02d}"
 
-        self.time_label.setText(time_text)
-
     # endregion
 
     # region ==================== IExecutionViewEvents 接口實現 ====================
@@ -979,7 +826,7 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
     def on_stop_requested(self) -> None:
         """當請求停止時觸發"""
         if self.ask_user_confirmation("確定要停止當前執行嗎？", "確認停止"):
-            self.emit_user_action("stop_execution", {"execution_id": self._current_execution_id})
+            self.emit_user_action("stop_execution")
 
     def on_generate_requested(self, config: Dict[str, Any]) -> None:
         """當請求生成時觸發"""
@@ -991,7 +838,7 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
 
     def on_report_requested(self) -> None:
         """當請求報告時觸發"""
-        self.emit_user_action("generate_execution_report", {"execution_id": self._current_execution_id})
+        self.emit_user_action("generate_execution_report")
 
     # endregion
 
@@ -1086,11 +933,7 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         """拖入事件"""
         if (event.mimeData().hasFormat('application/x-testcase') or
                 event.mimeData().hasFormat('application/x-keyword')):
-            if self._current_execution_state in [ExecutionState.IDLE, ExecutionState.COMPLETED,
-                                                 ExecutionState.FAILED, ExecutionState.CANCELLED]:
-                event.acceptProposedAction()
-            else:
-                event.ignore()
+            event.acceptProposedAction()
         else:
             event.ignore()
 
@@ -1132,10 +975,6 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
 
     def _on_clear_clicked(self):
         """清空按鈕點擊處理"""
-        if self._current_execution_state == ExecutionState.RUNNING:
-            self.show_warning_message("無法在執行中清空測試項目")
-            return
-
         if len(self._test_items) > 0:
             if self.ask_user_confirmation("確定要清空所有測試項目嗎？", "確認清空"):
                 self.on_composition_cleared()
@@ -1162,34 +1001,16 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         widget.customContextMenuRequested.connect(show_context_menu)
 
-    def _update_execution_time(self):
-        """更新執行時間顯示"""
-        if self._start_time and self._current_execution_state == ExecutionState.RUNNING:
-            elapsed = (datetime.datetime.now() - self._start_time).total_seconds()
-            self.show_execution_time(elapsed)
-
     def _handle_user_action(self, action_name: str, action_data: Any):
         """處理用戶操作信號"""
         self._logger.debug(f"User action: {action_name} with data: {action_data}")
 
     # endregion
 
-    # region ==================== 公共方法 ====================
-
-    def set_execution_id(self, execution_id: str):
-        """設置當前執行ID"""
-        self._current_execution_id = execution_id
 
     def get_test_items(self) -> List[TestItem]:
         """獲取所有測試項目"""
         return list(self._test_items.values())
-
-    def get_current_execution_state(self) -> ExecutionState:
-        """獲取當前執行狀態"""
-        return self._current_execution_state
-    # endregion
-
-
     def _update_ui(self):
         self.update()
         self.repaint()

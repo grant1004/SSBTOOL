@@ -13,6 +13,7 @@ from src.interfaces.execution_interface import (
 # 導入 MVC 基類
 from src.mvc_framework.base_controller import BaseController
 from src.mvc_framework.event_bus import event_bus
+from src.ui.components import ExportDialog
 
 
 class ExecutionController(BaseController, IExecutionController):
@@ -296,15 +297,39 @@ class ExecutionController(BaseController, IExecutionController):
     # region execution request
 
     async def handle_run_request(self) -> None:
-        print( "Received run request")
         exe_config = self.execution_business_model.generate_execution_config("Untitled")
         await self.execution_business_model.start_execution(exe_config)
 
     async def handle_stop_request(self) -> None:
         print("Received stop request")
 
-    async def handle_generate_request(self, export_config: Dict[str, Any]) -> None:
-        print("Received handle_generate_request")
+    async def handle_generate_request(self, export_config: Dict[str, Any]):
+        """顯示 Export 對話框並處理 generate command"""
+        # 導入對話框（延遲導入避免循環依賴）
+
+        # 獲取主視窗和主題管理器
+        main_window = self._get_main_window()
+        theme_manager = getattr(main_window, 'theme_manager', None) if main_window else None
+
+        # 顯示對話框
+        export_data = ExportDialog.show_export_dialog(theme_manager, main_window)
+
+        if export_data:
+            # 用戶確認了，執行 generate command
+            name_text = export_data['name']
+            category = export_data['category']
+            priority = export_data['priority']
+            description = export_data['description']
+
+            print(f"Exporting test case: {name_text}")
+            print(f"Category: {category}, Priority: {priority}")
+            print(f"Description: {export_data['description']}")
+
+            return self.execution_business_model.generate_testcase(name_text, category, priority, description)
+        else:
+            # 用戶取消了
+            print("Export cancelled by user")
+            return None
 
     async def handle_import_request(self) -> None:
         print("Received handle_import_request")
@@ -312,6 +337,18 @@ class ExecutionController(BaseController, IExecutionController):
     async def handle_report_request(self) -> None:
         print("Received handle_report_request")
 
+    def _get_main_window(self):
+        """獲取主視窗"""
+        if not self._run_case_views:
+            return None
+
+        # 向上遍歷查找主視窗
+        parent = self._run_case_views.parent()
+        while parent:
+            if hasattr(parent, 'theme_manager'):
+                return parent
+            parent = parent.parent()
+        return None
     #endregion
 
     def get_current_execution_status(self) -> ExecutionState:

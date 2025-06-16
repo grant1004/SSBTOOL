@@ -1,0 +1,62 @@
+{
+    "meta": {
+        "version": "1.0",
+        "type": "user_composition",
+        "test_name": "test",
+        "created_by": "robot_app",
+        "created_at": "2025-06-16T16:34:53.257368",
+        "description": "Generated test composition: test"
+    },
+    "selected_settings": {
+        "documentation": "test",
+        "libraries": [
+            {
+                "library_name": "Lib.CommonLibrary",
+                "category": "common",
+                "config": {}
+            }
+        ],
+        "suite_setup": null,
+        "suite_teardown": null
+    },
+    "selected_variables": [
+        {
+            "name": "TIMEOUT",
+            "value": "30s",
+            "data_type": "string"
+        }
+    ],
+    "individual_testcases": [
+        {
+            "test_id": "7184a00e-b0ab-460a-821d-17d343a00e9a",
+            "test_name": "Execute Keyword - check_payload [id]7184a00e-b0ab-460a-821d-17d343a00e9a",
+            "type": "keyword",
+            "keyword_name": "check_payload",
+            "keyword_category": "common",
+            "priority": "normal",
+            "description": "高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）",
+            "parameters": {
+                "expected_payload": "None",
+                "expected_can_id": "None",
+                "timeout": "5",
+                "expected_fields": ""
+            }
+        }
+    ],
+    "keyword_dependencies": [
+        {
+            "category": "common",
+            "library_name": "Lib.CommonLibrary",
+            "required_keywords": []
+        }
+    ],
+    "runtime_config": {
+        "output_filename": "test.robot",
+        "execution_mode": "multiple_tests",
+        "parallel": false,
+        "tags_to_run": [
+            "auto-generated"
+        ],
+        "variables_file": null
+    }
+}

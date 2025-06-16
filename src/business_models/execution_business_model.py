@@ -5,20 +5,16 @@
 
 import os
 import json
-import time
-import asyncio
 from datetime import datetime
-from typing import Dict, Optional, List, Callable, Any, Union, Set
-from dataclasses import dataclass, field
-from pathlib import Path
-from PySide6.QtCore import QObject, Signal, QThread, Slot, Qt
+from typing import Dict, Optional, List, Callable, Any
+from PySide6.QtCore import Signal, QThread, Slot, Qt
 import uuid
 
 # 導入接口
 from src.interfaces.execution_interface import (
     ITestCompositionModel, ExecutionConfiguration, TestItem, TestItemType,
     ITestExecutionBusinessModel, IReportGenerationModel, ExecutionResult,
-    ExecutionProgress, ExecutionState, TestItemStatus
+    ExecutionProgress, ExecutionState
 )
 
 # 導入 MVC 基類
@@ -39,16 +35,15 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
     - generate_robot_from_json → _generate_robot_from_json
     - generate_command → generate_execution_config + export_test_composition
     """
-
-    # 信號定義（保持原有的信號）
-    test_progress = Signal(dict, str)  # 測試進度信號
-    test_finished = Signal(bool)  # 測試完成信號
+    # composition signal
     test_item_added = Signal(TestItem)
     test_item_removed = Signal(str)
     test_item_order_changed = Signal(list)
     all_items_cleared = Signal()
-    execution_state_changed = Signal(str, ExecutionState)
-    execution_progress_updated = Signal(str, ExecutionProgress)
+
+    # test progress, test finished 是 progress card 的訊號
+    test_progress = Signal(dict, str)  # 測試進度信號
+    test_finished = Signal(bool)  # 測試完成信號
 
     def __init__(self):
         super().__init__()
@@ -59,8 +54,6 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
         self._execution_history: List[Dict[str, Any]] = []
 
         # === 執行狀態管理（新架構） ===
-        self._executions: Dict[str, Dict[str, Any]] = {}
-        self._current_execution_id: Optional[str] = None
         self._execution_states: Dict[str, ExecutionState] = {}
         self._execution_progress: Dict[str, ExecutionProgress] = {}
         self._execution_start_times: Dict[str, datetime] = {}
@@ -68,13 +61,8 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
         # === 原有的執行管理（保持兼容） ===
         self.thread: Optional[QThread] = None
         self.worker: Optional[RobotTestWorker] = None
-        self.test_id: Optional[int] = None
-        self.now_TestCase = None
+        self.test_id: Optional[int, str] = None
         self.isRunning = False
-
-        # === 進度觀察者 ===
-        self._progress_observers: List[Callable] = []
-        self._result_observers: List[Callable] = []
 
     # region  ==================== ITestCompositionModel 實現，和拖拉字卡有關的 ====================
 
@@ -131,20 +119,8 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
 
     def clear_test_items(self) -> None:
         """清空所有測試項目"""
-        items_before_clear = len(self._test_items)
-
-        if items_before_clear > 0:
-            self._save_to_history({
-                "action": "clear_all",
-                "items_count": items_before_clear,
-                "items": self.get_test_items(),
-                "timestamp": datetime.now().isoformat()
-            })
-
         self._test_items.clear()
         self._item_order.clear()
-        self._reset_execution_state()
-
         self.all_items_cleared.emit()
         self.data_changed.emit("test_items", [])
 
@@ -199,6 +175,23 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
 
     # region ==================== ITestExecutionBusinessModel 實現，和 run robot 有關的 ====================
 
+
+    def prepare_execution(self, config: ExecutionConfiguration) -> bool:
+        """準備執行環境"""
+        try:
+            # 檢查是否有正在執行的任務
+            if self.isRunning:
+                self._logger.warning("Another execution is already running")
+                return False
+            # 創建輸出目錄
+            os.makedirs(config.output_directory, exist_ok=True)
+
+            return True
+
+        except Exception as e:
+            self._logger.error(f"Failed to prepare execution: {e}")
+            return False
+
     async def start_execution(self, config: ExecutionConfiguration) -> str:
         """
         開始執行測試（映射原有的 run_command）
@@ -208,14 +201,14 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
         execution_id = str(uuid.uuid4())
 
         try:
+
             # 準備執行
             if not self.prepare_execution(config):
                 raise ValueError("Failed to prepare execution")
 
             # 更新狀態
             self._current_execution_id = execution_id
-            # self._update_execution_state(execution_id, ExecutionState.PREPARING)
-            # self.isRunning = True
+            self.isRunning = True
 
             # 轉換為原有格式
             testcase_dict = self._convert_items_to_legacy_format()
@@ -245,35 +238,39 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
 
         except Exception as e:
             self._logger.error(f"Failed to start execution: {e}")
-            self._update_execution_state(execution_id, ExecutionState.FAILED)
             self.isRunning = False
             raise
 
-    def prepare_execution(self, config: ExecutionConfiguration) -> bool:
-        """準備執行環境"""
+    async def stop_execution(self, execution_id: str, force: bool = False) -> bool:
+        """停止執行"""
         try:
-            # 檢查是否有正在執行的任務
-            if self.isRunning:
-                self._logger.warning("Another execution is already running")
-                return False
+            # 停止 worker
+            if self.worker:
+                # 這裡需要實現 worker 的停止方法
+                pass
 
-            # 驗證配置
-            errors = self.validate_execution_prerequisites(config)
-            if errors:
-                self._logger.error(f"Execution prerequisites not met: {errors}")
-                return False
+            # 停止線程
+            if self.thread and self.thread.isRunning():
+                self.thread.quit()
+                if force:
+                    self.thread.terminate()
+                else:
+                    self.thread.wait(5000)  # 等待 5 秒
 
-            # 創建輸出目錄
-            os.makedirs(config.output_directory, exist_ok=True)
+            self.isRunning = False
 
             return True
 
         except Exception as e:
-            self._logger.error(f"Failed to prepare execution: {e}")
+            self._logger.error(f"Failed to stop execution: {e}")
             return False
 
+    def generate_testcase(self, name_text, category, priority, description) -> str:
+        testcase_dict = self._convert_items_to_legacy_format()
+        self.generate_command( testcase_dict, name_text, category, priority, description)
+
     async def _execute_robot_in_thread(self, execution_id: str, robot_path: str,
-                                       mapping_path: str, config: ExecutionConfiguration):
+                                   mapping_path: str, config: ExecutionConfiguration):
         """在 QThread 中執行 Robot Framework（保持原有邏輯）"""
         project_root = self._get_project_root()
         lib_path = os.path.join(project_root, "Lib")
@@ -289,7 +286,7 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
             self._handle_worker_progress, Qt.ConnectionType.DirectConnection
         )
         self.worker.finished.connect(
-            lambda success: self._handle_worker_finished(execution_id, success),
+            self._handle_worker_finished,
             Qt.ConnectionType.DirectConnection
         )
 
@@ -301,48 +298,11 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
         self.thread.started.connect(self.worker.start_work)
         self.thread.finished.connect(self.worker.deleteLater)
         self.thread.finished.connect(self.thread.deleteLater)
-
         self.worker.finished.connect(self.thread.quit)
-
-        # 更新狀態為運行中
-        # self._update_execution_state(execution_id, ExecutionState.RUNNING)
 
         # 啟動線程
         self.thread.start()
 
-        # 等待完成（使用 asyncio）
-        # while self.thread and self.thread.isRunning():
-        #     await asyncio.sleep(0.1)
-
-    async def stop_execution(self, execution_id: str, force: bool = False) -> bool:
-        """停止執行"""
-        try:
-            if execution_id != self._current_execution_id:
-                return False
-
-            self._update_execution_state(execution_id, ExecutionState.STOPPING)
-
-            # 停止 worker
-            if self.worker:
-                # 這裡需要實現 worker 的停止方法
-                pass
-
-            # 停止線程
-            if self.thread and self.thread.isRunning():
-                self.thread.quit()
-                if force:
-                    self.thread.terminate()
-                else:
-                    self.thread.wait(5000)  # 等待 5 秒
-
-            self._update_execution_state(execution_id, ExecutionState.CANCELLED)
-            self.isRunning = False
-
-            return True
-
-        except Exception as e:
-            self._logger.error(f"Failed to stop execution: {e}")
-            return False
     # endregion
 
     # region 根據 UI 介面字卡設定，建立對應的 json  路徑 : data/robot/user/user_composition_test_name.json
@@ -838,6 +798,179 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
 
     # endregion
 
+    #region export cmd
+
+    def generate_command(self, testcase, name_text, category, priority, description):
+        """生成測試指令並保存為 JSON 檔案 (保留原有功能)"""
+        # print("Click Generate Command")
+        # 使用新的 generate_user_composition 方法
+        success, msg, path = self._generate_user_composition_internal(testcase, name_text)
+
+        if success:
+            self.generate_cards_from_json(path, category, priority, description)
+
+        else:
+            print(f"Error: {msg}")
+
+    def generate_cards_from_json(self, user_composition_path, category, priority, description):
+        """從 user composition JSON 生成 testcase card"""
+        import time
+        from datetime import datetime
+
+        try:
+            # 讀取 user composition
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            with open(user_composition_path, 'r', encoding='utf-8') as f:
+                composition = json.load(f)
+
+            # 提取基本資訊
+            meta = composition.get('meta', {})
+            test_name = meta.get('test_name', 'Unnamed_Test')
+
+            # 生成唯一的 testcase ID
+            testcase_id = f"user_testcase_{int(time.time())}"
+
+            # 轉換 individual_testcases 為 steps 格式
+            steps = []
+            dependencies = {
+                "libraries": set(),
+                "keywords": set()
+            }
+
+            for item in composition.get('individual_testcases', []):
+                if item.get('type') == 'keyword':
+                    # 處理 keyword 類型
+                    step = {
+                        "step_type": "keyword",
+                        "keyword_id": item.get('test_id'),
+                        "keyword_name": item.get('keyword_name'),
+                        "keyword_category": item.get('keyword_category'),
+                        "parameters": item.get('parameters', {}),
+                        "description": item.get('description', '')
+                    }
+                    steps.append(step)
+
+                    # 收集依賴
+                    if keyword_category := item.get('keyword_category'):
+                        dependencies["libraries"].add(keyword_category)
+                    if keyword_name := item.get('keyword_name'):
+                        dependencies["keywords"].add(keyword_name)
+
+                elif item.get('type') == 'testcase':
+                    # 處理 testcase 類型 - 保持 testcase 結構，不展開
+                    testcase_name = item.get('testcase_name', 'Unknown Testcase')
+                    testcase_steps = item.get('steps', [])
+
+                    # 收集這個 testcase 內步驟的依賴
+                    self._collect_testcase_dependencies(testcase_steps, dependencies)
+
+                    # 創建 testcase 類型的步驟
+                    testcase_step = {
+                        "step_type": "testcase",
+                        "testcase_id": item.get('test_id'),
+                        "testcase_name": testcase_name,
+                        "description": item.get('description', ''),
+                        "priority": item.get('priority', 'normal'),
+                        "steps": testcase_steps  # 保留完整的 steps 陣列
+                    }
+                    steps.append(testcase_step)
+
+            # 計算預估時間（每個步驟約2分鐘）
+            estimated_time = max(1, len(steps) * 2)
+
+            # 建立 testcase card 格式
+            testcase_card = {
+                testcase_id: {
+                    "data": {
+                        "config": {
+                            "type": "testcase",
+                            "name": test_name,
+                            "description": description,
+                            "category": category,
+                            "priority": priority,
+                            "estimated_time": f"{estimated_time}min",
+                            "created_by": meta.get('created_by', 'user'),
+                            "created_at": meta.get('created_at', datetime.now().isoformat()),
+                            "steps": steps,
+                            "dependencies": {
+                                "libraries": list(dependencies["libraries"]),
+                                "keywords": list(dependencies["keywords"])
+                            },
+                            "metadata": {
+                                "source_composition": os.path.basename(user_composition_path),
+                                "total_steps": len(steps)
+                            }
+                        }
+                    }
+                }
+            }
+
+            # 確定保存路徑
+            cards_dir = os.path.join(project_root, "data", "robot", "cards")
+            os.makedirs(cards_dir, exist_ok=True)
+
+            user_testcases_path = os.path.join(cards_dir, f"{category}-test-case.json")
+
+            # 讀取現有的 user testcases（如果存在）
+            existing_testcases = {}
+            if os.path.exists(user_testcases_path):
+                try:
+                    with open(user_testcases_path, 'r', encoding='utf-8') as f:
+                        existing_testcases = json.load(f)
+                except (json.JSONDecodeError, FileNotFoundError):
+                    print("Warning: 無法讀取現有的 user_testcases.json，將創建新檔案")
+                    existing_testcases = {}
+
+            # 合併新的 testcase
+            existing_testcases.update(testcase_card)
+
+            # 保存更新後的檔案
+            with open(user_testcases_path, 'w', encoding='utf-8') as f:
+                json.dump(existing_testcases, f, indent=4, ensure_ascii=False)
+
+            success_msg = f"Testcase '{test_name}' 已保存到 cards (ID: {testcase_id})"
+            # print(success_msg)
+
+            return True, success_msg, testcase_id
+
+        except FileNotFoundError:
+            error_msg = f"找不到檔案: {user_composition_path}"
+            print(f"Error: {error_msg}")
+            return False, error_msg, None
+
+        except json.JSONDecodeError as e:
+            error_msg = f"JSON 格式錯誤: {e}"
+            print(f"Error: {error_msg}")
+            return False, error_msg, None
+
+        except Exception as e:
+            error_msg = f"生成 testcase card 時發生錯誤: {e}"
+            print(f"Error: {error_msg}")
+            return False, error_msg, None
+
+    def _collect_testcase_dependencies(self, testcase_steps, dependencies):
+        """收集 testcase 內步驟的依賴資訊"""
+        for step in testcase_steps:
+            if not isinstance(step, dict):
+                continue
+
+            step_type = step.get('step_type', step.get('type', 'unknown'))
+
+            if step_type == 'keyword':
+                # 收集 keyword 的依賴
+                if keyword_category := step.get('keyword_category'):
+                    dependencies["libraries"].add(keyword_category)
+                if keyword_name := step.get('keyword_name'):
+                    dependencies["keywords"].add(keyword_name)
+
+            elif step_type == 'testcase':
+                # 如果有嵌套的 testcase，遞歸收集依賴
+                nested_steps = step.get('steps', [])
+                if nested_steps:
+                    self._collect_testcase_dependencies(nested_steps, dependencies)
+
+    #endregion
+
 
     def _get_project_root(self):
         """獲取專案根目錄"""
@@ -858,7 +991,6 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
         except Exception as e:
             self._logger.error(f"Error extracting ID: {e}")
             return ""
-
 
     def _convert_items_to_legacy_format(self) -> Dict[str, Any]:
         """將新格式的 TestItem 轉換為原有格式"""
@@ -891,26 +1023,9 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
         except Exception as e:
             self._logger.error(f"Error handling progress: {e}")
 
-
-    def _handle_worker_finished(self, execution_id: str, success: bool):
-        """處理 worker 完成"""
-        try:
-            # 發送原有格式的信號
-            if self.test_id is not None:
-                self.test_finished.emit(success)
-
-            # 更新執行狀態
-            final_state = ExecutionState.COMPLETED if success else ExecutionState.FAILED
-            self._update_execution_state(execution_id, final_state)
-
-            # 清理
-            self.worker = None
-            self.isRunning = False
-            self._current_execution_id = None
-
-        except Exception as e:
-            self._logger.error(f"Error handling finished: {e}")
-
+    @Slot(dict)
+    def _handle_worker_finished(self, success: bool) :
+        self.isRunning = False
 
 
 
