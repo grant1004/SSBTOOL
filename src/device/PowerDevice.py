@@ -131,8 +131,8 @@ class PowerDevice(DeviceBase):
 
     def get_idn(self) -> Optional[str]:
         """獲取設備識別信息"""
-        if not self._check_connection():
-            return None
+        # if not self._check_connection():
+        #     return None
         return self._udp6730.get_idn()
 
     def set_voltage(self, voltage: float) -> bool:

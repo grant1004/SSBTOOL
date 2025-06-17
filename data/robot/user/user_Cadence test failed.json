@@ -1,0 +1,94 @@
+{
+    "meta": {
+        "version": "1.0",
+        "type": "user_composition",
+        "test_name": "Cadence test failed",
+        "created_by": "robot_app",
+        "created_at": "2025-06-17T17:21:46.099866",
+        "description": "Generated test composition: Cadence test failed"
+    },
+    "selected_settings": {
+        "documentation": "Cadence test failed",
+        "libraries": [
+            {
+                "library_name": "Lib.CommonLibrary",
+                "category": "common",
+                "config": {}
+            }
+        ],
+        "suite_setup": null,
+        "suite_teardown": null
+    },
+    "selected_variables": [
+        {
+            "name": "TIMEOUT",
+            "value": "30s",
+            "data_type": "string"
+        }
+    ],
+    "individual_testcases": [
+        {
+            "test_id": "0f48473f-57b1-4eca-960a-2a99b605cd87",
+            "test_name": "Execute Keyword - set_voltage [id]0f48473f-57b1-4eca-960a-2a99b605cd87",
+            "type": "keyword",
+            "keyword_name": "set_voltage",
+            "keyword_category": "common",
+            "priority": "optional",
+            "description": "Set output voltage",
+            "parameters": {
+                "voltage": "9"
+            }
+        },
+        {
+            "test_id": "b9e0c292-ad53-4492-99cb-34d516787066",
+            "test_name": "Execute Keyword - power_output_on [id]b9e0c292-ad53-4492-99cb-34d516787066",
+            "type": "keyword",
+            "keyword_name": "power_output_on",
+            "keyword_category": "common",
+            "priority": "optional",
+            "description": "power_output_on",
+            "parameters": {}
+        },
+        {
+            "test_id": "241c687b-77fe-4735-97d6-e184b855dde3",
+            "test_name": "Execute Keyword - check_payload [id]241c687b-77fe-4735-97d6-e184b855dde3",
+            "type": "keyword",
+            "keyword_name": "check_payload",
+            "keyword_category": "common",
+            "priority": "normal",
+            "description": "高精度檢查接收到的 CAN 消息數據",
+            "parameters": {
+                "expected_payload": "A8 02 XX XX XX XX XX XX",
+                "expected_can_id": "203",
+                "timeout": "10",
+                "expected_fields": ""
+            }
+        },
+        {
+            "test_id": "a6a2feb5-444d-4d76-ad2d-bde63b6025e9",
+            "test_name": "Execute Keyword - power_output_off [id]a6a2feb5-444d-4d76-ad2d-bde63b6025e9",
+            "type": "keyword",
+            "keyword_name": "power_output_off",
+            "keyword_category": "common",
+            "priority": "optional",
+            "description": "power_output_off",
+            "parameters": {}
+        }
+    ],
+    "keyword_dependencies": [
+        {
+            "category": "common",
+            "library_name": "Lib.CommonLibrary",
+            "required_keywords": []
+        }
+    ],
+    "runtime_config": {
+        "output_filename": "Cadence test failed.robot",
+        "execution_mode": "multiple_tests",
+        "parallel": false,
+        "tags_to_run": [
+            "auto-generated"
+        ],
+        "variables_file": null
+    }
+}

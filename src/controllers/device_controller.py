@@ -75,7 +75,7 @@ class DeviceController(BaseController, IDeviceController):
             self._view_states.pop(view, None)
             self._logger.info(f"Unregistered device view: {type(view).__name__}")
 
-    async def handle_connect_request(self, device_type: DeviceType) -> None:
+    async def handle_connect_request(self, device_type: DeviceType, com_port: str = None ) -> None:
         """
         處理設備連接請求 - 完整的協調邏輯
 

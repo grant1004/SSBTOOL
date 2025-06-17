@@ -260,10 +260,10 @@ class CommonLibrary(BaseRobotLibrary):
         if not power_device:
             raise RuntimeError("無法獲取 POWER 設備實例")
         
-        formatted_voltage = f"{voltage:05.2f}"
+        # formatted_voltage = f"{voltage:05.2f}"
         
         # 7. 發送命令
-        result = power_device.set_voltage(formatted_voltage)
+        result = power_device.set_voltage(voltage)
 
         if not result:
             raise RuntimeError(f"發送失敗 : VOLT {formatted_voltage}")

@@ -25,8 +25,6 @@ class UDP6730:
             )
         except :
             print(f"Connecting to {port} failed!")
-        finally:
-            print(f"Connecting to {port} Successful!")
 
     def __del__(self):
         """Close serial connection when object is deleted"""

@@ -205,7 +205,7 @@ class DeviceBusinessModel(BaseBusinessModel, IDeviceBusinessModel):
 
     # ==================== 業務邏輯實現方法（純新架構）====================
 
-    async def _perform_device_connection(self, device_type: DeviceType) -> DeviceConnectionResult:
+    async def _perform_device_connection(self, device_type: DeviceType, com_port: str = None ) -> DeviceConnectionResult:
         """執行實際的設備連接 - 直接操作設備實例"""
         device_instance = self._device_instances[device_type]
 
@@ -217,14 +217,21 @@ class DeviceBusinessModel(BaseBusinessModel, IDeviceBusinessModel):
                 self.device_connection_progress.emit(device_type, progress)
 
                 # 直接調用設備實例的連接方法
-                if device_type == DeviceType.USB:
-                    result = await device_instance.connect()  # USB 設備不需要端口參數
-                elif device_type == DeviceType.POWER:
-                    result = await device_instance.connect("COM32")  # Power 設備需要端口
-                elif device_type == DeviceType.LOADER:
-                    result = await device_instance.connect("COM19")  # Loader 設備需要端口
+                if com_port is None:
+                    result = await device_instance.connect()  # Power 設備需要端口
                 else:
-                    result = await device_instance.connect()
+                    result = await device_instance.connect(com_port)  # Power 設備需要端口
+                # if device_type == DeviceType.USB:
+                #     result = await device_instance.connect()  # USB 設備不需要端口參數
+                # elif device_type == DeviceType.POWER:
+                #     if com_port is None:
+                #         result = await device_instance.connect()  # Power 設備需要端口
+                #     else :
+                #         result = await device_instance.connect(com_port)  # Power 設備需要端口
+                # elif device_type == DeviceType.LOADER:
+                #     result = await device_instance.connect("COM19")  # Loader 設備需要端口
+                # else:
+                #     result = await device_instance.connect()
 
                 if result:
                     # 連接成功，完成進度

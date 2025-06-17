@@ -1,0 +1,142 @@
+{
+    "user_testcase_1750151985": {
+        "data": {
+            "config": {
+                "type": "testcase",
+                "name": "Cadence test passed",
+                "description": "0x203  [A8 02]",
+                "category": "controller",
+                "priority": "normal",
+                "estimated_time": "8min",
+                "created_by": "robot_app",
+                "created_at": "2025-06-17T17:19:45.084096",
+                "steps": [
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": "0f48473f-57b1-4eca-960a-2a99b605cd87",
+                        "keyword_name": "set_voltage",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "voltage": "5"
+                        },
+                        "description": "Set output voltage"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": "b9e0c292-ad53-4492-99cb-34d516787066",
+                        "keyword_name": "power_output_on",
+                        "keyword_category": "common",
+                        "parameters": {},
+                        "description": "power_output_on"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": "241c687b-77fe-4735-97d6-e184b855dde3",
+                        "keyword_name": "check_payload",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "expected_payload": "A8 02 XX XX XX XX XX XX",
+                            "expected_can_id": "203",
+                            "timeout": "10",
+                            "expected_fields": ""
+                        },
+                        "description": "高精度檢查接收到的 CAN 消息數據"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": "a6a2feb5-444d-4d76-ad2d-bde63b6025e9",
+                        "keyword_name": "power_output_off",
+                        "keyword_category": "common",
+                        "parameters": {},
+                        "description": "power_output_off"
+                    }
+                ],
+                "dependencies": {
+                    "libraries": [
+                        "common"
+                    ],
+                    "keywords": [
+                        "power_output_on",
+                        "check_payload",
+                        "set_voltage",
+                        "power_output_off"
+                    ]
+                },
+                "metadata": {
+                    "source_composition": "user_Cadence test passed.json",
+                    "total_steps": 4
+                }
+            }
+        }
+    },
+    "user_testcase_1750152106": {
+        "data": {
+            "config": {
+                "type": "testcase",
+                "name": "Cadence test failed",
+                "description": "203 [A8 02], voltage : 9",
+                "category": "controller",
+                "priority": "normal",
+                "estimated_time": "8min",
+                "created_by": "robot_app",
+                "created_at": "2025-06-17T17:21:46.099866",
+                "steps": [
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": "0f48473f-57b1-4eca-960a-2a99b605cd87",
+                        "keyword_name": "set_voltage",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "voltage": "9"
+                        },
+                        "description": "Set output voltage"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": "b9e0c292-ad53-4492-99cb-34d516787066",
+                        "keyword_name": "power_output_on",
+                        "keyword_category": "common",
+                        "parameters": {},
+                        "description": "power_output_on"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": "241c687b-77fe-4735-97d6-e184b855dde3",
+                        "keyword_name": "check_payload",
+                        "keyword_category": "common",
+                        "parameters": {
+                            "expected_payload": "A8 02 XX XX XX XX XX XX",
+                            "expected_can_id": "203",
+                            "timeout": "10",
+                            "expected_fields": ""
+                        },
+                        "description": "高精度檢查接收到的 CAN 消息數據"
+                    },
+                    {
+                        "step_type": "keyword",
+                        "keyword_id": "a6a2feb5-444d-4d76-ad2d-bde63b6025e9",
+                        "keyword_name": "power_output_off",
+                        "keyword_category": "common",
+                        "parameters": {},
+                        "description": "power_output_off"
+                    }
+                ],
+                "dependencies": {
+                    "libraries": [
+                        "common"
+                    ],
+                    "keywords": [
+                        "power_output_on",
+                        "check_payload",
+                        "set_voltage",
+                        "power_output_off"
+                    ]
+                },
+                "metadata": {
+                    "source_composition": "user_Cadence test failed.json",
+                    "total_steps": 4
+                }
+            }
+        }
+    }
+}
