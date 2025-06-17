@@ -12,8 +12,6 @@ from src.interfaces.device_interface import (
 
 # 導入 MVC 基類
 from src.mvc_framework.base_model import BaseBusinessModel
-
-# 直接導入設備實現（移除 DeviceManager 中介）
 from src.device.USBDevice import USBDevice
 from src.device.PowerDevice import PowerDevice
 from src.device.LoaderDevice import LoaderDevice
@@ -222,7 +220,7 @@ class DeviceBusinessModel(BaseBusinessModel, IDeviceBusinessModel):
                 if device_type == DeviceType.USB:
                     result = await device_instance.connect()  # USB 設備不需要端口參數
                 elif device_type == DeviceType.POWER:
-                    result = await device_instance.connect("COM19")  # Power 設備需要端口
+                    result = await device_instance.connect("COM32")  # Power 設備需要端口
                 elif device_type == DeviceType.LOADER:
                     result = await device_instance.connect("COM19")  # Loader 設備需要端口
                 else:

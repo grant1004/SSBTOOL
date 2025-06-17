@@ -16,7 +16,7 @@ import asyncio
 from datetime import datetime, timedelta
 from robot.api.deco import library, keyword
 from src.utils import CANPacketGenerator
-from .BaseLibrary import BaseRobotLibrary
+from Lib.BaseLibrary import BaseRobotLibrary
 from robot.utils import timestr_to_secs
 
 
@@ -162,7 +162,7 @@ class CommonLibrary(BaseRobotLibrary):
     @keyword
     def check_payload(self, expected_payload=None, expected_can_id=None, timeout=5, **expected_fields):
         """
-        高精度檢查接收到的 CAN 消息數據（絕對，不遺漏任何 packet）
+        高精度檢查接收到的 CAN 消息數據
 
         Args:
             expected_payload: 期望的 payload 數據
@@ -242,179 +242,247 @@ class CommonLibrary(BaseRobotLibrary):
             error_msg = f"CAN 消息檢查失敗: {str(e)}"
             self._log_error(error_msg)
             raise RuntimeError(error_msg)
+    
+    @keyword
+    def set_voltage(self, voltage: float):
+        """Set output voltage
+
+        Args:
+            voltage (float): Voltage value in Volts
+        """
+        # 2. 檢查 POWER 設備是否可用
+        if not self.device_model.is_device_available(DeviceType.POWER):
+            device_status = self.device_model.get_device_status(DeviceType.POWER)
+            raise RuntimeError(f"POWER 設備不可用，當前狀態: {device_status.value}")
+
+            # 4. 獲取 USB 設備實例
+        power_device = self.device_model._device_instances.get(DeviceType.POWER)
+        if not power_device:
+            raise RuntimeError("無法獲取 POWER 設備實例")
+        
+        formatted_voltage = f"{voltage:05.2f}"
+        
+        # 7. 發送命令
+        result = power_device.set_voltage(formatted_voltage)
+
+        if not result:
+            raise RuntimeError(f"發送失敗 : VOLT {formatted_voltage}")
+
+    @keyword
+    def power_output_on(self):
+        """power_output_on
+
+        """
+        # 2. 檢查 POWER 設備是否可用
+        if not self.device_model.is_device_available(DeviceType.POWER):
+            device_status = self.device_model.get_device_status(DeviceType.POWER)
+            raise RuntimeError(f"POWER 設備不可用，當前狀態: {device_status.value}")
+
+            # 4. 獲取 USB 設備實例
+        power_device = self.device_model._device_instances.get(DeviceType.POWER)
+        if not power_device:
+            raise RuntimeError("無法獲取 POWER 設備實例")
+
+
+        # 7. 發送命令
+        result = power_device.output_on()
+
+        if not result:
+            raise RuntimeError(f"發送失敗.")
+
+    @keyword
+    def power_output_off(self):
+        """
+        power_output_off
+
+        """
+        # 2. 檢查 POWER 設備是否可用
+        if not self.device_model.is_device_available(DeviceType.POWER):
+            device_status = self.device_model.get_device_status(DeviceType.POWER)
+            raise RuntimeError(f"POWER 設備不可用，當前狀態: {device_status.value}")
+
+            # 4. 獲取 USB 設備實例
+        power_device = self.device_model._device_instances.get(DeviceType.POWER)
+        if not power_device:
+            raise RuntimeError("無法獲取 POWER 設備實例")
+
+        # 7. 發送命令
+        result = power_device.output_off()
+
+        if not result:
+            raise RuntimeError(f"發送失敗.")
 
     # 擴展的關鍵字方法 - 提供更多選項
-    @keyword("Check Payload Advanced")
-    def check_payload_advanced(self, expected_payload=None, expected_can_id=None,
-                               timeout=5, wildcard_char='XX', exact_length=True, **expected_fields):
-        """
-        高級 payload 檢查，支援通配符和更多選項
-
-        Args:
-            expected_payload: 期望的 payload 數據
-                description: 期望的 payload 數據，支援通配符表示不關心的位置
-                example: FF XX AA 55
-            expected_can_id: 期望的 CAN ID
-                description: 期望的 CAN 訊息識別碼，支援十進制或十六進制格式
-                example: 0x207
-            timeout: 超時時間
-                default: 5
-                description: 等待接收訊息的超時時間（秒）
-            wildcard_char: 通配符字符
-                options: XX|??|--
-                default: XX
-                description: 用於表示不關心位置的通配符字符
-            exact_length: 精確長度匹配
-                options: True|False
-                default: True
-                description: 是否要求 payload 長度完全匹配
-            **expected_fields: 其他期望字段
-                description: 其他期望的字段值，如 header、node、crc32 等
-
-        Returns:
-            bool: 檢查是否成功
-
-        Examples:
-            | Check Payload Advanced | FF XX AA 55 |           |   |       |      # 使用 XX 通配符
-            | Check Payload Advanced | FF ?? AA 55 | 0x207     | 5 | ??    |      # 使用 ?? 通配符
-            | Check Payload Advanced | FF -- AA 55 | 0x207     | 5 | --    |      # 使用 -- 通配符
-        """
-        try:
-            # 如果指定了不同的通配符格式，先轉換
-            if expected_payload and wildcard_char != 'XX':
-                expected_payload = self._convert_wildcard_format(
-                    expected_payload, from_format=wildcard_char, to_format='XX'
-                )
-
-            # 調用原始的 check_payload 方法
-            return self.check_payload(expected_payload, expected_can_id, timeout, **expected_fields)
-
-        except Exception as e:
-            error_msg = f"高級 Payload 檢查失敗: {str(e)}"
-            self._log_error(error_msg)
-            raise RuntimeError(error_msg)
-
-    @keyword
-    def get_device_status(self, device_type_str: str):
-        """
-        獲取設備狀態
-
-        Args:
-            device_type_str: 設備類型字符串 ("USB", "POWER", "LOADER")
-
-        Returns:
-            str: 設備狀態字符串
-
-        Examples:
-            | ${status} | Get Device Status | USB |
-            | Should Be Equal | ${status} | CONNECTED |
-        """
-        try:
-            self._validate_device_model()
-
-            # 轉換字符串到 DeviceType 枚舉
-            device_type_map = {
-                "USB": DeviceType.USB,
-                "POWER": DeviceType.POWER,
-                "LOADER": DeviceType.LOADER
-            }
-
-            device_type = device_type_map.get(device_type_str.upper())
-            if not device_type:
-                raise ValueError(f"不支持的設備類型: {device_type_str}")
-
-            status = self.device_model.get_device_status(device_type)
-            self._log_info(f"設備 {device_type_str} 狀態: {status.value}")
-
-            return status.value
-
-        except Exception as e:
-            error_msg = f"獲取設備狀態失敗: {str(e)}"
-            self._log_error(error_msg)
-            return "ERROR"
-
-    @keyword
-    def wait_for_device_ready(self, device_type_str: str, timeout: int = 30):
-        """
-        等待設備準備就緒
-
-        Args:
-            device_type_str: 設備類型字符串
-            timeout: 超時時間（秒）
-
-        Examples:
-            | Wait For Device Ready | USB |
-            | Wait For Device Ready | POWER | 60 |
-        """
-        try:
-            self._validate_device_model()
-
-            device_type_map = {
-                "USB": DeviceType.USB,
-                "POWER": DeviceType.POWER,
-                "LOADER": DeviceType.LOADER
-            }
-
-            device_type_str = device_type_str.strip().replace('\"', '')
-            device_type = device_type_map.get(device_type_str.upper())
-            if not device_type:
-                raise ValueError(f"不支持的設備類型: {device_type_str}")
-
-            self._log_info(f"等待設備 {device_type_str} 準備就緒，超時時間: {timeout} 秒")
-
-            start_time = time.time()
-            check_interval = 0.5  # 每 0.5 秒檢查一次
-
-            while time.time() - start_time < timeout:
-                if self.device_model.is_device_available(device_type):
-                    elapsed_time = time.time() - start_time
-                    self._log_success(f"設備 {device_type_str} 已準備就緒，耗時: {elapsed_time:.1f} 秒")
-                    return True
-
-                # 顯示進度
-                elapsed = time.time() - start_time
-                if int(elapsed) % 5 == 0 and elapsed > 0:  # 每5秒顯示一次進度
-                    current_status = self.device_model.get_device_status(device_type)
-                    self._log_info(f"等待中... 當前狀態: {current_status.value} ({elapsed:.0f}/{timeout}s)")
-
-                time.sleep(check_interval)
-
-            # 超時
-            current_status = self.device_model.get_device_status(device_type)
-            raise RuntimeError(
-                f"等待設備 {device_type_str} 準備就緒超時 ({timeout} 秒)，當前狀態: {current_status.value}")
-
-        except Exception as e:
-            error_msg = f"等待設備準備就緒失敗: {str(e)}"
-            self._log_error(error_msg)
-            raise RuntimeError(error_msg)
-
-    @keyword
-    def verify_device_connection(self, device_type_str: str):
-        """
-        驗證設備連接狀態
-
-        驗證指定設備是否正確連接並可用
-
-        Args:
-            device_type_str: 設備類型字符串 ("USB", "POWER", "LOADER")
-
-        Examples:
-            | Verify Device Connection | USB |
-        """
-        try:
-            status = self.get_device_status(device_type_str)
-
-            if status == "CONNECTED":
-                self._log_success(f"設備 {device_type_str} 連接驗證通過")
-                return True
-            else:
-                raise RuntimeError(f"設備 {device_type_str} 連接驗證失敗，當前狀態: {status}")
-
-        except Exception as e:
-            error_msg = f"設備連接驗證失敗: {str(e)}"
-            self._log_error(error_msg)
-            raise RuntimeError(error_msg)
+    # @keyword("Check Payload Advanced")
+    # def check_payload_advanced(self, expected_payload=None, expected_can_id=None,
+    #                            timeout=5, wildcard_char='XX', exact_length=True, **expected_fields):
+    #     """
+    #     高級 payload 檢查，支援通配符和更多選項
+    # 
+    #     Args:
+    #         expected_payload: 期望的 payload 數據
+    #             description: 期望的 payload 數據，支援通配符表示不關心的位置
+    #             example: FF XX AA 55
+    #         expected_can_id: 期望的 CAN ID
+    #             description: 期望的 CAN 訊息識別碼，支援十進制或十六進制格式
+    #             example: 0x207
+    #         timeout: 超時時間
+    #             default: 5
+    #             description: 等待接收訊息的超時時間（秒）
+    #         wildcard_char: 通配符字符
+    #             options: XX|??|--
+    #             default: XX
+    #             description: 用於表示不關心位置的通配符字符
+    #         exact_length: 精確長度匹配
+    #             options: True|False
+    #             default: True
+    #             description: 是否要求 payload 長度完全匹配
+    #         **expected_fields: 其他期望字段
+    #             description: 其他期望的字段值，如 header、node、crc32 等
+    # 
+    #     Returns:
+    #         bool: 檢查是否成功
+    # 
+    #     Examples:
+    #         | Check Payload Advanced | FF XX AA 55 |           |   |       |      # 使用 XX 通配符
+    #         | Check Payload Advanced | FF ?? AA 55 | 0x207     | 5 | ??    |      # 使用 ?? 通配符
+    #         | Check Payload Advanced | FF -- AA 55 | 0x207     | 5 | --    |      # 使用 -- 通配符
+    #     """
+    #     try:
+    #         # 如果指定了不同的通配符格式，先轉換
+    #         if expected_payload and wildcard_char != 'XX':
+    #             expected_payload = self._convert_wildcard_format(
+    #                 expected_payload, from_format=wildcard_char, to_format='XX'
+    #             )
+    # 
+    #         # 調用原始的 check_payload 方法
+    #         return self.check_payload(expected_payload, expected_can_id, timeout, **expected_fields)
+    # 
+    #     except Exception as e:
+    #         error_msg = f"高級 Payload 檢查失敗: {str(e)}"
+    #         self._log_error(error_msg)
+    #         raise RuntimeError(error_msg)
+    # @keyword
+    # def get_device_status(self, device_type_str: str):
+    #     """
+    #     獲取設備狀態
+    # 
+    #     Args:
+    #         device_type_str: 設備類型字符串 ("USB", "POWER", "LOADER")
+    # 
+    #     Returns:
+    #         str: 設備狀態字符串
+    # 
+    #     Examples:
+    #         | ${status} | Get Device Status | USB |
+    #         | Should Be Equal | ${status} | CONNECTED |
+    #     """
+    #     try:
+    #         self._validate_device_model()
+    # 
+    #         # 轉換字符串到 DeviceType 枚舉
+    #         device_type_map = {
+    #             "USB": DeviceType.USB,
+    #             "POWER": DeviceType.POWER,
+    #             "LOADER": DeviceType.LOADER
+    #         }
+    # 
+    #         device_type = device_type_map.get(device_type_str.upper())
+    #         if not device_type:
+    #             raise ValueError(f"不支持的設備類型: {device_type_str}")
+    # 
+    #         status = self.device_model.get_device_status(device_type)
+    #         self._log_info(f"設備 {device_type_str} 狀態: {status.value}")
+    # 
+    #         return status.value
+    # 
+    #     except Exception as e:
+    #         error_msg = f"獲取設備狀態失敗: {str(e)}"
+    #         self._log_error(error_msg)
+    #         return "ERROR"
+    # 
+    # @keyword
+    # def wait_for_device_ready(self, device_type_str: str, timeout: int = 30):
+    #     """
+    #     等待設備準備就緒
+    # 
+    #     Args:
+    #         device_type_str: 設備類型字符串
+    #         timeout: 超時時間（秒）
+    # 
+    #     Examples:
+    #         | Wait For Device Ready | USB |
+    #         | Wait For Device Ready | POWER | 60 |
+    #     """
+    #     try:
+    #         self._validate_device_model()
+    # 
+    #         device_type_map = {
+    #             "USB": DeviceType.USB,
+    #             "POWER": DeviceType.POWER,
+    #             "LOADER": DeviceType.LOADER
+    #         }
+    # 
+    #         device_type_str = device_type_str.strip().replace('\"', '')
+    #         device_type = device_type_map.get(device_type_str.upper())
+    #         if not device_type:
+    #             raise ValueError(f"不支持的設備類型: {device_type_str}")
+    # 
+    #         self._log_info(f"等待設備 {device_type_str} 準備就緒，超時時間: {timeout} 秒")
+    # 
+    #         start_time = time.time()
+    #         check_interval = 0.5  # 每 0.5 秒檢查一次
+    # 
+    #         while time.time() - start_time < timeout:
+    #             if self.device_model.is_device_available(device_type):
+    #                 elapsed_time = time.time() - start_time
+    #                 self._log_success(f"設備 {device_type_str} 已準備就緒，耗時: {elapsed_time:.1f} 秒")
+    #                 return True
+    # 
+    #             # 顯示進度
+    #             elapsed = time.time() - start_time
+    #             if int(elapsed) % 5 == 0 and elapsed > 0:  # 每5秒顯示一次進度
+    #                 current_status = self.device_model.get_device_status(device_type)
+    #                 self._log_info(f"等待中... 當前狀態: {current_status.value} ({elapsed:.0f}/{timeout}s)")
+    # 
+    #             time.sleep(check_interval)
+    # 
+    #         # 超時
+    #         current_status = self.device_model.get_device_status(device_type)
+    #         raise RuntimeError(
+    #             f"等待設備 {device_type_str} 準備就緒超時 ({timeout} 秒)，當前狀態: {current_status.value}")
+    # 
+    #     except Exception as e:
+    #         error_msg = f"等待設備準備就緒失敗: {str(e)}"
+    #         self._log_error(error_msg)
+    #         raise RuntimeError(error_msg)
+    # 
+    # @keyword
+    # def verify_device_connection(self, device_type_str: str):
+    #     """
+    #     驗證設備連接狀態
+    # 
+    #     驗證指定設備是否正確連接並可用
+    # 
+    #     Args:
+    #         device_type_str: 設備類型字符串 ("USB", "POWER", "LOADER")
+    # 
+    #     Examples:
+    #         | Verify Device Connection | USB |
+    #     """
+    #     try:
+    #         status = self.get_device_status(device_type_str)
+    # 
+    #         if status == "CONNECTED":
+    #             self._log_success(f"設備 {device_type_str} 連接驗證通過")
+    #             return True
+    #         else:
+    #             raise RuntimeError(f"設備 {device_type_str} 連接驗證失敗，當前狀態: {status}")
+    # 
+    #     except Exception as e:
+    #         error_msg = f"設備連接驗證失敗: {str(e)}"
+    #         self._log_error(error_msg)
+    #         raise RuntimeError(error_msg)
 
     # ==================== 輔助方法 ====================
 

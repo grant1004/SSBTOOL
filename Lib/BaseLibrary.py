@@ -1,9 +1,11 @@
 # BaseLibrary.py - 重構版本，完全使用新 MVC 架構
 
 import asyncio
-from typing import Optional
-from robot.api.deco import library
-from src.business_models.device_business_model import DeviceBusinessModel
+from typing import Optional, TYPE_CHECKING
+
+# 使用 TYPE_CHECKING 避免循環導入
+if TYPE_CHECKING:
+    from src.business_models.device_business_model import DeviceBusinessModel
 
 
 class BaseRobotLibrary:
@@ -24,9 +26,11 @@ class BaseRobotLibrary:
 
         self._log_info("Base library initialized")
 
-    def _get_device_business_model(self) -> Optional[DeviceBusinessModel]:
+    def _get_device_business_model(self) -> Optional['DeviceBusinessModel']:
         """獲取設備業務模型實例"""
         try:
+            # 延遲導入，避免循環依賴
+            from src.business_models.device_business_model import DeviceBusinessModel
             # 方法1：通過全局變量直接獲取（推薦）
             import __main__
             if hasattr(__main__, 'device_business_model'):
@@ -51,7 +55,7 @@ class BaseRobotLibrary:
             return None
 
     @property
-    def device_model(self) -> DeviceBusinessModel:
+    def device_model(self) -> Optional['DeviceBusinessModel']:
         """獲取設備業務模型"""
         if self._device_business_model is None:
             self._device_business_model = self._get_device_business_model()

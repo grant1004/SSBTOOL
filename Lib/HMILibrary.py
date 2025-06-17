@@ -147,6 +147,8 @@ class HMILibrary(BaseRobotLibrary):
             elif action_type == ActionType.DOWN:
                 self._perform_button_up(button_type)
 
+            # 每次按完按鈕 delay 0.5 避免連鍵
+            time.sleep(0.5)
             self._log_success(f"按鈕操作完成: {button_type.button_name} {action_type.action_name}")
             return True
 

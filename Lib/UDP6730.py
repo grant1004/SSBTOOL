@@ -5,7 +5,7 @@ import time
 class UDP6730:
     """Control class for UDP6730 Series DC Power Supply"""
 
-    def __init__(self, port=None, baudrate=9600):
+    def __init__(self, port="COM32", baudrate=9600):
         """Initialize the power supply connection
 
         Args:
@@ -14,15 +14,19 @@ class UDP6730:
         """
 
         print(f"Connecting to {port}...")
-
-        self.ser = serial.Serial(
-            port=port,
-            baudrate=baudrate,
-            bytesize=8,
-            parity='N',
-            stopbits=1,
-            timeout=1
-        )
+        try :
+            self.ser = serial.Serial(
+                port=port,
+                baudrate=baudrate,
+                bytesize=8,
+                parity='N',
+                stopbits=1,
+                timeout=1
+            )
+        except :
+            print(f"Connecting to {port} failed!")
+        finally:
+            print(f"Connecting to {port} Successful!")
 
     def __del__(self):
         """Close serial connection when object is deleted"""

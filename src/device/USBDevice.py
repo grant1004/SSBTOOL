@@ -63,7 +63,12 @@ class USBDevice(DeviceBase):
         """連接 USB 設備並自動開始接收數據"""
         try:
             # 尋找並連接設備
+            # 清理舊設備
+            if self.device:
+                usb.util.dispose_resources(self.device)
+                self.device = None
             self.enable_logging()
+
             self.device = usb.core.find(
                 idVendor=self.vendor_id,
                 idProduct=self.product_id
@@ -72,11 +77,14 @@ class USBDevice(DeviceBase):
             if self.device is None:
                 self._logger.error(f'設備未找到 (VID=0x{self.vendor_id:04X}, PID=0x{self.product_id:04X})')
                 return False
+            else :
+                self._logger.info( f'成功找到設備 (VID=0x{self.vendor_id:04X}, PID=0x{self.product_id:04X})')
 
             # 設置配置
             self.device.set_configuration()
             cfg = self.device.get_active_configuration()
             self.interface = cfg[(1, 0)]
+            self._logger.info( f'成功配置 cfg ' )
 
             # 找到端點
             self.ep_out = usb.util.find_descriptor(
@@ -91,9 +99,11 @@ class USBDevice(DeviceBase):
             if not all([self.ep_out, self.ep_in]):
                 self._logger.error('無法找到必要的端點')
                 return False
+            else:
+                self._logger.info('成功找到必要的端口')
 
             # 清空緩衝區和重置統計
-            self._clear_input_buffer()
+            # self._clear_input_buffer()
             self._reset_stats()
             self._connected = True
 
