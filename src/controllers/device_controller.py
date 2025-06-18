@@ -106,7 +106,9 @@ class DeviceController(BaseController, IDeviceController):
             result = await self.execute_operation(
                 operation_name,
                 self.device_model.connect_device,
-                device_type
+                device_type=device_type,
+                com_port=com_port
+
             )
 
             # 階段 5: 協調結果處理

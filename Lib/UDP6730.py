@@ -12,7 +12,7 @@ class UDP6730:
             port (str): COM port (e.g. 'COM1'). If None, will prompt for selection
             baudrate (int): Baud rate, default 9600
         """
-
+        self.port = port
         print(f"Connecting to {port}...")
         try :
             self.ser = serial.Serial(
@@ -30,6 +30,49 @@ class UDP6730:
         """Close serial connection when object is deleted"""
         if hasattr(self, 'ser') and self.ser.is_open:
             self.ser.close()
+
+    def is_serial_connected(self):
+        """檢查 serial 連線是否正常
+
+        Returns:
+            bool: True 如果連線正常，False 如果連線中斷
+        """
+        try:
+            # 檢查 serial 物件是否存在且開啟
+            if not hasattr(self, 'ser') or not self.ser.is_open:
+                return False
+
+            # 檢查 COM port 是否還存在於系統中
+            available_ports = [port.device for port in serial.tools.list_ports.comports()]
+            if self.port not in available_ports:
+                print(f"Warning: {self.port} is no longer available in system")
+                return False
+
+            # 嘗試發送簡單的查詢命令來測試通訊
+            try:
+                # 清空接收緩衝區
+                self.ser.reset_input_buffer()
+
+                # 發送 IDN 查詢命令
+                self.ser.write(b"*IDN?\n")
+                time.sleep(0.2)
+
+                # 檢查是否有回應
+                if self.ser.in_waiting > 0:
+                    response = self.ser.readline().decode().strip()
+                    if response:  # 有收到回應
+                        return True
+                else:
+                    print("Warning: No response from device")
+                    return False
+
+            except (serial.SerialException, OSError) as e:
+                print(f"Serial communication error: {e}")
+                return False
+
+        except Exception as e:
+            print(f"Connection check error: {e}")
+            return False
 
     def send_command(self, cmd):
         """Send command to the device and get response

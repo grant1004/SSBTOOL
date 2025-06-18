@@ -17,7 +17,7 @@ class PowerDevice(DeviceBase):
         self._port: Optional[str] = None
         self._connected = False
 
-    async def connect(self, port: str = "COM32") -> bool:
+    async def connect(self, port: str ) -> bool:
         """
         連接到電源供應器
 
@@ -33,7 +33,7 @@ class PowerDevice(DeviceBase):
                 await self.disconnect()
 
             # 創建 UDP6730 實例
-            self._udp6730 = UDP6730()
+            self._udp6730 = UDP6730(port)
             self._port = port
 
             # 測試連接
@@ -126,6 +126,11 @@ class PowerDevice(DeviceBase):
             except:
                 return "connected"
         return "disconnected"
+
+    @property
+    def is_connected(self):
+        return self._udp6730.is_serial_connected()
+
 
     # ===== 同步方法 (原有 UDP6730 功能) =====
 

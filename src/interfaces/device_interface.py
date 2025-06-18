@@ -41,7 +41,7 @@ class IDeviceBusinessModel(ABC):
     """設備業務模型接口 - 定義純業務邏輯"""
 
     @abstractmethod
-    async def connect_device(self, device_type: DeviceType) -> DeviceConnectionResult:
+    async def connect_device(self, device_type: DeviceType, com_port: str) -> DeviceConnectionResult:
         """
         連接設備 - 核心業務邏輯
 

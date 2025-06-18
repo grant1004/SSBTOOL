@@ -68,7 +68,7 @@ class DeviceBusinessModel(BaseBusinessModel, IDeviceBusinessModel):
 
     # ==================== IDeviceBusinessModel 接口實現 ====================
 
-    async def connect_device(self, device_type: DeviceType) -> DeviceConnectionResult:
+    async def connect_device(self, device_type: DeviceType, com_port: str) -> DeviceConnectionResult:
         """連接設備 - 純新架構實現"""
         operation_name = f"connect_{device_type.value}"
         self.operation_started.emit(operation_name)
@@ -84,7 +84,8 @@ class DeviceBusinessModel(BaseBusinessModel, IDeviceBusinessModel):
             self._ongoing_operations[device_type] = "connecting"
 
             # 3. 執行連接邏輯
-            connection_result = await self._perform_device_connection(device_type)
+            # print( com_port )
+            connection_result = await self._perform_device_connection(device_type, com_port)
 
             # 4. 處理連接結果
             if connection_result.success:
@@ -217,6 +218,7 @@ class DeviceBusinessModel(BaseBusinessModel, IDeviceBusinessModel):
                 self.device_connection_progress.emit(device_type, progress)
 
                 # 直接調用設備實例的連接方法
+                # print( com_port )
                 if com_port is None:
                     result = await device_instance.connect()  # Power 設備需要端口
                 else:
