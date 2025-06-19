@@ -40,7 +40,6 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
     test_item_removed = Signal(str)
     test_item_order_changed = Signal(list)
     all_items_cleared = Signal()
-
     # test progress, test finished 是 progress card 的訊號
     test_progress = Signal(dict, str)  # 測試進度信號
     test_finished = Signal(bool)  # 測試完成信號
@@ -102,16 +101,32 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
             return False
 
         try:
+            print( "Move test item: ", item_id, " to position: ", new_position)
             current_index = self._item_order.index(item_id)
             self._item_order.pop(current_index)
             self._item_order.insert(new_position, item_id)
-
+            self.reorder_test_items()
             self.test_item_order_changed.emit(self._item_order.copy())
             return True
         except (ValueError, IndexError) as e:
             self._logger.error(f"Failed to move test item: {e}")
             return False
 
+    def reorder_test_items(self):
+        """
+        根據 _item_order 重新排序 _test_items 字典
+        簡單直接的版本
+        """
+        # 創建新的有序字典
+        new_test_items = {}
+
+        # 按照 _item_order 的順序重新構建字典
+        for item_id in self._item_order:
+            if item_id in self._test_items:
+                new_test_items[item_id] = self._test_items[item_id]
+
+        # 替換原字典
+        self._test_items = new_test_items
     def get_test_items(self) -> List[TestItem]:
         """獲取所有測試項目（按順序）"""
         return [self._test_items[item_id] for item_id in self._item_order
@@ -171,10 +186,12 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
             }
         )
 
+    def get_item_order(self) -> List[str]:
+        """獲取項目順序"""
+        return self._item_order.copy()
     # endregion
 
     # region ==================== ITestExecutionBusinessModel 實現，和 run robot 有關的 ====================
-
 
     def prepare_execution(self, config: ExecutionConfiguration) -> bool:
         """準備執行環境"""

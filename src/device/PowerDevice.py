@@ -129,7 +129,10 @@ class PowerDevice(DeviceBase):
 
     @property
     def is_connected(self):
-        return self._udp6730.is_serial_connected()
+        if self._udp6730:
+            return self._udp6730.is_serial_connected()
+        else :
+            return False
 
 
     # ===== 同步方法 (原有 UDP6730 功能) =====

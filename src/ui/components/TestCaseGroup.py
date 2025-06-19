@@ -33,10 +33,10 @@ class TestCaseGroup(QScrollArea):
         self.setWidget(self.container)
         self._setup_style()
 
-    def load_from_data(self, data):
+    def load_from_data(self, data, view):
         """從新的 JSON 格式加載測試案例"""
         self.test_cases = []
-
+        self.clear_cards()
         if isinstance(data, dict):
             # 處理新的 cards 格式：{"testcase_id": {"data": {"config": {...}}}}
             for testcase_id, testcase_data in data.items():
@@ -66,17 +66,17 @@ class TestCaseGroup(QScrollArea):
             # 處理陣列格式（向下兼容）
             self.test_cases = data
 
-        self._create_cards()
+        self._create_cards(view)
 
-    def _create_cards(self):
+    def _create_cards(self, view=None):
         """根據測試案例數據創建卡片"""
         self.clear_cards()
 
         for test_case in self.test_cases:
             # 使用測試案例數據創建卡片
-
+            card_id = test_case.get('id', f"test_{len(self.cards)}")
             card = BaseCard(
-                card_id=test_case.get('id', f"test_{len(self.cards)}"),
+                card_id=card_id,
                 config=test_case,
                 parent=self
             )
@@ -86,6 +86,9 @@ class TestCaseGroup(QScrollArea):
                 card._update_theme()
 
             card.clicked.connect(self._click_card)
+            if view :
+                card.delete_requested.connect(view.on_delete_testcase_requested)
+
             self.cards.append(card)
             self.layout.addWidget(card)
 
@@ -161,7 +164,6 @@ class TestCaseGroup(QScrollArea):
     def _click_card(self, card_id: str):
         """卡片點擊處理"""
         pass
-        # print(f"Clicked {card_id}")
 
     def get_theme_manager(self):
         """遞迴向上查找 theme_manager"""
@@ -221,3 +223,9 @@ class TestCaseGroup(QScrollArea):
         self.viewport().setStyleSheet(
             "background-color: transparent;"
         )
+
+    def id_in_card(self, card_id):
+        for card in self.cards:
+            if card.card_id == card_id:
+                return card
+        return None

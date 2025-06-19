@@ -298,7 +298,7 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
                     }
                 }
 
-            self.test_case_group.load_from_data(test_case_data)
+            self.test_case_group.load_from_data(test_case_data, self)
             self._show_content()
             self._logger.info(f"Displayed {len(test_cases)} test cases")
 
@@ -394,39 +394,50 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
         self.tabs_group.setEnabled(False)
         self.switch_button.setEnabled(False)
         self.search_bar.setEnabled(False)
+
     #endregion
 
     #region ==================== ITestCaseViewEvents 接口實現 ====================
 
     def on_category_changed(self, category: TestCaseCategory) -> None:
         """當分類變更時觸發"""
-        if self._test_case_controller:
-            self._test_case_controller.handle_category_change(category)
+        self.user_action.emit("category_change", category)
+        # if self._test_case_controller:
+        #     self._test_case_controller.handle_category_change(category)
 
     def on_mode_switched(self, mode: TestCaseMode) -> None:
         """當模式切換時觸發"""
-        if self._test_case_controller:
-            self._test_case_controller.handle_mode_switch(mode)
+        self.user_action.emit("mode_switch", mode)
+        # if self._test_case_controller:
+        #     self._test_case_controller.handle_mode_switch(mode)
 
     def on_search_text_changed(self, search_text: str) -> None:
         """當搜索文本變更時觸發"""
-        if self._test_case_controller:
-            self._test_case_controller.handle_search_request(search_text)
+        self.user_action.emit("search_request", search_text)
+        # if self._test_case_controller:
+        #     self._test_case_controller.handle_search_request(search_text)
 
     def on_test_case_selected(self, test_case_id: str) -> None:
         """當測試案例被選擇時觸發"""
-        if self._test_case_controller:
-            self._test_case_controller.handle_test_case_selection(test_case_id)
+        self.user_action.emit("test_case_selection", test_case_id)
+        # if self._test_case_controller:
+        #     self._test_case_controller.handle_test_case_selection(test_case_id)
 
     def on_keyword_selected(self, keyword_id: str) -> None:
         """當關鍵字被選擇時觸發"""
-        if self._test_case_controller:
-            self._test_case_controller.handle_keyword_selection(keyword_id)
+        self.user_action.emit("keyword_selection", keyword_id)
+        # if self._test_case_controller:
+        #     self._test_case_controller.handle_keyword_selection(keyword_id)
 
     def on_refresh_requested(self) -> None:
         """當請求刷新時觸發"""
-        if self._test_case_controller:
-            self._test_case_controller.handle_refresh_request()
+        self.user_action.emit("refresh_request", None)
+        # if self._test_case_controller:
+        #     self._test_case_controller.handle_refresh_request()
+
+    def on_delete_testcase_requested(self, test_case_id: str) -> None:
+        self.user_action.emit( "delete_testcase", test_case_id )
+
     # endregion
 
     #region ==================== 內部事件處理 ====================

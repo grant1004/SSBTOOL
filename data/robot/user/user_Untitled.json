@@ -4,7 +4,7 @@
         "type": "user_composition",
         "test_name": "Untitled",
         "created_by": "robot_app",
-        "created_at": "2025-06-17T17:35:11.745908",
+        "created_at": "2025-06-19T17:14:36.985747",
         "description": "Generated test composition: Untitled"
     },
     "selected_settings": {
@@ -13,11 +13,6 @@
             {
                 "library_name": "Lib.CommonLibrary",
                 "category": "common",
-                "config": {}
-            },
-            {
-                "library_name": "Lib.ControllerLibrary",
-                "category": "controller",
                 "config": {}
             }
         ],
@@ -33,123 +28,31 @@
     ],
     "individual_testcases": [
         {
-            "test_id": "63efd4cf-1797-4c13-abc6-1af251eecbf4",
-            "test_name": "Execute TestCase - Cadence test passed [id]63efd4cf-1797-4c13-abc6-1af251eecbf4",
+            "test_id": "79de6490-6c88-4bdc-8b89-718a94fd872f",
+            "test_name": "Execute TestCase - delay i min [id]79de6490-6c88-4bdc-8b89-718a94fd872f",
             "type": "testcase",
-            "testcase_name": "Cadence test passed",
-            "priority": "normal",
-            "description": "0x203  [A8 02]",
-            "steps": [
-                {
-                    "step_type": "keyword",
-                    "keyword_id": "0f48473f-57b1-4eca-960a-2a99b605cd87",
-                    "keyword_name": "set_voltage",
-                    "keyword_category": "common",
-                    "parameters": {
-                        "voltage": "5"
-                    },
-                    "description": "Set output voltage"
-                },
-                {
-                    "step_type": "keyword",
-                    "keyword_id": "b9e0c292-ad53-4492-99cb-34d516787066",
-                    "keyword_name": "power_output_on",
-                    "keyword_category": "common",
-                    "parameters": {},
-                    "description": "power_output_on"
-                },
-                {
-                    "step_type": "keyword",
-                    "keyword_id": "241c687b-77fe-4735-97d6-e184b855dde3",
-                    "keyword_name": "check_payload",
-                    "keyword_category": "common",
-                    "parameters": {
-                        "expected_payload": "A8 02 XX XX XX XX XX XX",
-                        "expected_can_id": "203",
-                        "timeout": "10",
-                        "expected_fields": ""
-                    },
-                    "description": "高精度檢查接收到的 CAN 消息數據"
-                },
-                {
-                    "step_type": "keyword",
-                    "keyword_id": "a6a2feb5-444d-4d76-ad2d-bde63b6025e9",
-                    "keyword_name": "power_output_off",
-                    "keyword_category": "common",
-                    "parameters": {},
-                    "description": "power_output_off"
-                }
-            ]
-        },
-        {
-            "test_id": "868bb4fd-e126-4a03-bedc-0b7cc5c887a5",
-            "test_name": "Execute TestCase - Cadence test failed [id]868bb4fd-e126-4a03-bedc-0b7cc5c887a5",
-            "type": "testcase",
-            "testcase_name": "Cadence test failed",
-            "priority": "normal",
-            "description": "203 [A8 02], voltage : 9",
-            "steps": [
-                {
-                    "step_type": "keyword",
-                    "keyword_id": "0f48473f-57b1-4eca-960a-2a99b605cd87",
-                    "keyword_name": "set_voltage",
-                    "keyword_category": "common",
-                    "parameters": {
-                        "voltage": "9"
-                    },
-                    "description": "Set output voltage"
-                },
-                {
-                    "step_type": "keyword",
-                    "keyword_id": "b9e0c292-ad53-4492-99cb-34d516787066",
-                    "keyword_name": "power_output_on",
-                    "keyword_category": "common",
-                    "parameters": {},
-                    "description": "power_output_on"
-                },
-                {
-                    "step_type": "keyword",
-                    "keyword_id": "241c687b-77fe-4735-97d6-e184b855dde3",
-                    "keyword_name": "check_payload",
-                    "keyword_category": "common",
-                    "parameters": {
-                        "expected_payload": "A8 02 XX XX XX XX XX XX",
-                        "expected_can_id": "203",
-                        "timeout": "10",
-                        "expected_fields": ""
-                    },
-                    "description": "高精度檢查接收到的 CAN 消息數據"
-                },
-                {
-                    "step_type": "keyword",
-                    "keyword_id": "a6a2feb5-444d-4d76-ad2d-bde63b6025e9",
-                    "keyword_name": "power_output_off",
-                    "keyword_category": "common",
-                    "parameters": {},
-                    "description": "power_output_off"
-                }
-            ]
-        },
-        {
-            "test_id": "2daffa73-f0e0-432c-aaf6-061e9d183ccb",
-            "test_name": "Execute Keyword - power_output_off [id]2daffa73-f0e0-432c-aaf6-061e9d183ccb",
-            "type": "keyword",
-            "keyword_name": "power_output_off",
-            "keyword_category": "common",
+            "testcase_name": "delay i min",
             "priority": "optional",
-            "description": "power_output_off",
-            "parameters": {}
+            "description": "delay 1 min",
+            "steps": [
+                {
+                    "step_type": "keyword",
+                    "keyword_id": "c9fed2be-2509-4ee8-85c4-04c6c0546bac",
+                    "keyword_name": "delay",
+                    "keyword_category": "common",
+                    "parameters": {
+                        "seconds": "1m",
+                        "reason": "no reason"
+                    },
+                    "description": "暫停執行指定的秒數"
+                }
+            ]
         }
     ],
     "keyword_dependencies": [
         {
             "category": "common",
             "library_name": "Lib.CommonLibrary",
-            "required_keywords": []
-        },
-        {
-            "category": "controller",
-            "library_name": "Lib.ControllerLibrary",
             "required_keywords": []
         }
     ],

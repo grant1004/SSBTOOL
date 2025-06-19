@@ -247,7 +247,7 @@ class IExecutionController(ABC):
         pass
 
     @abstractmethod
-    def handle_test_item_added(self, item_data: Dict[str, Any], item_type: TestItemType) -> None:
+    def handle_test_item_added(self, action_data: Dict[str, Any], item_type: TestItemType) -> None:
         """處理測試項目添加"""
         pass
 
@@ -301,7 +301,7 @@ class ICompositionView(ABC):
     """組合視圖接口 - 管理測試項目的組合"""
 
     @abstractmethod
-    def add_test_item_ui(self, item: TestItem) -> None:
+    def add_test_item_ui(self, item: TestItem, insert_index: Optional[int] = None) -> None:
         """添加測試項目 UI"""
         pass
 

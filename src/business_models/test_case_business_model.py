@@ -374,6 +374,168 @@ class TestCaseBusinessModel(BaseBusinessModel, ITestCaseBusinessModel, IKeywordP
             self.operation_completed.emit(operation_name, False)
             return False
 
+    def delete_testcase_by_id(self, test_id: str) -> bool:
+        """
+        根據 ID 刪除測試案例
+
+        Args:
+            test_id: 測試案例 ID
+
+        Returns:
+            bool: 刪除是否成功
+        """
+        operation_name = f"delete_testcase_{test_id}"
+        self.operation_started.emit(operation_name)
+
+        try:
+            # 1. 首先檢查測試案例是否存在於緩存中
+            test_case = self.get_test_case_by_id(test_id)
+            if not test_case:
+                # 如果緩存中沒有，嘗試從所有分類中查找
+                found_category = None
+                for category in self._supported_categories:
+                    if self._find_testcase_in_file(test_id, category):
+                        found_category = category
+                        break
+
+                if not found_category:
+                    error_msg = f"找不到測試案例 ID: {test_id}"
+                    self.log_operation(operation_name, False, error_msg)
+                    self.error_occurred.emit("TESTCASE_NOT_FOUND", error_msg)
+                    self.operation_completed.emit(operation_name, False)
+                    return False
+            else:
+                found_category = test_case.category
+
+            # 2. 確定文件路徑
+            file_path = self._data_directory / f"{found_category.value}-test-case.json"
+
+            if not file_path.exists():
+                error_msg = f"測試案例文件不存在: {file_path}"
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("FILE_NOT_FOUND", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False
+
+            # 3. 讀取文件內容
+            with open(file_path, 'r', encoding='utf-8') as file:
+                test_cases_data = json.load(file)
+
+            # 4. 檢查測試案例是否存在
+            if test_id not in test_cases_data:
+                error_msg = f"在文件中找不到測試案例 ID: {test_id}"
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("TESTCASE_NOT_IN_FILE", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False
+
+            # 5. 獲取要刪除的測試案例信息（用於記錄）
+            testcase_config = test_cases_data[test_id].get('data', {}).get('config', {})
+            testcase_name = testcase_config.get('name', test_id)
+
+            # 6. 刪除測試案例
+            del test_cases_data[test_id]
+
+            # 7. 保存更新後的文件
+            with open(file_path, 'w', encoding='utf-8') as file:
+                json.dump(test_cases_data, file, indent=4, ensure_ascii=False)
+
+            # 8. 清理緩存
+            self._remove_testcase_from_cache(test_id, found_category)
+
+            # 9. 清理依賴緩存
+            self._dependencies_cache.pop(test_id, None)
+
+            # 10. 發送事件通知
+            self.data_changed.emit("testcase_deleted", {
+                'test_id': test_id,
+                'testcase_name': testcase_name,
+                'category': found_category,
+                'file_path': str(file_path)
+            })
+
+            # 11. 記錄成功
+            success_msg = f"已刪除測試案例: {testcase_name} (ID: {test_id})"
+            self.log_operation(operation_name, True, success_msg)
+            self.operation_completed.emit(operation_name, True)
+
+            return True
+
+        except json.JSONDecodeError as e:
+            error_msg = f"JSON 格式錯誤: {str(e)}"
+            self.log_operation(operation_name, False, error_msg)
+            self.error_occurred.emit("JSON_DECODE_ERROR", error_msg)
+            self.operation_completed.emit(operation_name, False)
+            return False
+
+        except IOError as e:
+            error_msg = f"文件操作失敗: {str(e)}"
+            self.log_operation(operation_name, False, error_msg)
+            self.error_occurred.emit("FILE_IO_ERROR", error_msg)
+            self.operation_completed.emit(operation_name, False)
+            return False
+
+        except Exception as e:
+            error_msg = f"刪除測試案例時發生錯誤: {str(e)}"
+            self.log_operation(operation_name, False, error_msg)
+            self.error_occurred.emit("DELETE_TESTCASE_FAILED", error_msg)
+            self.operation_completed.emit(operation_name, False)
+            return False
+
+    def _find_testcase_in_file(self, test_id: str, category: TestCaseCategory) -> bool:
+        """
+        在指定分類的文件中查找測試案例
+
+        Args:
+            test_id: 測試案例 ID
+            category: 測試案例分類
+
+        Returns:
+            bool: 是否找到測試案例
+        """
+        try:
+            file_path = self._data_directory / f"{category.value}-test-case.json"
+
+            if not file_path.exists():
+                return False
+
+            with open(file_path, 'r', encoding='utf-8') as file:
+                test_cases_data = json.load(file)
+
+            return test_id in test_cases_data
+
+        except Exception as e:
+            self._logger.error(f"Error finding testcase in file {category.value}: {e}")
+            return False
+
+    def _remove_testcase_from_cache(self, test_id: str, category: TestCaseCategory) -> None:
+        """
+        從緩存中移除測試案例
+
+        Args:
+            test_id: 測試案例 ID
+            category: 測試案例分類
+        """
+        try:
+            # 1. 從 ID 映射中移除
+            self._test_case_by_id.pop(test_id, None)
+
+            # 2. 從分類緩存中移除
+            if category in self._test_cases_cache:
+                self._test_cases_cache[category] = [
+                    tc for tc in self._test_cases_cache[category]
+                    if tc.id != test_id
+                ]
+
+            # 3. 使緩存時間戳失效，強制下次重新載入
+            cache_key = f"test_cases_{category.value}"
+            self._cache_timestamps.pop(cache_key, None)
+
+            self._logger.debug(f"Removed testcase {test_id} from cache")
+
+        except Exception as e:
+            self._logger.error(f"Error removing testcase from cache: {e}")
+
     # ==================== IKeywordParsingModel 接口實現 ====================
 
     def parse_library(self, library_instance: Any, category: TestCaseCategory) -> List[KeywordInfo]:

@@ -8,6 +8,8 @@ import json
 class BaseCard(QFrame):
     """基礎卡片元件"""
     clicked = Signal(str)
+    delete_requested = Signal(str)  # 新增刪除信號，傳遞 card_id
+
     PRIORITIES = ['required', 'normal', 'optional']
     PRIORITY_COLORS = {
         'required': '#FF3D00',
@@ -103,7 +105,7 @@ class BaseCard(QFrame):
         self.title_label = QLabel(self.config.get('name', ''))
         self.title_label.setStyleSheet(self.TITLE_STYLESHEET)
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.title_label.setFixedWidth(230)  # 設置固定寬度
+        self.title_label.setFixedWidth(180)  # 調整寬度為刪除按鈕騰出空間
         self.title_label.setWordWrap(True)  # 啟用自動換行
 
         # 右側資訊容器
@@ -120,10 +122,71 @@ class BaseCard(QFrame):
         self.priority_label = self._create_priority_label()
         info_layout.addWidget(self.priority_label)
 
+        # 刪除按鈕
+        self.delete_button = self._create_delete_button()
+        info_layout.addWidget(self.delete_button)
+
         header_layout.addWidget(self.title_label, 1)  # 1表示可伸縮
         header_layout.addWidget(info_widget, 0)  # 0表示固定大小
 
         return header_widget
+
+    def _create_delete_button(self):
+        """創建刪除按鈕"""
+        delete_button = QPushButton()
+        delete_button.setFixedSize(20, 20)
+        delete_button.setToolTip("刪除此測試案例")
+        delete_button.clicked.connect(self._on_delete_clicked)
+
+        # 設置刪除圖標 (如果有圖標系統的話)
+        try:
+            from src.utils import get_icon_path, Utils
+            delete_icon = QIcon(get_icon_path("delete.svg"))
+            delete_button.setIcon(Utils.change_icon_color(delete_icon, "#F44336"))
+            delete_button.setIconSize(QSize(14, 14))
+        except ImportError:
+            # 如果沒有圖標系統，使用文字
+            delete_button.setText("×")
+            delete_button.setStyleSheet("""
+                QPushButton {
+                    font-size: 16px;
+                    font-weight: bold;
+                    color: #F44336;
+                }
+            """)
+
+        # 設置按鈕樣式
+        delete_button.setStyleSheet("""
+            QPushButton {
+                border: none;
+                border-radius: 10px;
+                background: transparent;
+                padding: 2px;
+            }
+            QPushButton:hover {
+                background-color: #FFEBEE;
+            }
+            QPushButton:pressed {
+                background-color: #FFCDD2;
+            }
+        """)
+
+        return delete_button
+
+    def _on_delete_clicked(self):
+        """處理刪除按鈕點擊事件"""
+        # 顯示確認對話框
+        reply = QMessageBox.question(
+            self,
+            "確認刪除",
+            f"您確定要刪除測試案例 '{self.config.get('name', self.card_id)}' 嗎？\n\n此操作無法復原。",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            # 發出刪除請求信號
+            self.delete_requested.emit(self.card_id)
 
     def _create_time_label(self):
         """創建時間標籤"""

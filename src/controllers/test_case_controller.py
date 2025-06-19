@@ -106,11 +106,26 @@ class TestCaseController(BaseController, ITestCaseController):
 
     # ==================== ITestCaseController 接口實現 ====================
 
+    def _get_action_handler_map(self) -> Dict[str, callable]:
+        """
+        🔑 關鍵：將用戶操作映射到 IExecutionController 接口方法
+        """
+        return {
+            "delete_testcase": self.delete_testcase_action,
+            "category_change": self.handle_category_change,
+            "mode_switch": self.handle_mode_switch,
+            "search_request": self.handle_search_request,
+            "test_case_selection": self.handle_test_case_selection,
+            "keyword_selection": self.handle_keyword_selection,
+            "refresh_request": self.handle_refresh_request
+        }
+
     def register_view(self, view: ITestCaseView) -> None:
         """註冊測試案例視圖"""
         if view not in self._test_case_views:
             self._test_case_views.append(view)
             self._sync_view_with_current_state(view)
+            view.user_action.connect(self.handle_user_action)
             self._logger.info(f"Registered test case view: {type(view).__name__}")
 
     def unregister_view(self, view: ITestCaseView) -> None:
@@ -335,6 +350,14 @@ class TestCaseController(BaseController, ITestCaseController):
             'keywords_count': len(self._current_keywords),
             'operation_history_count': len(self._operation_history)
         }
+
+    def delete_testcase_action(self, testcase_id):
+        success = self.test_case_model.delete_testcase_by_id(testcase_id)
+        if success :
+            self.handle_refresh_request()
+            self._logger.info(f"delete testcase {testcase_id} success")
+        else :
+            self._logger.info(f"delete testcase {testcase_id} failed")
 
     # ==================== 協調邏輯實現 ====================
 

@@ -137,6 +137,9 @@ class ITestCaseBusinessModel(ABC):
         """刷新測試案例數據"""
         pass
 
+    @abstractmethod
+    def delete_testcase_by_id(self, test_id: str ) -> bool :
+        pass
 
 class IKeywordParsingModel(ABC):
     """關鍵字解析模型接口"""
@@ -213,6 +216,11 @@ class ITestCaseController(ABC):
     @abstractmethod
     def get_current_state(self) -> Dict[str, Any]:
         """獲取當前狀態（用於狀態恢復）"""
+        pass
+
+    @abstractmethod
+    def delete_testcase_action(self, testcase_id):
+        """刪除 testcase json 內的定義"""
         pass
 
 
@@ -308,6 +316,11 @@ class ITestCaseViewEvents(ABC):
     @abstractmethod
     def on_refresh_requested(self) -> None:
         """當請求刷新時觸發"""
+        pass
+
+    @abstractmethod
+    def on_delete_testcase_requested(self, test_case_id: str) -> None :
+        """刪除 testcase by id """
         pass
 
 

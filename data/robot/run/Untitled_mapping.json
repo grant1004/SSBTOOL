@@ -2,47 +2,10 @@
     "testcase_to_keyword": {},
     "keyword_to_testcase": {},
     "nested_structure": {
-        "63efd4cf-1797-4c13-abc6-1af251eecbf4": [
+        "79de6490-6c88-4bdc-8b89-718a94fd872f": [
             {
                 "type": "keyword",
-                "keyword_name": "set_voltage",
-                "keyword_category": "common"
-            },
-            {
-                "type": "keyword",
-                "keyword_name": "power_output_on",
-                "keyword_category": "common"
-            },
-            {
-                "type": "keyword",
-                "keyword_name": "check_payload",
-                "keyword_category": "common"
-            },
-            {
-                "type": "keyword",
-                "keyword_name": "power_output_off",
-                "keyword_category": "common"
-            }
-        ],
-        "868bb4fd-e126-4a03-bedc-0b7cc5c887a5": [
-            {
-                "type": "keyword",
-                "keyword_name": "set_voltage",
-                "keyword_category": "common"
-            },
-            {
-                "type": "keyword",
-                "keyword_name": "power_output_on",
-                "keyword_category": "common"
-            },
-            {
-                "type": "keyword",
-                "keyword_name": "check_payload",
-                "keyword_category": "common"
-            },
-            {
-                "type": "keyword",
-                "keyword_name": "power_output_off",
+                "keyword_name": "delay",
                 "keyword_category": "common"
             }
         ]
