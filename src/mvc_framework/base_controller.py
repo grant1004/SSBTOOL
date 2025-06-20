@@ -1,10 +1,8 @@
 # src/mvc_framework/base_controller.py
-"""
-MVC 框架基礎 Controller 類
-提供通用的控制器功能
-"""
+# MVC 框架基礎 Controller 類
+# 提供通用的控制器功能
+
 import inspect
-from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Callable
 from PySide6.QtCore import QObject, Signal, Slot
 import logging
@@ -18,13 +16,11 @@ class BaseController(QObject, metaclass=QObjectABCMeta):
     # 通用信號
     operation_started = Signal(str)  # (operation_name)
     operation_completed = Signal(str, bool)  # (operation_name, success)
-    state_changed = Signal(str, object)  # (state_name, state_value)
 
     def __init__(self):
         super().__init__()
         self._models = {}
         self._device_views = []
-        self._state = {}
         self._logger = logging.getLogger(self.__class__.__name__)
         self._operation_queue = []
         self._is_processing = False
@@ -52,18 +48,6 @@ class BaseController(QObject, metaclass=QObjectABCMeta):
     def get_model(self, name: str) -> Optional[QObject]:
         """獲取模型"""
         return self._models.get(name)
-
-    def get_state(self, key: str) -> Any:
-        """獲取狀態"""
-        return self._state.get(key)
-
-    def set_state(self, key: str, value: Any) -> None:
-        """設置狀態"""
-        old_value = self._state.get(key)
-        self._state[key] = value
-        if old_value != value:
-            self.state_changed.emit(key, value)
-            self._on_state_changed(key, old_value, value)
 
     def notify_views(self, method_name: str, *args, **kwargs) -> None:
         """通知所有視圖"""
@@ -135,9 +119,6 @@ class BaseController(QObject, metaclass=QObjectABCMeta):
         """處理模型錯誤 - 子類可覆蓋"""
         self.notify_views('show_error_message', error_message)
 
-    def _on_state_changed(self, key: str, old_value: Any, new_value: Any) -> None:
-        """處理狀態變更 - 子類可覆蓋"""
-        pass
 
     def _handle_operation_error(self, operation_name: str, error: Exception) -> None:
         """處理操作錯誤 - 子類可覆蓋"""

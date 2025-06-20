@@ -158,11 +158,6 @@ class ComPortInputDialog(QDialog):
 
 
 class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
-    """
-    改良版 TopWidget
-    具有漸層背景、更好的佈局和現代化設計
-    支援 COM PORT 輸入功能
-    """
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -204,21 +199,25 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
         # 設置主布局
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
 
         # 創建內容容器
         content_container = QWidget()
         content_container.setObjectName("top-widget-container")
         content_layout = QHBoxLayout(content_container)
         content_layout.setContentsMargins(24, 16, 24, 16)  # 增加內邊距
-
+        content_layout.setSpacing(100)
         # 左側：標題區域
         title_section = self._create_title_section()
-        content_layout.addWidget(title_section, alignment=Qt.AlignmentFlag.AlignLeft)
+        title_section.setObjectName("title-section")
+        title_section.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
+        content_layout.addWidget(title_section, 0)  # 拉伸因子為0
 
         # 中間：設備狀態區域
         device_section = self._create_device_section()
-        content_layout.addWidget(device_section, alignment=Qt.AlignmentFlag.AlignLeft)
+        device_section.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        content_layout.addWidget(device_section, 0)  # 拉伸因子為0
+
+        content_layout.addStretch(1)
 
         # 右側：控制區域
         # control_section = self._create_control_section()
@@ -247,7 +246,6 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
         subtitle_label.setObjectName("subtitle")
         title_layout.addWidget(subtitle_label)
 
-        title_layout.addStretch()
         return title_widget
 
     def _create_device_section(self):
@@ -255,8 +253,9 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
         device_widget = QWidget()
         device_widget.setObjectName("device-section")
         device_layout = QHBoxLayout(device_widget)
-        device_layout.setContentsMargins(16, 0, 16, 0)
-
+        device_layout.setContentsMargins(0, 0, 0, 0)
+        # 調試：檢查設備數據
+        print(f"設備數量: {len(self.devices) if hasattr(self, 'devices') else 0}")
         # 創建設備按鈕
         for device_type, config in self.devices.items():
             button = ComponentStatusButton(config['name'], config['icon'], self.main_window)
@@ -304,7 +303,7 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
                 background: #F5F5F5;
                 border: 1px solid rgba(255, 255, 255, 0.3);
             }
-
+            
             #main-title {
                 font-family: 'Microsoft YaHei', sans-serif;
                 font-size: 18px;
@@ -405,7 +404,7 @@ class TopWidget(BaseView, IDeviceView, IDeviceViewEvents):
                 asyncio.create_task(self._device_controller.handle_connect_request(device_type, None))
             else :
                 com_port = self._show_com_port_dialog(device_type)
-                # print(com_port)
+                self.set_device_com_port( device_type, com_port )
                 if com_port:
                     # 將 COM PORT 資訊傳遞給控制器
                     asyncio.create_task(self._device_controller.handle_connect_request(device_type, com_port))

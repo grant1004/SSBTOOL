@@ -16,7 +16,6 @@ class ExecutionState(Enum):
     IDLE = "idle"
     PREPARING = "preparing"
     RUNNING = "running"
-    PAUSED = "paused"
     STOPPING = "stopping"
     COMPLETED = "completed"
     FAILED = "failed"

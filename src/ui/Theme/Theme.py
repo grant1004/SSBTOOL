@@ -390,6 +390,7 @@ class ThemeManager(QObject):
             border-radius: 4px;
             padding: 8px;
         }}
+        
         """
 
     def _update_app_style(self):

@@ -7,8 +7,8 @@ import os
 import json
 from datetime import datetime
 from typing import Dict, Optional, List, Callable, Any
-from PySide6.QtCore import Signal, QThread, Slot, Qt
-import uuid
+from PySide6.QtCore import Signal, QThread, Slot, Qt, QMetaObject
+from PySide6.QtCore import QTimer
 
 # 導入接口
 from src.interfaces.execution_interface import (
@@ -44,6 +44,9 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
     test_progress = Signal(dict, str)  # 測試進度信號
     test_finished = Signal(bool)  # 測試完成信號
 
+    # state change
+    execution_state_changed = Signal(ExecutionState, ExecutionState)  # (old_state, new_state)
+
     def __init__(self):
         super().__init__()
 
@@ -53,9 +56,7 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
         self._execution_history: List[Dict[str, Any]] = []
 
         # === 執行狀態管理（新架構） ===
-        self._execution_states: Dict[str, ExecutionState] = {}
-        self._execution_progress: Dict[str, ExecutionProgress] = {}
-        self._execution_start_times: Dict[str, datetime] = {}
+        self._current_execution_state: ExecutionState = ExecutionState.IDLE
 
         # === 原有的執行管理（保持兼容） ===
         self.thread: Optional[QThread] = None
@@ -127,6 +128,7 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
 
         # 替換原字典
         self._test_items = new_test_items
+
     def get_test_items(self) -> List[TestItem]:
         """獲取所有測試項目（按順序）"""
         return [self._test_items[item_id] for item_id in self._item_order
@@ -210,22 +212,19 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
             return False
 
     async def start_execution(self, config: ExecutionConfiguration) -> str:
-        """
-        開始執行測試（映射原有的 run_command）
-
-        這是異步方法，但內部使用 QThread 來保持兼容性
-        """
-        execution_id = str(uuid.uuid4())
-
+        """開始執行測試（映射原有的 run_command）"""
         try:
+            # 檢查當前狀態是否為 IDLE
+            if self._current_execution_state != ExecutionState.IDLE:
+                raise ValueError(f"Cannot start execution in {self._current_execution_state.value} state")
+
+            # 轉換到準備狀態
+            self._set_execution_state(ExecutionState.PREPARING)
 
             # 準備執行
             if not self.prepare_execution(config):
+                self._set_execution_state(ExecutionState.FAILED)
                 raise ValueError("Failed to prepare execution")
-
-            # 更新狀態
-            self._current_execution_id = execution_id
-            self.isRunning = True
 
             # 轉換為原有格式
             testcase_dict = self._convert_items_to_legacy_format()
@@ -235,91 +234,219 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
                 self._generate_user_composition_internal(testcase_dict, config.test_name)
 
             if not user_json_success:
+                self._set_execution_state(ExecutionState.FAILED)
                 raise ValueError(f"Failed to generate user composition: {user_json_msg}")
+
+            # 檢查是否在準備過程中被停止
+            if self._current_execution_state == ExecutionState.STOPPING:
+                self._set_execution_state(ExecutionState.CANCELLED)
+                return "cancelled"
 
             # 第二階段：從 JSON 生成 robot file
             robot_success, robot_msg, robot_result = \
                 self._generate_robot_from_json_internal(user_json_path)
 
             if not robot_success:
+                self._set_execution_state(ExecutionState.FAILED)
                 raise ValueError(f"Failed to generate robot file: {robot_msg}")
 
             robot_path, mapping_path = robot_result
 
-            # 第三階段：在線程中執行 robot file
-            await self._execute_robot_in_thread(
-                execution_id, robot_path, mapping_path, config
-            )
+            # 再次檢查是否被停止
+            if self._current_execution_state == ExecutionState.STOPPING:
+                self._set_execution_state(ExecutionState.CANCELLED)
+                return "cancelled"
 
-            return execution_id
+            # 第三階段：轉換到執行狀態
+            self._set_execution_state(ExecutionState.RUNNING)
+
+            # 在線程中執行
+            await self._execute_robot_in_thread(robot_path, mapping_path, config)
+
+            return "success"
 
         except Exception as e:
             self._logger.error(f"Failed to start execution: {e}")
-            self.isRunning = False
+            # 只有在非 STOPPING 狀態才設為 FAILED
+            if self._current_execution_state != ExecutionState.STOPPING:
+                self._set_execution_state(ExecutionState.FAILED)
             raise
 
     async def stop_execution(self, execution_id: str, force: bool = False) -> bool:
         """停止執行"""
         try:
+            # 檢查當前狀態是否可以停止
+            if self._current_execution_state not in [ExecutionState.PREPARING, ExecutionState.RUNNING]:
+                self._logger.warning(f"Cannot stop execution in {self._current_execution_state.value} state")
+                return False
+
+            # 轉換到停止中狀態
+            self._set_execution_state(ExecutionState.STOPPING)
+
             # 停止 worker
+            stop_success = True
             if self.worker:
-                # 這裡需要實現 worker 的停止方法
-                pass
+                try:
+                    # TODO: 需要在 RobotTestWorker 中實作 stop() 方法
+                    # self.worker.stop()
+                    pass
+                except Exception as e:
+                    self._logger.error(f"Failed to stop worker: {e}")
+                    stop_success = False
 
             # 停止線程
             if self.thread and self.thread.isRunning():
                 self.thread.quit()
                 if force:
                     self.thread.terminate()
+                    self.thread.wait(2000)  # 等待 2 秒
                 else:
-                    self.thread.wait(5000)  # 等待 5 秒
+                    if not self.thread.wait(5000):  # 等待 5 秒
+                        self._logger.warning("Thread stop timeout, forcing termination")
+                        self.thread.terminate()
+                        self.thread.wait(2000)
+                        stop_success = False
 
-            self.isRunning = False
-
-            return True
+            # 根據停止結果設定狀態
+            if stop_success:
+                self._set_execution_state(ExecutionState.CANCELLED)
+                return True
+            else:
+                self._set_execution_state(ExecutionState.FAILED)
+                return False
 
         except Exception as e:
             self._logger.error(f"Failed to stop execution: {e}")
+            self._set_execution_state(ExecutionState.FAILED)
             return False
 
     def generate_testcase(self, name_text, category, priority, description) -> str:
         testcase_dict = self._convert_items_to_legacy_format()
         self.generate_command( testcase_dict, name_text, category, priority, description)
 
-    async def _execute_robot_in_thread(self, execution_id: str, robot_path: str,
+    async def _execute_robot_in_thread(self, robot_path: str,
                                    mapping_path: str, config: ExecutionConfiguration):
         """在 QThread 中執行 Robot Framework（保持原有邏輯）"""
-        project_root = self._get_project_root()
-        lib_path = os.path.join(project_root, "Lib")
-        output_dir = config.output_directory
+        try:
+            project_root = self._get_project_root()
+            lib_path = os.path.join(project_root, "Lib")
+            output_dir = config.output_directory
 
-        # 創建 worker
-        self.worker = RobotTestWorker(
-            robot_path, project_root, lib_path, output_dir, mapping_path
-        )
+            # 創建 worker
+            self.worker = RobotTestWorker(
+                robot_path, project_root, lib_path, output_dir, mapping_path
+            )
 
-        # 連接信號（保持原有邏輯）
-        self.worker.progress.connect(
-            self._handle_worker_progress, Qt.ConnectionType.DirectConnection
-        )
-        self.worker.finished.connect(
-            self._handle_worker_finished,
-            Qt.ConnectionType.DirectConnection
-        )
+            # 連接信號
+            self.worker.progress.connect(
+                self._handle_worker_progress, Qt.ConnectionType.DirectConnection
+            )
+            self.worker.finished.connect(
+                self._handle_worker_finished,
+                Qt.ConnectionType.DirectConnection
+            )
 
-        # 創建線程
-        self.thread = QThread()
-        self.worker.moveToThread(self.thread)
+            # 如果 worker 有 error 信號，連接錯誤處理
+            if hasattr(self.worker, 'error'):
+                self.worker.error.connect(self._handle_worker_error)
 
-        # 連接線程信號
-        self.thread.started.connect(self.worker.start_work)
-        self.thread.finished.connect(self.worker.deleteLater)
-        self.thread.finished.connect(self.thread.deleteLater)
-        self.worker.finished.connect(self.thread.quit)
+            # 創建線程
+            self.thread = QThread()
+            self.worker.moveToThread(self.thread)
 
-        # 啟動線程
-        self.thread.start()
+            # 連接線程信號
+            self.thread.started.connect(self.worker.start_work)
+            self.thread.finished.connect(self.worker.deleteLater)
+            self.thread.finished.connect(self.thread.deleteLater)
 
+            self.worker.finished.connect(self.thread.quit)
+
+            # 啟動線程
+            self.thread.start()
+
+        except Exception as e:
+            self._logger.error(f"Failed to execute robot in thread: {e}")
+            self._set_execution_state(ExecutionState.FAILED)
+            raise
+
+
+    def _set_execution_state(self, new_state: ExecutionState) -> None:
+        """統一的執行狀態設置方法 - 唯一修改狀態的入口"""
+        old_state = self._current_execution_state
+
+        if old_state == new_state:
+            return  # 狀態沒有變化，不需要通知
+
+        # 定義合法的狀態轉換（根據狀態機圖）
+        valid_transitions = {
+            ExecutionState.IDLE: [ExecutionState.PREPARING],
+            ExecutionState.PREPARING: [ExecutionState.RUNNING, ExecutionState.FAILED, ExecutionState.STOPPING],
+            ExecutionState.RUNNING: [ExecutionState.COMPLETED, ExecutionState.FAILED, ExecutionState.STOPPING],
+            ExecutionState.STOPPING: [ExecutionState.CANCELLED, ExecutionState.FAILED],
+            ExecutionState.COMPLETED: [ExecutionState.IDLE],
+            ExecutionState.FAILED: [ExecutionState.IDLE],
+            ExecutionState.CANCELLED: [ExecutionState.IDLE]
+        }
+
+        # 檢查轉換是否合法
+        if new_state not in valid_transitions.get(old_state, []):
+            self._logger.warning(f"Invalid state transition: {old_state.value} → {new_state.value}")
+            return
+
+        # 更新狀態
+        self._current_execution_state = new_state
+
+        # 同步 isRunning（保持兼容性）
+        self.isRunning = new_state in [ExecutionState.RUNNING]
+
+        # 記錄日誌
+        self._logger.info(f"Execution state changed: {old_state.value} → {new_state.value}")
+
+        # 發出信號通知
+        self.execution_state_changed.emit(old_state, new_state)
+
+        # 自動重置到 IDLE（對於終態）
+
+        if new_state in [ExecutionState.COMPLETED, ExecutionState.FAILED, ExecutionState.CANCELLED]:
+            self._safe_set_idle()
+
+    def _safe_set_idle(self):
+        """安全地將狀態重置為 IDLE - 使用 QMetaObject"""
+        try:
+            # 使用 QMetaObject.invokeMethod 在主線程的事件隊列中執行
+            QMetaObject.invokeMethod(
+                self,
+                "_reset_to_idle_slot",
+                Qt.ConnectionType.QueuedConnection
+            )
+
+        except Exception as e:
+            self._logger.error(f"Failed to schedule IDLE reset: {e}")
+
+    @Slot()
+    def _reset_to_idle_slot(self):
+        """重置狀態到 IDLE 的 Slot"""
+        try:
+            self._logger.info("[QMetaObject] Attempting to change to IDLE")
+
+            # 檢查當前狀態是否為終態
+            if self._current_execution_state in [ExecutionState.COMPLETED, ExecutionState.FAILED,
+                                                 ExecutionState.CANCELLED]:
+                # 直接修改狀態，避免遞迴調用 _set_execution_state
+                old_state = self._current_execution_state
+                self._current_execution_state = ExecutionState.IDLE
+                self.isRunning = False
+
+                self._logger.info(f"Execution state changed: {old_state.value} → idle")
+                self.execution_state_changed.emit(old_state, ExecutionState.IDLE)
+            else:
+                self._logger.warning(f"Cannot reset to IDLE from {self._current_execution_state.value}")
+
+        except Exception as e:
+            self._logger.error(f"Failed to reset to IDLE: {e}")
+
+    def __del__(self):
+        print("[DEBUG] Self destroyed before timer triggered")
     # endregion
 
     # region 根據 UI 介面字卡設定，建立對應的 json  路徑 : data/robot/user/user_composition_test_name.json
@@ -988,7 +1115,6 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
 
     #endregion
 
-
     def _get_project_root(self):
         """獲取專案根目錄"""
         return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -1027,23 +1153,62 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
     def _handle_worker_progress(self, message: dict):
         """處理 worker 進度（保持原有邏輯）"""
         try:
+            # 檢查是否在執行狀態
+            if self._current_execution_state != ExecutionState.RUNNING:
+                self._logger.warning(f"Received progress in {self._current_execution_state.value} state")
+                return
+
             test_name = message.get('data', {}).get('test_name', '')
             self.test_id = self._get_id_from_testName(test_name)
-            # 發送原有格式的信號
             self.test_progress.emit(message, self.test_id)
-
-            # 同時更新新格式的進度
-            # if self._current_execution_id:
-            #     progress = self._create_execution_progress(message)
-            #     self._update_execution_progress(self._current_execution_id, progress)
 
         except Exception as e:
             self._logger.error(f"Error handling progress: {e}")
 
-    @Slot(dict)
-    def _handle_worker_finished(self, success: bool) :
-        self.isRunning = False
+    @Slot(bool)
+    def _handle_worker_finished(self, success: bool):
+        """處理 worker 完成"""
+        try:
+            # 根據當前狀態和結果決定目標狀態
+            if self._current_execution_state == ExecutionState.STOPPING:
+                # 被使用者停止
+                self._set_execution_state(ExecutionState.CANCELLED)
+            elif success:
+                # 正常完成
+                self._set_execution_state(ExecutionState.COMPLETED)
+            else:
+                # 執行失敗
+                self._set_execution_state(ExecutionState.FAILED)
 
+            # 發出完成信號
+            self.test_finished.emit(success)
+
+            self._logger.info(f"Worker finished with {'success' if success else 'failure'}")
+
+        except Exception as e:
+            self._logger.error(f"Error handling worker finished: {e}")
+            self._set_execution_state(ExecutionState.FAILED)
+
+    @Slot(str)
+    def _handle_worker_error(self, error_message: str):
+        """處理 worker 錯誤"""
+        self._logger.error(f"Worker error: {error_message}")
+
+        # 只有在非 STOPPING 狀態才設為 FAILED
+        if self._current_execution_state != ExecutionState.STOPPING:
+            self._set_execution_state(ExecutionState.FAILED)
+
+    def get_execution_state(self) -> ExecutionState:
+        """獲取當前執行狀態"""
+        return self._current_execution_state
+
+    def can_start_execution(self) -> bool:
+        """檢查是否可以開始執行"""
+        return self._current_execution_state == ExecutionState.IDLE
+
+    def can_stop_execution(self) -> bool:
+        """檢查是否可以停止執行"""
+        return self._current_execution_state in [ExecutionState.PREPARING, ExecutionState.RUNNING]
 
 
 

@@ -52,8 +52,6 @@ class RobotTestWorker(QObject):
             # 發射錯誤進度信息
             error_dict = {"error": f"Error: {str(e)}"}
             self.progress.emit(error_dict)
-
-            # 發射完成信號（失敗）
             self.finished.emit(False)
 
     # 保留原來的 run 方法作為備用（如果需要）

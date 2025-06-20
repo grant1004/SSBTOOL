@@ -1,4 +1,5 @@
 import uuid
+from pickle import FALSE
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
@@ -32,8 +33,6 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         self._execution_controller: Optional[ExecutionController] = None
 
         # 狀態管理
-        # self._current_execution_state = ExecutionState.IDLE
-        # self._current_execution_id: Optional[str] = None
         self._test_items: Dict[str, TestItem] = {}
         self._ui_widgets: Dict[str, QWidget] = {}
         self._ui_states: Dict[str, Any] = {}
@@ -71,6 +70,9 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         self.main_layout.setContentsMargins(8, 8, 8, 8)
         self.main_layout.setSpacing(8)
 
+        # 創建並存儲按鈕引用
+        self.buttons = {}
+
         # 控制區域
         self._setup_control_area()
 
@@ -88,8 +90,7 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         control_layout.setSpacing(8)
         control_layout.setContentsMargins(8, 8, 8, 8)
 
-        # 創建並存儲按鈕引用
-        self.buttons = {}
+
 
         # 運行控制按鈕組
         self.run_button_group = QWidget()
@@ -282,6 +283,13 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
                                        QPushButton:hover {
                                            background-color: #50da190b;
                                        }
+                                       QPushButton:pressed {
+                                           background-color: #50c6281f;        
+                                       }
+                                       QPushButton:disabled {
+                                           background-color: #70cccccc;
+                                           color: #666666;
+                                       }
                                    """)
         elif key == "clear":
             # 停止按鈕特殊樣式
@@ -297,6 +305,13 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
                                        QPushButton:hover {
                                            background-color: #70F2AA02;
                                        }
+                                       QPushButton:pressed {
+                                           background-color: #709d8c0b;
+                                       }
+                                       QPushButton:disabled {
+                                           background-color: #70cccccc;
+                                           color: #666666;
+                                       }
                                    """)
         else:
             # 其他按鈕樣式
@@ -310,6 +325,13 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
                                        }
                                        QPushButton:hover {
                                            background-color: #701976D2;
+                                       }
+                                       QPushButton:pressed {
+                                           background-color: #70145bbf;
+                                       }
+                                       QPushButton:disabled {
+                                           background-color: #70cccccc;
+                                           color: #666666;
                                        }
                                    """)
 
@@ -341,6 +363,25 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
         panel = self._ui_widgets[test_id]
         panel.update_status(message)
         self._update_ui()
+
+    def execution_state_changed(self, old_state: ExecutionState, new_state: ExecutionState):
+        """ 根據狀態變化，設定 button Enable/Disable """
+        if new_state == ExecutionState.IDLE:
+            for btn_type, btn_obj in self.buttons.items() :
+                if ( btn_type == "stop" ):
+                    btn_obj.setEnabled(False)
+                else :
+                    btn_obj.setEnabled(True)
+            print(f"[RunCaseWidget] execution_state_changed: {old_state} -> {new_state}")
+
+        else:
+            for btn_type, btn_obj in self.buttons.items() :
+                if (btn_type == "stop"):
+                    btn_obj.setEnabled(True)
+                else:
+                    btn_obj.setEnabled(False)
+            print(f"[RunCaseWidget] execution_state_changed: {old_state} -> {new_state}")
+
 
     # endregion
 
@@ -985,51 +1026,3 @@ class PrettyMessageFormatter:
         """
         return test_name if test_name else ""
 
-
-
-
-
-
-
-
-
-
-# ==================== 修改 add_test_item_ui 方法 ====================
-
-# ==================== 輔助方法：獲取Widget順序 ====================
-
-# def get_widget_order(self) -> List[str]:
-#     """
-#     獲取當前 widget 的順序
-#
-#     Returns:
-#         List[str] - 按順序排列的 item_id 列表
-#     """
-#     ordered_ids = []
-#     layout = self.content_layout
-#
-#     for i in range(layout.count()):
-#         item = layout.itemAt(i)
-#         if item and item.widget():
-#             widget = item.widget()
-#             # 找到對應的 item_id
-#             for item_id, stored_widget in self._ui_widgets.items():
-#                 if stored_widget is widget:
-#                     ordered_ids.append(item_id)
-#                     break
-#
-#     return ordered_ids
-#
-#
-# def get_insert_position_from_coordinates(self, global_pos: QPoint) -> int:
-#     """
-#     根據全域座標計算插入位置
-#
-#     Args:
-#         global_pos: QPoint - 全域座標
-#
-#     Returns:
-#         int - 插入位置索引
-#     """
-#     local_pos = self.content_widget.mapFromGlobal(global_pos)
-#     return self._calculate_drop_position(local_pos)

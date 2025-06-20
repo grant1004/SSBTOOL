@@ -31,12 +31,20 @@ class ExecutionController(BaseController, IExecutionController):
         self._run_case_views = None
         self._composition_views = None
         self._control_views = None
+        self.execution_business_model = None
 
         self.register_model("execution_business_model", execution_business_model)
-        self.execution_business_model = execution_business_model
+
 
 
     #region BaseController
+    def register_model(self, name: str, model: QObject):
+        super().register_model(name, model)
+        self.execution_business_model = model
+        # 連接模型的通用信號
+        if hasattr(model, 'execution_state_changed'):
+            model.execution_state_changed.connect(self._on_state_changed)
+
     def register_view(self, view) -> None:
         """註冊測試案例視圖"""
         registered_as = []
@@ -204,9 +212,6 @@ class ExecutionController(BaseController, IExecutionController):
                 if self._composition_views:
                     self._composition_views.update_test_item_order(new_order)
 
-                # 6. 發送狀態變更信號
-                self.state_changed.emit("item_order", new_order)
-
                 self._logger.info(f"Moved item {item_id} from {current_index} to {new_index}")
             else:
                 self._logger.error(f"Failed to move item {item_id}")
@@ -263,9 +268,6 @@ class ExecutionController(BaseController, IExecutionController):
 
             if self._run_case_views:
                 self._run_case_views.reset_execution_display()
-
-            # 6. 發送狀態變更信號
-            self.state_changed.emit("test_items", [])
 
             # 7. 記錄操作歷史（可用於撤銷）
             self._record_operation_history({
@@ -373,7 +375,6 @@ class ExecutionController(BaseController, IExecutionController):
     async def handle_import_request(self) -> None:
         print("Received handle_import_request")
 
-    # 對應的修改 handle_report_request 函數中的調用：
     async def handle_report_request(self) -> None:
         """處理報告請求 - 先選擇資料夾，再複製到資料夾內"""
         try:
@@ -645,7 +646,15 @@ class ExecutionController(BaseController, IExecutionController):
                     f"無法開啟測試報告。\n報告已保存到：{report_path}\n請手動開啟該文件。"
                 )
 
-    # ==================== 輔助方法 ====================
+    def _on_state_changed(self, old_state: ExecutionState, new_state: ExecutionState):
+        self.notify_views(
+            "execution_state_changed",
+            old_state=old_state,
+            new_state=new_state
+        )
+    # endregion
+
+    # region  ==================== 輔助方法 ====================
 
     def _get_project_root(self) -> str:
         """獲取項目根目錄"""
@@ -681,46 +690,10 @@ class ExecutionController(BaseController, IExecutionController):
             self._logger.error(f"Error showing error message: {e}")
             print(f"ERROR: {title} - {message}")
 
-    # ==================== 進階版本：預覽選項 ====================
-
-    def _show_save_report_dialog_with_preview(self, source_report_path: str) -> str:
-        """顯示另存新檔對話框 - 包含預覽選項"""
-        try:
-            main_window = self._get_main_window()
-
-            # 先詢問用戶是否要預覽
-            reply = QMessageBox.question(
-                main_window,
-                "保存測試報告",
-                "是否要先預覽報告內容再保存？\n\n選擇「是」會先在瀏覽器中預覽\n選擇「否」會直接進入保存對話框",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel
-            )
-
-            if reply == QMessageBox.StandardButton.Cancel:
-                return None
-            elif reply == QMessageBox.StandardButton.Yes:
-                # 先預覽
-                self._open_report_in_browser(source_report_path)
-                # 詢問是否繼續保存
-                save_reply = QMessageBox.question(
-                    main_window,
-                    "確認保存",
-                    "預覽完成，是否要將報告保存到指定位置？",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-                )
-                if save_reply == QMessageBox.StandardButton.No:
-                    return None
-
-            # 繼續正常的保存流程
-            return self._show_save_report_dialog(source_report_path)
-
-        except Exception as e:
-            self._logger.error(f"Error in preview dialog: {e}")
-            return self._show_save_report_dialog(source_report_path)
-
-    #endregion
+    # endregion
 
     def get_current_execution_status(self) -> ExecutionState:
-        return self._run_case_views.get_current_execution_state()
+        pass
+        # return self._run_case_views.get_current_execution_state()
 
 
