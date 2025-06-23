@@ -6,15 +6,34 @@ import time
 class ProgressListener:
     ROBOT_LISTENER_API_VERSION = 2
 
-    def __init__(self, signal, keyword_mapping=None):
+    def __init__(self, signal, keyword_mapping=None,stop_check_func=None):
         self.signal = signal
         self.current_test = None
         self.current_keyword = None
         self._lock = threading.Lock()
         self.keyword_mapping = keyword_mapping or {}  # **新增映射**
 
+        self.stop_check_func = stop_check_func  # 新增停止檢查函數
+        self._stop_requested = False
+
+    def request_stop(self):
+        """請求停止"""
+        self._stop_requested = True
+
+    def _should_stop(self) -> bool:
+        """檢查是否應該停止"""
+        if self._stop_requested:
+            return True
+        if self.stop_check_func:
+            return self.stop_check_func()
+        return False
+
     def start_test(self, name, attrs):
         """測試案例開始時的處理"""
+        # 檢查是否需要停止
+        if self._should_stop():
+            return
+
         with self._lock:
             self.current_test = name
             message = {
@@ -29,6 +48,10 @@ class ProgressListener:
 
     def end_test(self, name, attrs):
         """測試案例結束時的處理"""
+        # 檢查是否需要停止
+        if self._should_stop():
+            return
+
         with self._lock:
             status = "PASS" if attrs['status'] == 'PASS' else "FAIL"
             message = {
@@ -44,6 +67,10 @@ class ProgressListener:
 
     def start_keyword(self, name, attrs):
         """關鍵字開始時的處理 - 支援映射轉換"""
+        # 檢查是否需要停止
+        if self._should_stop():
+            return
+
         if attrs.get('type', '') in ['KEYWORD', 'LIBRARY']:
             with self._lock:
                 self.current_keyword = name
@@ -65,6 +92,10 @@ class ProgressListener:
 
     def end_keyword(self, name, attrs):
         """關鍵字結束時的處理 - 支援映射轉換"""
+        # 檢查是否需要停止
+        if self._should_stop():
+            return
+
         if attrs.get('type', '') in ['KEYWORD', 'LIBRARY']:
             with self._lock:
                 status = attrs['status']
@@ -87,6 +118,10 @@ class ProgressListener:
 
     def log_message(self, message):
         """記錄訊息的處理"""
+        # 檢查是否需要停止
+        if self._should_stop():
+            return
+
         level = message['level']
         if level in ('ERROR', 'FAIL'):
             with self._lock:

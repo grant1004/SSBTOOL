@@ -8,7 +8,6 @@ import json
 from datetime import datetime
 from typing import Dict, Optional, List, Callable, Any
 from PySide6.QtCore import Signal, QThread, Slot, Qt, QMetaObject
-from PySide6.QtCore import QTimer
 
 # 導入接口
 from src.interfaces.execution_interface import (
@@ -272,57 +271,103 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
                 self._set_execution_state(ExecutionState.FAILED)
             raise
 
-    async def stop_execution(self, execution_id: str, force: bool = False) -> bool:
-        """停止執行"""
+    async def stop_execution(self, force: bool = False) -> bool:
+        """停止執行 - 完整實現"""
         try:
             # 檢查當前狀態是否可以停止
             if self._current_execution_state not in [ExecutionState.PREPARING, ExecutionState.RUNNING]:
                 self._logger.warning(f"Cannot stop execution in {self._current_execution_state.value} state")
                 return False
 
+            self._logger.info(f"Stopping execution (force={force})")
+
             # 轉換到停止中狀態
             self._set_execution_state(ExecutionState.STOPPING)
 
-            # 停止 worker
             stop_success = True
+
+            # === 第一階段：通知 Worker 停止 ===
             if self.worker:
                 try:
-                    # TODO: 需要在 RobotTestWorker 中實作 stop() 方法
-                    # self.worker.stop()
-                    pass
+                    self._logger.info("Requesting worker to stop...")
+                    # 通過 Qt 信號安全調用 Worker 的停止方法
+                    QMetaObject.invokeMethod(
+                        self.worker,
+                        "stop_work",
+                        Qt.ConnectionType.QueuedConnection
+                    )
+
+                    # 等待一段時間讓 Worker 自己停止
+                    if not force:
+                        import asyncio
+                        await asyncio.sleep(2.0)  # 給 Worker 2 秒時間自己停止
+
                 except Exception as e:
-                    self._logger.error(f"Failed to stop worker: {e}")
+                    self._logger.error(f"Failed to request worker stop: {e}")
                     stop_success = False
 
-            # 停止線程
+            # === 第二階段：處理線程 ===
             if self.thread and self.thread.isRunning():
-                self.thread.quit()
-                if force:
-                    self.thread.terminate()
-                    self.thread.wait(2000)  # 等待 2 秒
-                else:
-                    if not self.thread.wait(5000):  # 等待 5 秒
-                        self._logger.warning("Thread stop timeout, forcing termination")
-                        self.thread.terminate()
-                        self.thread.wait(2000)
-                        stop_success = False
+                try:
+                    self._logger.info("Stopping thread...")
 
-            # 根據停止結果設定狀態
+                    if force:
+                        # 強制模式：直接終止
+                        self.thread.terminate()
+                        if not self.thread.wait(3000):  # 等待3秒
+                            self._logger.error("Failed to terminate thread")
+                            stop_success = False
+                    else:
+                        # 優雅模式：先 quit，再 terminate
+                        self.thread.quit()
+                        if not self.thread.wait(5000):  # 等待5秒
+                            self._logger.warning("Thread quit timeout, forcing termination")
+                            self.thread.terminate()
+                            if not self.thread.wait(3000):  # 再等待3秒
+                                self._logger.error("Failed to force terminate thread")
+                                stop_success = False
+
+                except Exception as e:
+                    self._logger.error(f"Failed to stop thread: {e}")
+                    stop_success = False
+
+            # === 第三階段：清理資源 ===
+            try:
+                # 清理 worker 和 thread 引用
+                if self.worker:
+                    # Worker 會在 thread 結束時自動 deleteLater
+                    self.worker = None
+
+                if self.thread:
+                    # Thread 會在結束時自動 deleteLater
+                    self.thread = None
+
+                self._logger.info("Resources cleaned up")
+
+            except Exception as e:
+                self._logger.error(f"Failed to cleanup resources: {e}")
+
+            # === 第四階段：設置最終狀態 ===
             if stop_success:
                 self._set_execution_state(ExecutionState.CANCELLED)
+                self._logger.info("Execution stopped successfully")
                 return True
             else:
                 self._set_execution_state(ExecutionState.FAILED)
+                self._logger.error("Failed to stop execution")
                 return False
 
         except Exception as e:
-            self._logger.error(f"Failed to stop execution: {e}")
+            self._logger.error(f"Exception during stop execution: {e}")
             self._set_execution_state(ExecutionState.FAILED)
             return False
 
     def generate_testcase(self, name_text, category, priority, description) -> str:
         testcase_dict = self._convert_items_to_legacy_format()
         self.generate_command( testcase_dict, name_text, category, priority, description)
+
+    def import_testcase(self, file_path):
+        pass
 
     async def _execute_robot_in_thread(self, robot_path: str,
                                    mapping_path: str, config: ExecutionConfiguration):
@@ -453,6 +498,7 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
     def _generate_user_composition_internal(self, test_cases: Dict, name_text: str):
         """內部方法：生成 user composition（原 generate_user_composition）"""
         try:
+            name_text = self._sanitize_filename( name_text )
             project_root = self._get_project_root()
             user_dir = os.path.join(project_root, "data", "robot", "user")
             os.makedirs(user_dir, exist_ok=True)
@@ -469,6 +515,56 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
 
         except Exception as e:
             return False, f"Error generating user composition: {e}", ""
+
+    def _sanitize_filename(self, filename: str) -> str:
+        """
+        清理檔名，移除或替換不能出現在檔名中的字符
+
+        Args:
+            filename: 原始檔名
+
+        Returns:
+            str: 清理後的安全檔名
+        """
+        import re
+
+        if not filename:
+            return "untitled"
+
+        # 1. 替換不允許的字符為下劃線
+        # Windows 和 Unix 系統都不允許的字符: < > : " | ? * \ /
+        forbidden_chars = r'[<>:"|?*\\/]'
+        clean_name = re.sub(forbidden_chars, '_', filename)
+
+        # 2. 替換空格為下劃線
+        clean_name = clean_name.replace(' ', '_')
+
+        # 3. 移除控制字符 (ASCII 0-31)
+        clean_name = re.sub(r'[\x00-\x1f]', '', clean_name)
+
+        # 4. 替換多個連續的下劃線為單個下劃線
+        clean_name = re.sub(r'_+', '_', clean_name)
+
+        # 5. 移除開頭和結尾的下劃線和點號
+        clean_name = clean_name.strip('_.')
+
+        # 6. 檢查是否為 Windows 保留名稱 (不區分大小寫)
+        windows_reserved = {
+            'CON', 'PRN', 'AUX', 'NUL',
+            'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
+            'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
+        }
+
+        if clean_name.upper() in windows_reserved:
+            clean_name = f"_{clean_name}"
+
+        # 7. 確保檔名不為空，且長度合理 (Windows 限制為 255 字符，但我們設為 100 以保險)
+        if not clean_name:
+            clean_name = "untitled"
+        elif len(clean_name) > 100:
+            clean_name = clean_name[:100].rstrip('_.')
+
+        return clean_name
 
     def _build_user_composition(self, test_cases, name_text):
         """建立 user composition 結構"""

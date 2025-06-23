@@ -136,12 +136,15 @@ class ITestExecutionBusinessModel(ABC):
         pass
 
     @abstractmethod
-    async def stop_execution(self, execution_id: str, force: bool = False) -> bool:
+    async def stop_execution(self, force: bool = False) -> bool:
         """停止執行"""
+        pass
+    @abstractmethod
+    def generate_testcase(self, name_text, category, priority, description):
         pass
 
     @abstractmethod
-    def generate_testcase(self, name_text, category, priority, description):
+    def import_testcase(self, file_path):
         pass
 
 

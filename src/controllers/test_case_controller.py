@@ -11,8 +11,10 @@
 """
 
 import asyncio
+import os
 from typing import Dict, List, Optional, Any, Set
 from PySide6.QtCore import QObject, Signal, QTimer
+from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 # 導入接口
 from src.interfaces.test_case_interface import (
@@ -104,8 +106,6 @@ class TestCaseController(BaseController, ITestCaseController):
 
         self._logger.info("TestCaseController initialized with coordination capabilities")
 
-    # ==================== ITestCaseController 接口實現 ====================
-
     def _get_action_handler_map(self) -> Dict[str, callable]:
         """
         🔑 關鍵：將用戶操作映射到 IExecutionController 接口方法
@@ -117,7 +117,9 @@ class TestCaseController(BaseController, ITestCaseController):
             "search_request": self.handle_search_request,
             "test_case_selection": self.handle_test_case_selection,
             "keyword_selection": self.handle_keyword_selection,
-            "refresh_request": self.handle_refresh_request
+            "refresh_request": self.handle_refresh_request,
+            "import_testcase": self.handle_import_testcase_request,
+            "export_testcase": self.handle_export_testcase_request
         }
 
     def register_view(self, view: ITestCaseView) -> None:
@@ -127,6 +129,8 @@ class TestCaseController(BaseController, ITestCaseController):
             self._sync_view_with_current_state(view)
             view.user_action.connect(self.handle_user_action)
             self._logger.info(f"Registered test case view: {type(view).__name__}")
+
+    # ==================== ITestCaseController 接口實現 ====================
 
     def unregister_view(self, view: ITestCaseView) -> None:
         """取消註冊測試案例視圖"""
@@ -335,6 +339,103 @@ class TestCaseController(BaseController, ITestCaseController):
 
         except Exception as e:
             self._handle_operation_error(operation_name, e)
+
+    def handle_import_testcase_request(self) -> None:
+        """處理 import test
+           1. 選擇檔案
+           2. 檢查格式
+           3. 根據 category 存入對應的 json
+           4. refresh testcases
+        """
+        file_path = self._show_choose_file_dialog()
+        if file_path :
+            success, error_msg= self.test_case_model.import_test_cases(file_path)
+            if success :
+                self.handle_refresh_request()
+                self._logger.info(f"import testcases success")
+            else :
+                self._show_error_message( "Import Testcases Error", error_msg )
+
+
+    def handle_export_testcase_request(self) -> None:
+        # self._current_category
+        success, error_msg = self.test_case_model.export_test_cases( self._current_category )
+        if success:
+            self._logger.info(f"import testcases success")
+        else:
+            self._show_error_message("Import Testcases Error", error_msg)
+        pass
+
+
+    def _show_choose_file_dialog(self) -> Optional[str]:
+        """顯示選擇 JSON 檔案對話框"""
+        try:
+            # 獲取主視窗作為父視窗
+            main_window = self._get_main_window()
+
+            # 獲取用戶桌面路徑作為預設目錄
+            desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+            if not os.path.exists(desktop_path):
+                desktop_path = os.path.expanduser("~")  # 備用：使用用戶主目錄
+
+            # 顯示開啟檔案對話框
+            file_path, selected_filter = QFileDialog.getOpenFileName(
+                parent=main_window,
+                caption="選擇要匯入的測試組合檔案",
+                dir=desktop_path,
+                filter="JSON 檔案 (*.json);;所有檔案 (*.*)"
+            )
+
+            if file_path:
+                # 驗證檔案是否存在
+                if not os.path.exists(file_path):
+                    self._show_error_message("檔案不存在", f"選擇的檔案不存在：{file_path}")
+                    return None
+
+                # 驗證是否為 JSON 檔案
+                if not file_path.lower().endswith('.json'):
+                    self._show_error_message("檔案格式錯誤", "請選擇 JSON 格式的檔案 (.json)")
+                    return None
+
+                self._logger.info(f"User selected file for import: {file_path}")
+                return file_path
+            else:
+                self._logger.info("User cancelled file selection")
+                return None
+
+        except Exception as e:
+            self._logger.error(f"Error in file selection dialog: {e}")
+            self._show_error_message("檔案選擇錯誤", f"無法顯示檔案選擇對話框：{str(e)}")
+            return None
+    def _get_main_window(self):
+        """獲取主視窗"""
+        if not self._test_case_views[0]:
+            return None
+
+        parent = self._test_case_views[0].parent()
+        while parent:
+            if hasattr(parent, 'theme_manager'):
+                return parent
+            parent = parent.parent()
+        return None
+
+    def _show_info_message(self, title: str, message: str):
+        """顯示信息消息"""
+        try:
+            main_window = self._get_main_window()
+            QMessageBox.information(main_window, title, message)
+        except Exception as e:
+            self._logger.error(f"Error showing info message: {e}")
+            print(f"INFO: {title} - {message}")
+
+    def _show_error_message(self, title: str, message: str):
+        """顯示錯誤消息"""
+        try:
+            main_window = self._get_main_window()
+            QMessageBox.critical(main_window, title, message)
+        except Exception as e:
+            self._logger.error(f"Error showing error message: {e}")
+            print(f"ERROR: {title} - {message}")
 
     def get_current_state(self) -> Dict[str, Any]:
         """獲取當前狀態（用於狀態恢復）"""

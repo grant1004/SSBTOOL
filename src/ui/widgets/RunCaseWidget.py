@@ -103,8 +103,11 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
             self.buttons[button_key] = button
             run_layout.addWidget(button)
             # 設置初始狀態
-            if button_key in ["stop"]:
+            if button_key in ["stop", "import"]:
+                ## 關閉 Stop 功能，因為 robot framework 沒有內建中段功能
+                ## 關閉 import 功能，將功能移至 Test case widget 更合理
                 button.setEnabled(False)
+                button.hide()
 
         # 時間顯示標籤
         # self.time_label = QLabel("準備就緒")
@@ -195,21 +198,21 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
                 "text": "Stop"
             },
             "export": {  # 調整按鈕順序以符合設計
-                "icon": get_icon_path("file_download"),
+                "icon": get_icon_path("save"),
                 "slot": self._on_generate_clicked,
-                "tooltip": "Generate Robot file",
-                "text": "Export"  # 添加按鈕文字
+                "tooltip": "Save as Test case",
+                "text": "Save"  # 添加按鈕文字
             },
             "import": {
                 "icon": get_icon_path("file import template"),
                 "slot": self.on_import_requested,
-                "tooltip": "Load existing Robot file",
+                "tooltip": "Load existing Test file",
                 "text": "Import"
             },
             "report": {
                 "icon": get_icon_path("picture_as_pdf"),
                 "slot": self.on_report_requested,
-                "tooltip": "Get Report file (PDF)",
+                "tooltip": "Show/Save Report file (html)",
                 "text": "Report"
             },
             "clear": {
@@ -366,21 +369,14 @@ class RunCaseWidget(BaseView, IExecutionView, ICompositionView, IControlView,
 
     def execution_state_changed(self, old_state: ExecutionState, new_state: ExecutionState):
         """ 根據狀態變化，設定 button Enable/Disable """
+        print(f"[RunCaseWidget] execution_state_changed: {old_state} -> {new_state}")
         if new_state == ExecutionState.IDLE:
             for btn_type, btn_obj in self.buttons.items() :
-                if ( btn_type == "stop" ):
-                    btn_obj.setEnabled(False)
-                else :
                     btn_obj.setEnabled(True)
-            print(f"[RunCaseWidget] execution_state_changed: {old_state} -> {new_state}")
 
         else:
             for btn_type, btn_obj in self.buttons.items() :
-                if (btn_type == "stop"):
-                    btn_obj.setEnabled(True)
-                else:
                     btn_obj.setEnabled(False)
-            print(f"[RunCaseWidget] execution_state_changed: {old_state} -> {new_state}")
 
 
     # endregion

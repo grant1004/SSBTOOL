@@ -374,6 +374,356 @@ class TestCaseBusinessModel(BaseBusinessModel, ITestCaseBusinessModel, IKeywordP
             self.operation_completed.emit(operation_name, False)
             return False
 
+    def import_test_cases(self, file_path: str) -> (bool, str):
+        """
+        導入測試案例從 JSON 文件
+
+        Args:
+            file_path: JSON 文件路徑
+
+        Returns:
+            tuple: (是否成功, 錯誤信息或成功信息)
+
+        功能：
+        1. 檢查 json 格式
+        2. 找到 category
+        3. 更新對應的 category json
+        4. 回傳 True, ""
+        """
+        operation_name = f"import_test_cases_{Path(file_path).name}"
+        self.operation_started.emit(operation_name)
+
+        try:
+            # 1. 檢查文件是否存在
+            import_file_path = Path(file_path)
+            if not import_file_path.exists():
+                error_msg = f"導入文件不存在: {file_path}"
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("FILE_NOT_FOUND", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False, error_msg
+
+            # 2. 檢查 JSON 格式
+            try:
+                with open(import_file_path, 'r', encoding='utf-8') as file:
+                    import_data = json.load(file)
+            except json.JSONDecodeError as e:
+                error_msg = f"JSON 格式錯誤: {str(e)}"
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("JSON_DECODE_ERROR", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False, error_msg
+            except Exception as e:
+                error_msg = f"讀取文件失敗: {str(e)}"
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("FILE_READ_ERROR", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False, error_msg
+
+            # 3. 驗證數據格式並找到 category
+            if not isinstance(import_data, dict):
+                error_msg = "導入數據格式錯誤：期望為字典格式"
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("INVALID_DATA_FORMAT", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False, error_msg
+
+            # 4. 分析並驗證測試案例，收集所有分類
+            categories_found = set()
+            valid_test_cases = {}
+            invalid_cases = []
+
+            for test_case_id, test_case_data in import_data.items():
+                try:
+                    # 驗證測試案例結構
+                    if not isinstance(test_case_data, dict):
+                        invalid_cases.append(f"{test_case_id}: 測試案例數據格式錯誤")
+                        continue
+
+                    # 檢查必要的結構：data.config
+                    data_section = test_case_data.get('data', {})
+                    if not isinstance(data_section, dict):
+                        invalid_cases.append(f"{test_case_id}: 缺少 'data' 區塊")
+                        continue
+
+                    config_section = data_section.get('config', {})
+                    if not isinstance(config_section, dict):
+                        invalid_cases.append(f"{test_case_id}: 缺少 'config' 區塊")
+                        continue
+
+                    # 5. 找到並驗證 category
+                    category_str = config_section.get('category', '').lower()
+                    if not category_str:
+                        invalid_cases.append(f"{test_case_id}: 缺少 category 字段")
+                        continue
+
+                    # 驗證 category 是否為支援的分類
+                    try:
+                        category = TestCaseCategory(category_str)
+                        categories_found.add(category)
+                    except ValueError:
+                        supported_categories = [cat.value for cat in TestCaseCategory]
+                        invalid_cases.append(
+                            f"{test_case_id}: 不支援的 category '{category_str}'，支援的分類: {supported_categories}")
+                        continue
+
+                    # 驗證其他必要字段
+                    required_fields = ['name', 'type']
+                    missing_fields = [field for field in required_fields if not config_section.get(field)]
+                    if missing_fields:
+                        invalid_cases.append(f"{test_case_id}: 缺少必要字段: {missing_fields}")
+                        continue
+
+                    # 驗證 steps 格式
+                    steps = config_section.get('steps', [])
+                    if not isinstance(steps, list):
+                        invalid_cases.append(f"{test_case_id}: steps 必須為陣列格式")
+                        continue
+
+                    # 將有效的測試案例按分類分組
+                    if category not in valid_test_cases:
+                        valid_test_cases[category] = {}
+                    valid_test_cases[category][test_case_id] = test_case_data
+
+                except Exception as e:
+                    invalid_cases.append(f"{test_case_id}: 處理時發生錯誤 - {str(e)}")
+                    continue
+
+            # 6. 檢查是否有有效的測試案例
+            if not valid_test_cases:
+                error_msg = "沒有找到有效的測試案例"
+                if invalid_cases:
+                    error_msg += f"\n無效案例:\n" + "\n".join(invalid_cases[:5])  # 只顯示前5個錯誤
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("NO_VALID_TESTCASES", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False, error_msg
+
+            # 7. 更新對應的 category json 文件
+            imported_count = 0
+            updated_categories = []
+
+            for category, category_test_cases in valid_test_cases.items():
+                try:
+                    # 確定目標文件路徑
+                    target_file_path = self._data_directory / f"{category.value}-test-case.json"
+
+                    # 讀取現有數據（如果文件存在）
+                    existing_data = {}
+                    if target_file_path.exists():
+                        try:
+                            with open(target_file_path, 'r', encoding='utf-8') as file:
+                                existing_data = json.load(file)
+                        except json.JSONDecodeError:
+                            self._logger.warning(f"現有文件 {target_file_path} JSON 格式錯誤，將重新創建")
+                            existing_data = {}
+                        except Exception as e:
+                            self._logger.warning(f"讀取現有文件 {target_file_path} 失敗: {e}，將重新創建")
+                            existing_data = {}
+
+                    # 合併數據（新數據覆蓋現有數據）
+                    merged_data = existing_data.copy()
+                    merged_data.update(category_test_cases)
+
+                    # 寫入更新後的數據
+                    with open(target_file_path, 'w', encoding='utf-8') as file:
+                        json.dump(merged_data, file, indent=4, ensure_ascii=False)
+
+                    # 清除該分類的緩存，強制重新載入
+                    self._clear_category_cache(category)
+
+                    imported_count += len(category_test_cases)
+                    updated_categories.append(category.value)
+
+                    self._logger.info(f"成功更新 {category.value} 分類，新增 {len(category_test_cases)} 個測試案例")
+
+                except Exception as e:
+                    error_msg = f"更新 {category.value} 分類文件時發生錯誤: {str(e)}"
+                    self.log_operation(operation_name, False, error_msg)
+                    self.error_occurred.emit("UPDATE_CATEGORY_FAILED", error_msg)
+                    self.operation_completed.emit(operation_name, False)
+                    return False, error_msg
+
+            # 8. 發送數據變更事件
+            self.data_changed.emit("test_cases_imported", {
+                'file_path': str(import_file_path),
+                'imported_count': imported_count,
+                'updated_categories': updated_categories,
+                'categories_found': [cat.value for cat in categories_found]
+            })
+
+            # 9. 準備成功信息
+            success_msg = f"成功導入 {imported_count} 個測試案例"
+            if updated_categories:
+                success_msg += f"，更新分類: {', '.join(updated_categories)}"
+            if invalid_cases:
+                success_msg += f"\n注意: {len(invalid_cases)} 個案例被忽略（格式錯誤）"
+
+            self.log_operation(operation_name, True, success_msg)
+            self.operation_completed.emit(operation_name, True)
+
+            return True, success_msg
+
+        except Exception as e:
+            error_msg = f"導入測試案例時發生未知錯誤: {str(e)}"
+            self.log_operation(operation_name, False, error_msg)
+            self.error_occurred.emit("IMPORT_UNKNOWN_ERROR", error_msg)
+            self.operation_completed.emit(operation_name, False)
+            return False, error_msg
+
+    def export_test_cases(self, category: Optional[TestCaseCategory] = None) -> (bool, str):
+        """
+        導出測試案例到用戶選擇的位置
+
+        Args:
+            category: 測試案例分類，不能為 None
+
+        Returns:
+            tuple: (是否成功, 錯誤信息或成功信息)
+
+        功能：
+        1. 檢查 category 不能為 None
+        2. 打開存檔視窗，讓使用者選擇位置
+        3. 直接將對應的 json 複製出來
+        """
+        operation_name = f"export_test_cases_{category.value if category else 'None'}"
+        self.operation_started.emit(operation_name)
+
+        try:
+            # 1. 檢查 category 不能為 None
+            if category is None:
+                error_msg = "category 參數不能為 None"
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("CATEGORY_NONE_ERROR", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False, error_msg
+
+            # 2. 檢查分類是否有效
+            if category not in self._supported_categories:
+                error_msg = f"不支援的分類: {category}"
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("INVALID_CATEGORY", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False, error_msg
+
+            # 3. 確認來源文件是否存在
+            source_file_path = self._data_directory / f"{category.value}-test-case.json"
+            if not source_file_path.exists():
+                error_msg = f"找不到 {category.value} 分類的測試案例文件: {source_file_path}"
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("SOURCE_FILE_NOT_FOUND", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False, error_msg
+
+            # 4. 打開存檔視窗，讓使用者選擇位置
+            from PySide6.QtWidgets import QFileDialog, QApplication
+
+            # 確保有 QApplication 實例
+            app = QApplication.instance()
+            if app is None:
+                error_msg = "無法獲取 QApplication 實例，無法打開文件對話框"
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("NO_QAPPLICATION", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False, error_msg
+
+            # 設置預設文件名
+            default_filename = f"{category.value}-test-case.json"
+
+            # 打開文件保存對話框
+            target_file_path, _ = QFileDialog.getSaveFileName(
+                None,  # parent
+                f"導出 {category.value.upper()} 測試案例",  # caption
+                default_filename,  # default filename
+                "JSON Files (*.json);;All Files (*)"  # filter
+            )
+
+            # 5. 檢查用戶是否取消了對話框
+            if not target_file_path:
+                info_msg = "用戶取消了導出操作"
+                self.log_operation(operation_name, True, info_msg)
+                self.operation_completed.emit(operation_name, True)
+                return False, info_msg  # 這裡返回 False 表示操作被取消，但不是錯誤
+
+            # 6. 確保目標路徑有 .json 擴展名
+            target_path = Path(target_file_path)
+            if not target_path.suffix.lower() == '.json':
+                target_path = target_path.with_suffix('.json')
+
+            # 7. 檢查目標目錄是否存在，如果不存在則創建
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # 8. 直接複製 JSON 文件
+            import shutil
+            try:
+                shutil.copy2(source_file_path, target_path)
+            except PermissionError:
+                error_msg = f"沒有權限寫入目標位置: {target_path}"
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("PERMISSION_DENIED", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False, error_msg
+            except shutil.SameFileError:
+                error_msg = "來源文件和目標文件是同一個文件"
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("SAME_FILE_ERROR", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False, error_msg
+            except OSError as e:
+                error_msg = f"複製文件時發生系統錯誤: {str(e)}"
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("FILE_COPY_ERROR", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False, error_msg
+
+            # 9. 驗證複製是否成功
+            if not target_path.exists():
+                error_msg = f"文件複製失敗，目標文件不存在: {target_path}"
+                self.log_operation(operation_name, False, error_msg)
+                self.error_occurred.emit("COPY_VERIFICATION_FAILED", error_msg)
+                self.operation_completed.emit(operation_name, False)
+                return False, error_msg
+
+            # 10. 獲取導出的測試案例數量（用於成功信息）
+            try:
+                with open(source_file_path, 'r', encoding='utf-8') as file:
+                    source_data = json.load(file)
+                test_case_count = len(source_data) if isinstance(source_data, dict) else 0
+            except Exception:
+                test_case_count = 0  # 如果無法讀取，設為 0
+
+            # 11. 發送數據變更事件
+            self.data_changed.emit("test_cases_exported", {
+                'category': category.value,
+                'source_file': str(source_file_path),
+                'target_file': str(target_path),
+                'test_case_count': test_case_count
+            })
+
+            # 12. 準備成功信息
+            success_msg = f"成功導出 {category.value.upper()} 分類的測試案例到: {target_path}"
+            if test_case_count > 0:
+                success_msg = f"成功導出 {test_case_count} 個 {category.value.upper()} 測試案例到: {target_path}"
+
+            self.log_operation(operation_name, True, success_msg)
+            self.operation_completed.emit(operation_name, True)
+
+            return True, success_msg
+
+        except ImportError as e:
+            error_msg = f"缺少必要的 GUI 組件: {str(e)}"
+            self.log_operation(operation_name, False, error_msg)
+            self.error_occurred.emit("MISSING_GUI_COMPONENTS", error_msg)
+            self.operation_completed.emit(operation_name, False)
+            return False, error_msg
+
+        except Exception as e:
+            error_msg = f"導出測試案例時發生未知錯誤: {str(e)}"
+            self.log_operation(operation_name, False, error_msg)
+            self.error_occurred.emit("EXPORT_UNKNOWN_ERROR", error_msg)
+            self.operation_completed.emit(operation_name, False)
+            return False, error_msg
+
     def delete_testcase_by_id(self, test_id: str) -> bool:
         """
         根據 ID 刪除測試案例
@@ -866,22 +1216,6 @@ class TestCaseBusinessModel(BaseBusinessModel, ITestCaseBusinessModel, IKeywordP
     def enable_auto_refresh(self, enabled: bool) -> None:
         """啟用/禁用自動刷新"""
         self._auto_refresh_enabled = enabled
-
-    def export_test_cases(self, category: TestCaseCategory, file_path: str) -> bool:
-        """導出測試案例到文件"""
-        try:
-            test_cases = self._get_or_load_test_cases(category)
-            export_data = [asdict(tc) for tc in test_cases]
-
-            with open(file_path, 'w', encoding='utf-8') as file:
-                json.dump(export_data, file, ensure_ascii=False, indent=2)
-
-            self.log_operation("export_test_cases", True, f"導出 {len(test_cases)} 個測試案例到 {file_path}")
-            return True
-
-        except Exception as e:
-            self.log_operation("export_test_cases", False, f"導出失敗: {str(e)}")
-            return False
 
     def _calculate_cache_hit_ratio(self) -> float:
         """計算緩存命中率"""

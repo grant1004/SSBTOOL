@@ -17,6 +17,7 @@ class TestCaseCategory(Enum):
     HMI = "hmi"
     MOTOR = "motor"
     CONTROLLER = "controller"
+    TORQUE = "torque"
 
 
 class TestCasePriority(Enum):
@@ -138,6 +139,16 @@ class ITestCaseBusinessModel(ABC):
         pass
 
     @abstractmethod
+    def import_test_cases(self, file_path: str ) -> (bool,str):
+
+        pass
+
+    @abstractmethod
+    def export_test_cases(self, category: Optional[TestCaseCategory] = None) -> (bool, str):
+
+        pass
+
+    @abstractmethod
     def delete_testcase_by_id(self, test_id: str ) -> bool :
         pass
 
@@ -211,6 +222,16 @@ class ITestCaseController(ABC):
     @abstractmethod
     def handle_refresh_request(self) -> None:
         """處理刷新請求"""
+        pass
+
+    @abstractmethod
+    def handle_import_testcase_request(self) -> None:
+        """處理 import test """
+        pass
+
+    @abstractmethod
+    def handle_export_testcase_request(self) -> None:
+        """處理 export test """
         pass
 
     @abstractmethod
@@ -316,6 +337,16 @@ class ITestCaseViewEvents(ABC):
     @abstractmethod
     def on_refresh_requested(self) -> None:
         """當請求刷新時觸發"""
+        pass
+
+    @abstractmethod
+    def on_test_case_import_requested(self):
+        """ import json file"""
+        pass
+
+    @abstractmethod
+    def on_test_case_export_requested(self):
+        """ export json file"""
         pass
 
     @abstractmethod

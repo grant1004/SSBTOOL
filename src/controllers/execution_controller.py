@@ -343,6 +343,7 @@ class ExecutionController(BaseController, IExecutionController):
 
     async def handle_stop_request(self) -> None:
         print("Received stop request")
+        await self.execution_business_model.stop_execution()
 
     async def handle_generate_request(self, export_config: Dict[str, Any]):
         """顯示 Export 對話框並處理 generate command"""
@@ -374,6 +375,8 @@ class ExecutionController(BaseController, IExecutionController):
 
     async def handle_import_request(self) -> None:
         print("Received handle_import_request")
+        # file_path = self._show_choose_file_dialog()
+        # await self.execution_business_model.import_testcase(file_path)
 
     async def handle_report_request(self) -> None:
         """處理報告請求 - 先選擇資料夾，再複製到資料夾內"""
@@ -444,7 +447,7 @@ class ExecutionController(BaseController, IExecutionController):
         try:
             # 獲取報告目錄
             project_root = self._get_project_root()
-            report_dir = os.path.join(project_root, "report")
+            report_dir = os.path.join(project_root, "src", "report")
 
             if not os.path.exists(report_dir):
                 self._show_error_message("報告目錄不存在", "尚未執行任何測試，請先運行測試案例。")

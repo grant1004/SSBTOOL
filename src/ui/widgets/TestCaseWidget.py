@@ -160,25 +160,10 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
         self.stacked_widget.addWidget(self.keyword_group)
         self.content_layout.addWidget(self.stacked_widget)
 
-        # 刷新按鈕
 
-        self.refresh_button = QPushButton("刷新")
-        self.refresh_button.setFixedSize(60, 24)
-        self.refresh_button.clicked.connect(self.on_refresh_requested)
-        self.refresh_button.setStyleSheet("""
-                                           QPushButton {
-                                               background-color: #006C4D;
-                                               color: white;
-                                               border: none;
-                                               border-radius: 6px;
-                                               font-size: 12px;
-                                               font-weight: 600;
-                                           }
-                                           QPushButton:hover {
-                                               background-color: #90006C4D;
-                                           }
-                                       """)
-        self.content_layout.addWidget(self.refresh_button, alignment=Qt.AlignmentFlag.AlignCenter)
+        self._creat_btn_widget()
+        self.content_layout.addWidget(self.refresh_import_widget, alignment=Qt.AlignmentFlag.AlignCenter)
+
 
         # 添加到主布局
         self.main_layout.addWidget(self.tabs_group)
@@ -188,6 +173,67 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
         self._update_mode_display()
 
         # 注意：初始數據載入會在控制器設置時觸發
+
+    def _creat_btn_widget(self):
+        # refresh & import Layout
+        self.refresh_import_widget = QWidget()
+        self.refresh_import_layout = QHBoxLayout(self.refresh_import_widget)
+        # 刷新按鈕
+        self.refresh_button = QPushButton("Refresh")
+        self.refresh_button.setFixedSize(60, 24)
+        self.refresh_button.clicked.connect(self.on_refresh_requested)
+        self.refresh_button.setStyleSheet("""
+                                                   QPushButton {
+                                                       background-color: #006C4D;
+                                                       color: white;
+                                                       border: none;
+                                                       border-radius: 6px;
+                                                       font-size: 12px;
+                                                       font-weight: 600;
+                                                   }
+                                                   QPushButton:hover {
+                                                       background-color: #90006C4D;
+                                                   }
+                                               """)
+        self.refresh_import_layout.addWidget(self.refresh_button, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # import btn
+        self.import_button = QPushButton("Import")
+        self.import_button.setFixedSize(60, 24)
+        self.import_button.clicked.connect(self.on_test_case_import_requested)
+        self.import_button.setStyleSheet("""
+                                                           QPushButton {
+                                                               background-color: #006C4D;
+                                                               color: white;
+                                                               border: none;
+                                                               border-radius: 6px;
+                                                               font-size: 12px;
+                                                               font-weight: 600;
+                                                           }
+                                                           QPushButton:hover {
+                                                               background-color: #90006C4D;
+                                                           }
+                                                       """)
+        self.refresh_import_layout.addWidget(self.import_button, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # import btn
+        self.export_button = QPushButton("Export")
+        self.export_button.setFixedSize(60, 24)
+        self.export_button.clicked.connect(self.on_test_case_export_requested)
+        self.export_button.setStyleSheet("""
+                                                                   QPushButton {
+                                                                       background-color: #006C4D;
+                                                                       color: white;
+                                                                       border: none;
+                                                                       border-radius: 6px;
+                                                                       font-size: 12px;
+                                                                       font-weight: 600;
+                                                                   }
+                                                                   QPushButton:hover {
+                                                                       background-color: #90006C4D;
+                                                                   }
+                                                               """)
+        self.refresh_import_layout.addWidget(self.export_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
     def _create_loading_indicator(self) -> QWidget:
         """創建載入指示器"""
@@ -434,6 +480,13 @@ class TestCaseWidget(BaseView, ITestCaseView, ITestCaseViewEvents):
         self.user_action.emit("refresh_request", None)
         # if self._test_case_controller:
         #     self._test_case_controller.handle_refresh_request()
+
+    def on_test_case_import_requested(self):
+        self.user_action.emit("import_testcase", None)
+
+    def on_test_case_export_requested(self):
+        """ export json file"""
+        self.user_action.emit("export_testcase", None)
 
     def on_delete_testcase_requested(self, test_case_id: str) -> None:
         self.user_action.emit( "delete_testcase", test_case_id )
