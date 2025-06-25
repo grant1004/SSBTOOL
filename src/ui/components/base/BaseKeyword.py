@@ -162,7 +162,18 @@ class BaseKeywordCard(QFrame):
         self.title_label.setWordWrap(True)
 
         # 分類標籤
-        self.category_label = QLabel(self.config.get('category', ''))
+        category_get = self.config.get('category', '')
+        if ( category_get == "common" ):
+            key_name = self.config.get('name', '')
+            if "power" in key_name:
+                self.category_label = QLabel("Power")
+            elif "loader" in key_name:
+                self.category_label = QLabel("Loader")
+            else :
+                self.category_label = QLabel("Common")
+        else :
+            self.category_label = QLabel(category_get)
+
         self.category_label.setStyleSheet(f"""
             background-color: #0077EE;
             {self.CATEGORY_STYLESHEET}
