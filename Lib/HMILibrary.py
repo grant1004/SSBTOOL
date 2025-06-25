@@ -147,8 +147,8 @@ class HMILibrary(BaseRobotLibrary):
             elif action_type == ActionType.DOWN:
                 self._perform_button_up(button_type)
 
-            # 每次按完按鈕 delay 0.5 避免連鍵
-            time.sleep(0.5)
+            # 每次按完按鈕 delay 1s 避免連鍵
+            time.sleep(1)
             self._log_success(f"按鈕操作完成: {button_type.button_name} {action_type.action_name}")
             return True
 
@@ -242,6 +242,7 @@ class HMILibrary(BaseRobotLibrary):
             | Navigation Sequence | up,up,right,down   | long  |
         """
         try:
+            direction_sequence = direction_sequence.replace("\"", "")
             directions = [d.strip() for d in direction_sequence.split(",")]
 
             self._log_info(f"開始執行導航序列: {directions} ({press_type})")
