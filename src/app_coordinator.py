@@ -3,7 +3,7 @@
 應用程式協調器
 負責組裝和管理整個應用程式的 MVC 架構
 """
-
+import os
 import sys
 from typing import Dict, Any, Optional
 from PySide6.QtCore import QObject, Signal
@@ -45,6 +45,8 @@ class ApplicationCoordinator(QObject):
         self.container = DependencyContainer()
         self.main_window: Optional[MainWindow] = None
         self.theme_manager: Optional[ThemeManager] = None
+
+        self._setup_logging()
         self._logger = logging.getLogger(self.__class__.__name__)
         # 初始化標誌
         self._is_initialized = False
@@ -58,11 +60,10 @@ class ApplicationCoordinator(QObject):
             bool: 初始化是否成功
         """
         try:
+
             self._logger.info("Starting application initialization...")
             # 階段 1: 設置基礎設施
-            self._setup_logging()
             self._setup_theme_system()
-
             # 階段 2: 註冊核心服務
             self._register_core_services()
 
@@ -149,20 +150,46 @@ class ApplicationCoordinator(QObject):
         return self.theme_manager
 
     # ==================== 私有初始化方法 ====================
-
     def _setup_logging(self) -> None:
-        """設置日誌系統"""
+        """設置日誌系統 - 修正版本"""
+
+        # ✅ 1. 建立目錄（重要！）
+        os.makedirs('logs', exist_ok=True)
+
+        # ✅ 2. 重新啟用 logging（防止被之前的 disable 影響）
+        logging.disable(logging.NOTSET)
+
+        # ✅ 3. 清除現有 handlers（防止重複執行時累積）
+        for handler in logging.root.handlers[:]:
+            logging.root.removeHandler(handler)
+            handler.close()
+
+        # ✅ 4. 重新設定（加上 force=True）
         logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            level=logging.DEBUG,  # 改成 DEBUG 確保所有訊息都記錄
+            format='%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
             handlers=[
                 logging.StreamHandler(sys.stdout),
-                # 可以添加文件處理器
-                # logging.FileHandler('app.log')
-            ]
+                logging.FileHandler('logs/app.log', encoding='utf-8')
+            ],
+            force=True  # ✅ 強制重新設定
         )
-        self._logger.info("Logging system initialized")
-        # logging.disable(logging.CRITICAL)
+
+        # ✅ 5. 測試日誌是否正常工作
+        test_logger = logging.getLogger("SETUP_TEST")
+        test_logger.info("=== Logging system initialized successfully ===")
+
+        # ✅ 6. 強制 flush 確保寫入檔案
+        for handler in logging.root.handlers:
+            if hasattr(handler, 'flush'):
+                handler.flush()
+
+        # ✅ 7. 驗證檔案是否成功建立
+        if os.path.exists('logs/app.log'):
+            file_size = os.path.getsize('logs/app.log')
+            test_logger.info(f"app.log created successfully, size: {file_size} bytes")
+        else:
+            test_logger.error("app.log was not created!")
 
     def _setup_theme_system(self) -> None:
         """設置主題系統"""
