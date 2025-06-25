@@ -36,6 +36,7 @@ class CommonLibrary(BaseRobotLibrary):
         self._logger_prefix = "CommonLibrary"
         self._log_info("CommonLibrary initialized with new MVC architecture")
 
+    # region ===================== robot keyword ==================================
     @keyword("Send CAN Message")
     def send_can_message(self, can_id: Union[str, int], payload: str, node: int = 1, can_type: int = 0):
         """
@@ -47,12 +48,14 @@ class CommonLibrary(BaseRobotLibrary):
             node: 目標節點編號 (1=公共, 0=私有)
             can_type: CAN 訊息類型 (0=標準, 1=擴展)
 
-        Returns:
-            bool: 發送是否成功
-
         Examples:
             | Send CAN Message | 0x123 | FF00 | 1 | 0 |
             | Send CAN Message | 291   | AA55 |   |   |
+
+        Returns:
+            bool: 發送是否成功
+
+
         """
         try:
             payload = payload.replace("\"", "").replace("'", "").strip()
@@ -211,6 +214,9 @@ class CommonLibrary(BaseRobotLibrary):
             - data_length: Data Length值
             - payload: Payload數據
             - crc32: CRC32值
+
+        Returns:
+            True : 收到訊息, False : 時限內未收到訊息
         """
         try:
             self._validate_device_model()
@@ -244,7 +250,7 @@ class CommonLibrary(BaseRobotLibrary):
             raise RuntimeError(error_msg)
     
     @keyword
-    def set_voltage(self, voltage: float):
+    def power_set_voltage(self, voltage: float):
         """Set output voltage
 
         Args:
@@ -259,14 +265,13 @@ class CommonLibrary(BaseRobotLibrary):
         power_device = self.device_model._device_instances.get(DeviceType.POWER)
         if not power_device:
             raise RuntimeError("無法獲取 POWER 設備實例")
-        
-        # formatted_voltage = f"{voltage:05.2f}"
+
         
         # 7. 發送命令
         result = power_device.set_voltage(voltage)
 
         if not result:
-            raise RuntimeError(f"發送失敗 : VOLT {formatted_voltage}")
+            raise RuntimeError(f"發送失敗 : VOLT {voltage}")
 
     @keyword
     def power_output_on(self):
@@ -311,6 +316,8 @@ class CommonLibrary(BaseRobotLibrary):
 
         if not result:
             raise RuntimeError(f"發送失敗.")
+
+
 
     # 擴展的關鍵字方法 - 提供更多選項
     # @keyword("Check Payload Advanced")
@@ -362,45 +369,7 @@ class CommonLibrary(BaseRobotLibrary):
     #         error_msg = f"高級 Payload 檢查失敗: {str(e)}"
     #         self._log_error(error_msg)
     #         raise RuntimeError(error_msg)
-    # @keyword
-    # def get_device_status(self, device_type_str: str):
-    #     """
-    #     獲取設備狀態
-    # 
-    #     Args:
-    #         device_type_str: 設備類型字符串 ("USB", "POWER", "LOADER")
-    # 
-    #     Returns:
-    #         str: 設備狀態字符串
-    # 
-    #     Examples:
-    #         | ${status} | Get Device Status | USB |
-    #         | Should Be Equal | ${status} | CONNECTED |
-    #     """
-    #     try:
-    #         self._validate_device_model()
-    # 
-    #         # 轉換字符串到 DeviceType 枚舉
-    #         device_type_map = {
-    #             "USB": DeviceType.USB,
-    #             "POWER": DeviceType.POWER,
-    #             "LOADER": DeviceType.LOADER
-    #         }
-    # 
-    #         device_type = device_type_map.get(device_type_str.upper())
-    #         if not device_type:
-    #             raise ValueError(f"不支持的設備類型: {device_type_str}")
-    # 
-    #         status = self.device_model.get_device_status(device_type)
-    #         self._log_info(f"設備 {device_type_str} 狀態: {status.value}")
-    # 
-    #         return status.value
-    # 
-    #     except Exception as e:
-    #         error_msg = f"獲取設備狀態失敗: {str(e)}"
-    #         self._log_error(error_msg)
-    #         return "ERROR"
-    # 
+    #
     # @keyword
     # def wait_for_device_ready(self, device_type_str: str, timeout: int = 30):
     #     """
@@ -484,8 +453,10 @@ class CommonLibrary(BaseRobotLibrary):
     #         self._log_error(error_msg)
     #         raise RuntimeError(error_msg)
 
-    # ==================== 輔助方法 ====================
+    # endregion
 
+
+    # region ==================== 輔助方法 ====================================
     def _convert_can_id(self, can_id) -> int:
         """轉換 CAN ID 為整數格式"""
         if isinstance(can_id, int):
@@ -1218,9 +1189,4 @@ class CommonLibrary(BaseRobotLibrary):
 
         return payload_str
 
-
-
-
-
-
-
+    # endregion
