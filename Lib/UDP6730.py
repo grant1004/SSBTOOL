@@ -76,7 +76,6 @@ class UDP6730:
 
     def send_command(self, cmd):
         """Send command to the device and get response
-
         Args:
             cmd (str): Command to send
 

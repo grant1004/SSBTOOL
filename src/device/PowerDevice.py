@@ -2,7 +2,6 @@
 from src.device import DeviceBase
 from typing import Optional, Union
 from Lib.UDP6730 import UDP6730
-import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
