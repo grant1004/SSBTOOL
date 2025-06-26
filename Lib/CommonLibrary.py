@@ -317,6 +317,220 @@ class CommonLibrary(BaseRobotLibrary):
         if not result:
             raise RuntimeError(f"發送失敗.")
 
+    @keyword
+    def loader_Output_On(self):
+        """
+                loader_Output_On
+
+        """
+        # 2. 檢查 POWER 設備是否可用
+        if not self.device_model.is_device_available(DeviceType.LOADER):
+            device_status = self.device_model.get_device_status(DeviceType.LOADER)
+            raise RuntimeError(f"POWER 設備不可用，當前狀態: {device_status.value}")
+
+            # 4. 獲取 USB 設備實例
+        loader_device = self.device_model._device_instances.get(DeviceType.LOADER)
+        if not loader_device:
+            raise RuntimeError("無法獲取 POWER 設備實例")
+
+        # 7. 發送命令
+        result = loader_device.load_on()
+
+        if not result:
+            raise RuntimeError(f"發送失敗.")
+
+    @keyword
+    def loader_Output_Off(self):
+        """
+                loader_Output_Off
+
+        """
+        # 2. 檢查 POWER 設備是否可用
+        if not self.device_model.is_device_available(DeviceType.LOADER):
+            device_status = self.device_model.get_device_status(DeviceType.LOADER)
+            raise RuntimeError(f"POWER 設備不可用，當前狀態: {device_status.value}")
+
+            # 4. 獲取 USB 設備實例
+        loader_device = self.device_model._device_instances.get(DeviceType.LOADER)
+        if not loader_device:
+            raise RuntimeError("無法獲取 POWER 設備實例")
+
+        # 7. 發送命令
+        result = loader_device.load_off()
+
+        if not result:
+            raise RuntimeError(f"發送失敗.")
+
+    @keyword
+    def loader_Set_Mode(self, mode):
+        """
+        設定電子負載操作模式
+
+        Args:
+            mode: 操作模式
+                options: CC|CR|CV|CP
+                description: CC=定電流, CR=定電阻, CV=定電壓, CP=定功率
+
+        Examples:
+            | loader_Set_Mode | CC |
+            | loader_Set_Mode | CV |
+        """
+        # 檢查 LOADER 設備是否可用
+        if not self.device_model.is_device_available(DeviceType.LOADER):
+            device_status = self.device_model.get_device_status(DeviceType.LOADER)
+            raise RuntimeError(f"LOADER 設備不可用，當前狀態: {device_status.value}")
+
+        # 獲取 LOADER 設備實例
+        loader_device = self.device_model._device_instances.get(DeviceType.LOADER)
+        if not loader_device:
+            raise RuntimeError("無法獲取 LOADER 設備實例")
+
+        # 發送命令
+        result = loader_device.set_mode(mode)
+
+        if not result:
+            raise RuntimeError(f"設定模式失敗: {mode}")
+
+    @keyword
+    def loader_Set_Current(self, current_str, level="HIGH"):
+        """
+        設定電子負載電流值 (CC模式)
+
+        Args:
+            current_str: 電流值
+                description: 電流值，單位為 mA
+                example: 5000
+            level: 電流範圍
+                options: HIGH|LOW
+                default: HIGH
+                description: HIGH=高電流範圍, LOW=低電流範圍
+
+        Examples:
+            | loader_Set_Current | 5000 | HIGH |
+            | loader_Set_Current | 1000 | LOW  |
+        """
+        # 檢查 LOADER 設備是否可用
+        if not self.device_model.is_device_available(DeviceType.LOADER):
+            device_status = self.device_model.get_device_status(DeviceType.LOADER)
+            raise RuntimeError(f"LOADER 設備不可用，當前狀態: {device_status.value}")
+
+        # 獲取 LOADER 設備實例
+        loader_device = self.device_model._device_instances.get(DeviceType.LOADER)
+        if not loader_device:
+            raise RuntimeError("無法獲取 LOADER 設備實例")
+
+        # 轉換單位並發送命令
+        current = float(current_str) / 1000  # Convert mA to A
+        result = loader_device.set_current(current, level)
+
+        if not result:
+            raise RuntimeError(f"設定電流失敗: {current_str}mA ({level})")
+
+    @keyword
+    def loader_Set_Resistance(self, resistance_str, level="HIGH"):
+        """
+        設定電子負載電阻值 (CR模式)
+
+        Args:
+            resistance_str: 電阻值
+                description: 電阻值，單位為 Ω
+                example: 10
+            level: 電阻範圍
+                options: HIGH|LOW
+                default: HIGH
+                description: HIGH=高電阻範圍, LOW=低電阻範圍
+
+        Examples:
+            | loader_Set_Resistance | 10  | HIGH |
+            | loader_Set_Resistance | 100 | LOW  |
+        """
+        # 檢查 LOADER 設備是否可用
+        if not self.device_model.is_device_available(DeviceType.LOADER):
+            device_status = self.device_model.get_device_status(DeviceType.LOADER)
+            raise RuntimeError(f"LOADER 設備不可用，當前狀態: {device_status.value}")
+
+        # 獲取 LOADER 設備實例
+        loader_device = self.device_model._device_instances.get(DeviceType.LOADER)
+        if not loader_device:
+            raise RuntimeError("無法獲取 LOADER 設備實例")
+
+        # 發送命令
+        resistance = float(resistance_str)  # Already in Ω
+        result = loader_device.set_resistance(resistance, level)
+
+        if not result:
+            raise RuntimeError(f"設定電阻失敗: {resistance_str}Ω ({level})")
+
+    @keyword
+    def loader_Set_Voltage(self, voltage_str, level="HIGH"):
+        """
+        設定電子負載電壓值 (CV模式)
+
+        Args:
+            voltage_str: 電壓值
+                description: 電壓值，單位為 mV
+                example: 5000
+            level: 電壓範圍
+                options: HIGH|LOW
+                default: HIGH
+                description: HIGH=高電壓範圍, LOW=低電壓範圍
+
+        Examples:
+            | loader_Set_Voltage | 5000 | HIGH |
+            | loader_Set_Voltage | 3300 | LOW  |
+        """
+        # 檢查 LOADER 設備是否可用
+        if not self.device_model.is_device_available(DeviceType.LOADER):
+            device_status = self.device_model.get_device_status(DeviceType.LOADER)
+            raise RuntimeError(f"LOADER 設備不可用，當前狀態: {device_status.value}")
+
+        # 獲取 LOADER 設備實例
+        loader_device = self.device_model._device_instances.get(DeviceType.LOADER)
+        if not loader_device:
+            raise RuntimeError("無法獲取 LOADER 設備實例")
+
+        # 轉換單位並發送命令
+        voltage = float(voltage_str) / 1000  # Convert mV to V
+        result = loader_device.set_voltage(voltage, level)
+
+        if not result:
+            raise RuntimeError(f"設定電壓失敗: {voltage_str}mV ({level})")
+
+    @keyword
+    def loader_Set_Power(self, power_str, level="HIGH"):
+        """
+        設定電子負載功率值 (CP模式)
+
+        Args:
+            power_str: 功率值
+                description: 功率值，單位為 mW
+                example: 1000
+            level: 功率範圍
+                options: HIGH|LOW
+                default: HIGH
+                description: HIGH=高功率範圍, LOW=低功率範圍
+
+        Examples:
+            | loader_Set_Power | 1000 | HIGH |
+            | loader_Set_Power | 500  | LOW  |
+        """
+        # 檢查 LOADER 設備是否可用
+        if not self.device_model.is_device_available(DeviceType.LOADER):
+            device_status = self.device_model.get_device_status(DeviceType.LOADER)
+            raise RuntimeError(f"LOADER 設備不可用，當前狀態: {device_status.value}")
+
+        # 獲取 LOADER 設備實例
+        loader_device = self.device_model._device_instances.get(DeviceType.LOADER)
+        if not loader_device:
+            raise RuntimeError("無法獲取 LOADER 設備實例")
+
+        # 轉換單位並發送命令
+        power = float(power_str) / 1000  # Convert mW to W
+        # print( power )
+        result = loader_device.set_power(power, level)
+
+        if not result:
+            raise RuntimeError(f"設定功率失敗: {power_str}mW ({level})")
 
 
     # 擴展的關鍵字方法 - 提供更多選項

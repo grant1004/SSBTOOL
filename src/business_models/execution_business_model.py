@@ -180,7 +180,7 @@ class TestExecutionBusinessModel(BaseBusinessModel, ITestCompositionModel,
             retry_count=0,
             continue_on_failure=True,
             generate_report=True,
-            output_directory=os.path.join(self._get_project_root(), "report"),
+            output_directory=os.path.join(self._get_project_root(),"src", "report"),
             metadata={
                 "user_composition_path": json_path,
                 "created_at": datetime.now().isoformat()
